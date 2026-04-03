@@ -55,11 +55,24 @@ namespace TransBrowser
             this.linkLabel2 = new System.Windows.Forms.LinkLabel();
             this.linkLabel1 = new System.Windows.Forms.LinkLabel();
             this.label8 = new AntdUI.Label();
+            // Hotkey panel
+            this.panelHotkeys = new System.Windows.Forms.Panel();
+            this.lblHotkeyTitle = new AntdUI.Label();
+            this.lblBossKey = new AntdUI.Label();
+            this.txtBossKey = new System.Windows.Forms.TextBox();
+            this.lblOpacityUp = new AntdUI.Label();
+            this.txtOpacityUp = new System.Windows.Forms.TextBox();
+            this.lblOpacityDown = new AntdUI.Label();
+            this.txtOpacityDown = new System.Windows.Forms.TextBox();
+            this.lblClickThrough = new AntdUI.Label();
+            this.txtClickThrough = new System.Windows.Forms.TextBox();
+            this.btnApplyHotkeys = new AntdUI.Button();
             this.pageHeader1 = new AntdUI.PageHeader();
             this.flowLayoutPanel1.SuspendLayout();
             this.panel3.SuspendLayout();
             this.panel1.SuspendLayout();
             this.panel2.SuspendLayout();
+            this.panelHotkeys.SuspendLayout();
             this.SuspendLayout();
             // 
             // label1
@@ -73,7 +86,7 @@ namespace TransBrowser
             // slider1
             // 
             this.slider1.Location = new System.Drawing.Point(67, 3);
-            this.slider1.MinValue = 1;
+            this.slider1.MinValue = 20;
             this.slider1.Name = "slider1";
             this.slider1.ShowValue = true;
             this.slider1.Size = new System.Drawing.Size(372, 32);
@@ -90,15 +103,16 @@ namespace TransBrowser
             // 
             // flowLayoutPanel1
             // 
-            this.flowLayoutPanel1.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
+            this.flowLayoutPanel1.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
+            | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.flowLayoutPanel1.Controls.Add(this.panel3);
             this.flowLayoutPanel1.Controls.Add(this.panel1);
+            this.flowLayoutPanel1.Controls.Add(this.panelHotkeys);
             this.flowLayoutPanel1.Controls.Add(this.panel2);
             this.flowLayoutPanel1.Location = new System.Drawing.Point(12, 29);
             this.flowLayoutPanel1.Name = "flowLayoutPanel1";
-            this.flowLayoutPanel1.Size = new System.Drawing.Size(456, 260);
+            this.flowLayoutPanel1.Size = new System.Drawing.Size(456, 370);
             this.flowLayoutPanel1.TabIndex = 6;
             // 
             // panel3
@@ -127,7 +141,6 @@ namespace TransBrowser
             this.autohide_sw.Size = new System.Drawing.Size(40, 23);
             this.autohide_sw.TabIndex = 16;
             this.autohide_sw.Text = "switch4";
-            this.autohide_sw.CheckedChanged += new AntdUI.BoolEventHandler(this.switch4_CheckedChanged);
             // 
             // label9
             // 
@@ -264,12 +277,87 @@ namespace TransBrowser
             this.input1.Size = new System.Drawing.Size(348, 33);
             this.input1.TabIndex = 10;
             // 
+            // panelHotkeys  (hotkey customization panel)
+            // 
+            this.panelHotkeys.Controls.Add(this.lblHotkeyTitle);
+            this.panelHotkeys.Controls.Add(this.lblBossKey);
+            this.panelHotkeys.Controls.Add(this.txtBossKey);
+            this.panelHotkeys.Controls.Add(this.lblOpacityUp);
+            this.panelHotkeys.Controls.Add(this.txtOpacityUp);
+            this.panelHotkeys.Controls.Add(this.lblOpacityDown);
+            this.panelHotkeys.Controls.Add(this.txtOpacityDown);
+            this.panelHotkeys.Controls.Add(this.lblClickThrough);
+            this.panelHotkeys.Controls.Add(this.txtClickThrough);
+            this.panelHotkeys.Controls.Add(this.btnApplyHotkeys);
+            this.panelHotkeys.Location = new System.Drawing.Point(3, 199);
+            this.panelHotkeys.Name = "panelHotkeys";
+            this.panelHotkeys.Size = new System.Drawing.Size(450, 130);
+            this.panelHotkeys.TabIndex = 21;
+
+            this.lblHotkeyTitle.Location = new System.Drawing.Point(3, 3);
+            this.lblHotkeyTitle.Name = "lblHotkeyTitle";
+            this.lblHotkeyTitle.Size = new System.Drawing.Size(200, 20);
+            this.lblHotkeyTitle.TabIndex = 0;
+            this.lblHotkeyTitle.Text = "全局快捷键设置（点击框后按键）";
+
+            this.lblBossKey.Location = new System.Drawing.Point(3, 28);
+            this.lblBossKey.Name = "lblBossKey";
+            this.lblBossKey.Size = new System.Drawing.Size(80, 22);
+            this.lblBossKey.TabIndex = 1;
+            this.lblBossKey.Text = "老板键";
+
+            this.txtBossKey.Location = new System.Drawing.Point(89, 27);
+            this.txtBossKey.Name = "txtBossKey";
+            this.txtBossKey.Size = new System.Drawing.Size(120, 22);
+            this.txtBossKey.TabIndex = 2;
+
+            this.lblOpacityUp.Location = new System.Drawing.Point(220, 28);
+            this.lblOpacityUp.Name = "lblOpacityUp";
+            this.lblOpacityUp.Size = new System.Drawing.Size(60, 22);
+            this.lblOpacityUp.TabIndex = 3;
+            this.lblOpacityUp.Text = "透明度+";
+
+            this.txtOpacityUp.Location = new System.Drawing.Point(285, 27);
+            this.txtOpacityUp.Name = "txtOpacityUp";
+            this.txtOpacityUp.Size = new System.Drawing.Size(120, 22);
+            this.txtOpacityUp.TabIndex = 4;
+
+            this.lblOpacityDown.Location = new System.Drawing.Point(3, 58);
+            this.lblOpacityDown.Name = "lblOpacityDown";
+            this.lblOpacityDown.Size = new System.Drawing.Size(80, 22);
+            this.lblOpacityDown.TabIndex = 5;
+            this.lblOpacityDown.Text = "透明度-";
+
+            this.txtOpacityDown.Location = new System.Drawing.Point(89, 57);
+            this.txtOpacityDown.Name = "txtOpacityDown";
+            this.txtOpacityDown.Size = new System.Drawing.Size(120, 22);
+            this.txtOpacityDown.TabIndex = 6;
+
+            this.lblClickThrough.Location = new System.Drawing.Point(220, 58);
+            this.lblClickThrough.Name = "lblClickThrough";
+            this.lblClickThrough.Size = new System.Drawing.Size(60, 22);
+            this.lblClickThrough.TabIndex = 7;
+            this.lblClickThrough.Text = "鼠标穿透";
+
+            this.txtClickThrough.Location = new System.Drawing.Point(285, 57);
+            this.txtClickThrough.Name = "txtClickThrough";
+            this.txtClickThrough.Size = new System.Drawing.Size(120, 22);
+            this.txtClickThrough.TabIndex = 8;
+
+            this.btnApplyHotkeys.Location = new System.Drawing.Point(3, 90);
+            this.btnApplyHotkeys.Name = "btnApplyHotkeys";
+            this.btnApplyHotkeys.Size = new System.Drawing.Size(120, 33);
+            this.btnApplyHotkeys.TabIndex = 9;
+            this.btnApplyHotkeys.Text = "应用快捷键";
+            this.btnApplyHotkeys.Type = AntdUI.TTypeMini.Primary;
+
+            // 
             // panel2
             // 
             this.panel2.Controls.Add(this.linkLabel2);
             this.panel2.Controls.Add(this.linkLabel1);
             this.panel2.Controls.Add(this.label8);
-            this.panel2.Location = new System.Drawing.Point(3, 199);
+            this.panel2.Location = new System.Drawing.Point(3, 335);
             this.panel2.Name = "panel2";
             this.panel2.Size = new System.Drawing.Size(447, 54);
             this.panel2.TabIndex = 19;
@@ -319,7 +407,7 @@ namespace TransBrowser
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(480, 301);
+            this.ClientSize = new System.Drawing.Size(480, 415);
             this.Controls.Add(this.pageHeader1);
             this.Controls.Add(this.flowLayoutPanel1);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
@@ -329,10 +417,11 @@ namespace TransBrowser
             this.flowLayoutPanel1.ResumeLayout(false);
             this.panel3.ResumeLayout(false);
             this.panel1.ResumeLayout(false);
+            this.panelHotkeys.ResumeLayout(false);
+            this.panelHotkeys.PerformLayout();
             this.panel2.ResumeLayout(false);
             this.panel2.PerformLayout();
             this.ResumeLayout(false);
-
         }
 
         #endregion
@@ -362,5 +451,17 @@ namespace TransBrowser
         private System.Windows.Forms.Panel panel3;
         private AntdUI.Switch autohide_sw;
         private AntdUI.Label label9;
+        // Hotkey panel fields
+        private System.Windows.Forms.Panel panelHotkeys;
+        private AntdUI.Label lblHotkeyTitle;
+        private AntdUI.Label lblBossKey;
+        private System.Windows.Forms.TextBox txtBossKey;
+        private AntdUI.Label lblOpacityUp;
+        private System.Windows.Forms.TextBox txtOpacityUp;
+        private AntdUI.Label lblOpacityDown;
+        private System.Windows.Forms.TextBox txtOpacityDown;
+        private AntdUI.Label lblClickThrough;
+        private System.Windows.Forms.TextBox txtClickThrough;
+        private AntdUI.Button btnApplyHotkeys;
     }
 }
