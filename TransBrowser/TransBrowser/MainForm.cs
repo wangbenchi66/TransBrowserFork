@@ -14,6 +14,10 @@ namespace TransBrowser
     {
         public bool inited = false;
 
+        // ─── Floating header state ────────────────────────────────────────────
+        private const int HEADER_HOVER_HEIGHT = 28;
+        private bool _headerVisible = true;
+
         // ─── P/Invoke for click-through ───────────────────────────────────────
         [DllImport("user32.dll", SetLastError = true)]
         private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
@@ -40,8 +44,17 @@ namespace TransBrowser
         // ─── Resize border size in pixels ─────────────────────────────────────
         private const int ResizeBorder = 8;
 
+        private const int HTCAPTION = 2;
+        private const int TOPMOST_BTN_OFFSET = 35; // pixels from right edge for TopMost button
+
         // ─── Click-through state ───────────────────────────────────────────────
         private bool _clickThrough = false;
+
+        // ─── Prevent duplicate settings windows ───────────────────────────────
+        private Setting _settingForm = null;
+
+        // ─── Floating header timer ────────────────────────────────────────────
+        private System.Windows.Forms.Timer _headerHideTimer;
 
         // ─── Hotkey IDs ────────────────────────────────────────────────────────
         private enum HotkeyId
@@ -82,6 +95,8 @@ namespace TransBrowser
         public MainForm()
         {
             InitializeComponent();
+            // #6: Disable default window shadow
+            this.Shadow = 0;
             // Start async WebView2 init for the first tab
             InitializeWebView();
         }
@@ -99,6 +114,9 @@ namespace TransBrowser
 
             // Register global hotkeys
             RegisterAllHotkeys();
+
+            // Set up floating header behavior
+            InitFloatingHeader();
         }
 
         // ─── First-tab WebView2 async init ────────────────────────────────────
@@ -106,8 +124,10 @@ namespace TransBrowser
         {
             await webView21.EnsureCoreWebView2Async(null);
             SetupWebViewEvents(webView21);
-            // Update first tab title once CoreWebView2 is ready
             tabPageFirst.Text = "新标签页";
+            string startUrl = Properties.Settings.Default.DefaultUrl;
+            if (string.IsNullOrEmpty(startUrl))
+                webView21.CoreWebView2.NavigateToString(GetNewTabHtml());
         }
 
         // ─── Settings restoration ─────────────────────────────────────────────
@@ -130,8 +150,12 @@ namespace TransBrowser
             string startUrl = Properties.Settings.Default.DefaultUrl;
             if (!string.IsNullOrEmpty(startUrl))
                 LoadUrl(startUrl);
-            else
-                LoadUrl("https://gitee.com/yclown/TransBrowser");
+            // else: InitializeWebView will show custom new tab page
+
+            // Restore new settings
+            SetTabBarVisible(Properties.Settings.Default.ShowTabBar);
+            this.TopMost = Properties.Settings.Default.TopMostWindow;
+            UpdateTopMostButton();
 
             inited = true;
         }
@@ -151,8 +175,7 @@ namespace TransBrowser
             tabControl1.TabPages.Insert(insertIndex, page);
             tabControl1.SelectedTab = page;
 
-            // Async init of the new WebView2
-            SetupNewWebView(wv, url ?? "https://gitee.com/yclown/TransBrowser");
+            SetupNewWebView(wv, url); // null = show custom new-tab page
             return page;
         }
 
@@ -162,6 +185,8 @@ namespace TransBrowser
             SetupWebViewEvents(wv);
             if (!string.IsNullOrEmpty(url))
                 wv.CoreWebView2.Navigate(url);
+            else
+                wv.CoreWebView2.NavigateToString(GetNewTabHtml());
         }
 
         private void SetupWebViewEvents(WebView2 wv)
@@ -267,6 +292,8 @@ namespace TransBrowser
                 Properties.Settings.Default.DefaultUrl = wv.Source.AbsoluteUri;
                 Properties.Settings.Default.Save();
             }
+            if (Properties.Settings.Default.NoImageMode)
+                ApplyNoImageCss(wv, true);
         }
 
         // ─── Custom right-click context menu ──────────────────────────────────
@@ -344,7 +371,17 @@ namespace TransBrowser
 
         public void ShowWindowsBar(bool noTitle)
         {
-            this.pageHeader1.Visible = !noTitle;
+            if (noTitle)
+            {
+                this.pageHeader1.Visible = false;
+                _headerVisible = false;
+                if (_headerHideTimer != null) _headerHideTimer.Stop();
+            }
+            else
+            {
+                this.pageHeader1.Visible = true;
+                _headerVisible = true;
+            }
         }
 
         public void SetPosition(Point point)
@@ -360,6 +397,47 @@ namespace TransBrowser
             var wv = ActiveWebView;
             if (wv?.CoreWebView2 != null)
                 wv.CoreWebView2.Settings.UserAgent = UA;
+        }
+
+        public void SetTabBarVisible(bool show)
+        {
+            if (show)
+            {
+                tabControl1.Appearance = System.Windows.Forms.TabAppearance.Normal;
+                tabControl1.SizeMode = System.Windows.Forms.TabSizeMode.Normal;
+                tabControl1.ItemSize = new System.Drawing.Size(0, 0);
+            }
+            else
+            {
+                tabControl1.Appearance = System.Windows.Forms.TabAppearance.FlatButtons;
+                tabControl1.SizeMode = System.Windows.Forms.TabSizeMode.Fixed;
+                tabControl1.ItemSize = new System.Drawing.Size(0, 1);
+            }
+        }
+
+        public void SetNoImageMode(bool enable)
+        {
+            for (int i = 0; i < tabControl1.TabPages.Count - 1; i++)
+            {
+                var wv = GetTabWebView(tabControl1.TabPages[i]);
+                if (wv?.CoreWebView2 != null)
+                    ApplyNoImageCss(wv, enable);
+            }
+        }
+
+        private async void ApplyNoImageCss(Microsoft.Web.WebView2.WinForms.WebView2 wv, bool enable)
+        {
+            if (enable)
+            {
+                string css = "img,picture,video{display:none!important}*{background-image:none!important}";
+                string js = $"(function(){{var s=document.getElementById('__trans_noimg');if(!s){{s=document.createElement('style');s.id='__trans_noimg';document.head.appendChild(s);}}s.textContent='{css}';}})()";
+                await wv.CoreWebView2.ExecuteScriptAsync(js);
+            }
+            else
+            {
+                string js = "(function(){var s=document.getElementById('__trans_noimg');if(s)s.remove();})()";
+                await wv.CoreWebView2.ExecuteScriptAsync(js);
+            }
         }
 
         public void GoBack()
@@ -458,6 +536,7 @@ namespace TransBrowser
                 this.Hide();
                 notifyIcon1.ShowBalloonTip(1000, "TransBrowser", "已最小化到托盘，双击图标恢复", ToolTipIcon.Info);
             }
+            UpdateTopMostButtonPosition();
         }
 
         // ─── Menu handlers (legacy) ───────────────────────────────────────────
@@ -469,9 +548,16 @@ namespace TransBrowser
 
         private void OpenSettings()
         {
-            var setting = new Setting(this);
-            setting.StartPosition = FormStartPosition.CenterScreen;
-            setting.Show();
+            if (_settingForm != null && !_settingForm.IsDisposed)
+            {
+                _settingForm.Activate();
+                _settingForm.BringToFront();
+                return;
+            }
+            _settingForm = new Setting(this);
+            _settingForm.StartPosition = FormStartPosition.CenterScreen;
+            _settingForm.FormClosed += (s, args) => _settingForm = null;
+            _settingForm.Show();
         }
 
         private void 退出ToolStripMenuItem_Click(object sender, EventArgs e)
@@ -587,6 +673,13 @@ namespace TransBrowser
                     bool onRight = pos.X >= ClientSize.Width - ResizeBorder;
                     bool onBottom = pos.Y >= ClientSize.Height - ResizeBorder;
 
+                    // Allow dragging from top strip when header is hidden
+                    if (!_headerVisible && pos.Y >= 0 && pos.Y < HEADER_HOVER_HEIGHT && !onLeft && !onRight && !onBottom)
+                    {
+                        m.Result = (IntPtr)HTCAPTION;
+                        return;
+                    }
+
                     if (onBottom && onLeft) m.Result = (IntPtr)HTBOTTOMLEFT;
                     else if (onBottom && onRight) m.Result = (IntPtr)HTBOTTOMRIGHT;
                     else if (onBottom) m.Result = (IntPtr)HTBOTTOM;
@@ -638,10 +731,132 @@ namespace TransBrowser
         private void AdjustOpacity(int delta)
         {
             double current = Properties.Settings.Default.FormOpacity;
-            double newVal = Math.Max(20, Math.Min(100, current + delta));
+            double newVal = Math.Max(1, Math.Min(100, current + delta));
             SetTans(newVal);
             Properties.Settings.Default.FormOpacity = newVal;
             Properties.Settings.Default.Save();
+            if (_settingForm != null && !_settingForm.IsDisposed)
+                _settingForm.SyncOpacity((int)newVal);
+        }
+
+        // ─── Floating header behavior (#2) ────────────────────────────────────
+
+        private void InitFloatingHeader()
+        {
+            _headerHideTimer = new System.Windows.Forms.Timer();
+            _headerHideTimer.Interval = 1500;
+            _headerHideTimer.Tick += (s, args) => {
+                _headerHideTimer.Stop();
+                Point cur = this.PointToClient(System.Windows.Forms.Cursor.Position);
+                if (cur.Y >= HEADER_HOVER_HEIGHT)
+                {
+                    pageHeader1.Visible = false;
+                    _headerVisible = false;
+                    UpdateTopMostButtonPosition();
+                }
+            };
+            this.MouseMove += MainForm_MouseMoveForHeader;
+            tabControl1.MouseMove += MainForm_MouseMoveForHeader;
+            pageHeader1.MouseLeave += (s, args) => _headerHideTimer.Start();
+            pageHeader1.MouseEnter += (s, args) => { _headerHideTimer.Stop(); };
+        }
+
+        private void MainForm_MouseMoveForHeader(object sender, MouseEventArgs e)
+        {
+            Point formPt = (sender == (object)tabControl1)
+                ? new Point(e.X + tabControl1.Left, e.Y + tabControl1.Top)
+                : e.Location;
+
+            if (formPt.Y < HEADER_HOVER_HEIGHT && !Properties.Settings.Default.NoTitle)
+            {
+                _headerHideTimer.Stop();
+                if (!_headerVisible)
+                {
+                    pageHeader1.Visible = true;
+                    _headerVisible = true;
+                    UpdateTopMostButtonPosition();
+                }
+            }
+            else if (_headerVisible && formPt.Y >= HEADER_HOVER_HEIGHT + 5)
+            {
+                _headerHideTimer.Start();
+            }
+        }
+
+        // ─── TopMost toggle button (#11) ─────────────────────────────────────
+
+        private void btnTopMost_Click(object sender, EventArgs e)
+        {
+            this.TopMost = !this.TopMost;
+            Properties.Settings.Default.TopMostWindow = this.TopMost;
+            Properties.Settings.Default.Save();
+            UpdateTopMostButton();
+        }
+
+        private void UpdateTopMostButton()
+        {
+            if (btnTopMost == null) return;
+            btnTopMost.Type = this.TopMost ? AntdUI.TTypeMini.Primary : AntdUI.TTypeMini.Default;
+            UpdateTopMostButtonPosition();
+        }
+
+        private void UpdateTopMostButtonPosition()
+        {
+            if (btnTopMost == null) return;
+            btnTopMost.Location = new System.Drawing.Point(this.ClientSize.Width - TOPMOST_BTN_OFFSET, 0);
+            btnTopMost.BringToFront();
+            btnTopMost.Visible = _headerVisible;
+        }
+
+        // ─── Custom new-tab HTML (#3/#4/#9) ──────────────────────────────────
+
+        private string GetNewTabHtml()
+        {
+            return @"<!DOCTYPE html>
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width'>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#f0f2f5;color:#333;height:100vh;display:flex;align-items:center;justify-content:center}
+.container{width:90%;max-width:620px}
+h2{text-align:center;color:#555;font-size:18px;font-weight:500;margin-bottom:24px}
+.url-row{display:flex;gap:8px;margin-bottom:28px}
+.url-row input{flex:1;padding:10px 14px;border:1px solid #d9d9d9;border-radius:8px;font-size:14px;outline:none;transition:border-color .2s}
+.url-row input:focus{border-color:#1677ff}
+.url-row button{padding:10px 18px;background:#1677ff;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;transition:background .2s}
+.url-row button:hover{background:#4096ff}
+.section-title{font-size:12px;color:#999;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media(max-width:480px){.grid{grid-template-columns:repeat(3,1fr)}}
+.card{background:#fff;border:1px solid #f0f0f0;border-radius:10px;padding:14px 8px;text-align:center;cursor:pointer;transition:all .2s;text-decoration:none;color:#333;display:block}
+.card:hover{border-color:#1677ff;box-shadow:0 4px 12px rgba(22,119,255,.15);transform:translateY(-2px)}
+.card .emoji{font-size:26px;margin-bottom:6px}
+.card .name{font-size:12px;color:#666}
+</style></head>
+<body>
+<div class='container'>
+  <h2>🌐 新标签页</h2>
+  <div class='url-row'>
+    <input id='u' type='text' placeholder='输入网址，回车打开...' autofocus onkeydown=""if(event.key==='Enter')go()"">
+    <button onclick='go()'>打开</button>
+  </div>
+  <div class='section-title'>快捷网站</div>
+  <div class='grid'>
+    <a class='card' onclick=""nav('https://weread.qq.com/')"">
+      <div class='emoji'>📚</div><div class='name'>微信读书</div>
+    </a>
+    <a class='card' onclick=""nav('https://www.xiaohongshu.com')"">
+      <div class='emoji'>📕</div><div class='name'>小红书</div>
+    </a>
+    <a class='card' onclick=""nav('https://www.bilibili.com/')"">
+      <div class='emoji'>📺</div><div class='name'>哔哩哔哩</div>
+    </a>
+  </div>
+</div>
+<script>
+function go(){var u=document.getElementById('u').value.trim();if(!u)return;if(/^javascript:/i.test(u)||/^data:/i.test(u))return;if(!/^https?:\/\//i.test(u))u='https://'+u;location.href=u;}
+function nav(u){location.href=u;}
+</script>
+</body></html>";
         }
     }
 }

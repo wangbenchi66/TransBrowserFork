@@ -31,6 +31,8 @@ namespace TransBrowser
             this.switch2.Checked = Properties.Settings.Default.ShowInTaskbar;
             this.colorPicker1.Value = Properties.Settings.Default.ThemeBackColor;
             this.autohide_sw.Checked = Properties.Settings.Default.AutoHide;
+            this.switch5.Checked = Properties.Settings.Default.ShowTabBar;
+            this.switch6.Checked = Properties.Settings.Default.NoImageMode;
 
             // Hotkey fields
             this.txtBossKey.Text = Properties.Settings.Default.HotkeyBossKey;
@@ -46,6 +48,8 @@ namespace TransBrowser
             this.colorPicker1.ValueChanged += new AntdUI.ColorEventHandler(this.colorPicker1_ValueChanged);
             this.autohide_sw.CheckedChanged += new AntdUI.BoolEventHandler(this.switch4_CheckedChanged);
             this.btnApplyHotkeys.Click += new System.EventHandler(this.btnApplyHotkeys_Click);
+            this.switch5.CheckedChanged += new AntdUI.BoolEventHandler(this.switch5_CheckedChanged);
+            this.switch6.CheckedChanged += new AntdUI.BoolEventHandler(this.switch6_CheckedChanged);
 
             // Hotkey textboxes capture key presses
             foreach (TextBox tb in new[] { txtBossKey, txtOpacityUp, txtOpacityDown, txtClickThrough })
@@ -177,6 +181,29 @@ namespace TransBrowser
         {
             bool AutoHide = e.Value;
             Properties.Settings.Default.AutoHide = AutoHide;
+            Properties.Settings.Default.Save();
+        }
+
+        public void SyncOpacity(int value)
+        {
+            this.slider1.ValueChanged -= slider1_ValueChanged;
+            this.slider1.Value = value;
+            this.slider1.ValueChanged += slider1_ValueChanged;
+        }
+
+        private void switch5_CheckedChanged(object sender, BoolEventArgs e)
+        {
+            bool showTabBar = e.Value;
+            mainForm.SetTabBarVisible(showTabBar);
+            Properties.Settings.Default.ShowTabBar = showTabBar;
+            Properties.Settings.Default.Save();
+        }
+
+        private void switch6_CheckedChanged(object sender, BoolEventArgs e)
+        {
+            bool noImage = e.Value;
+            mainForm.SetNoImageMode(noImage);
+            Properties.Settings.Default.NoImageMode = noImage;
             Properties.Settings.Default.Save();
         }
     }
