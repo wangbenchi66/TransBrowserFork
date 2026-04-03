@@ -217,6 +217,7 @@ namespace TransBrowser
         {
             int insertIndex = tabControl1.TabPages.Count - 1; // before the "+" tab
             var page = new System.Windows.Forms.TabPage("新标签页");
+            page.Padding = System.Windows.Forms.Padding.Empty;   // no inner whitespace
             var wv = new WebView2();
             wv.Dock = DockStyle.Fill;
             wv.DefaultBackgroundColor = Color.White;
@@ -445,6 +446,8 @@ namespace TransBrowser
         public void SetDefaultColor(Color color)
         {
             this.pageHeader1.BackColor = color;
+            // Recompute pin-button contrast colour for the new background
+            UpdateTopMostButton();
         }
 
         public void SetShowInTaskBar(bool show)
@@ -884,7 +887,26 @@ namespace TransBrowser
         private void UpdateTopMostButton()
         {
             if (btnTopMost == null) return;
-            btnTopMost.Type = this.TopMost ? AntdUI.TTypeMini.Primary : AntdUI.TTypeMini.Default;
+
+            // Derive a foreground colour that contrasts with the current header background
+            Color bg = pageHeader1.BackColor;
+            Color contrast = ContrastColor(bg);
+
+            if (this.TopMost)
+            {
+                // Active: show a clearly visible accent that works on both dark and light backgrounds.
+                // Pick the hue that contrasts better: blue on light bg, orange on dark bg.
+                double lum = (0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B) / 255.0;
+                btnTopMost.ForeColor = lum > 0.55
+                    ? Color.FromArgb(24, 144, 255)   // blue on light header
+                    : Color.FromArgb(255, 185, 50);  // gold/orange on dark header
+            }
+            else
+            {
+                // Inactive: semi-transparent contrast colour – blends with any background
+                btnTopMost.ForeColor = Color.FromArgb(140, contrast.R, contrast.G, contrast.B);
+            }
+
             UpdateTopMostButtonPosition();
         }
 
@@ -1032,6 +1054,50 @@ renderCustom();
                     .Replace("\r", "\\r")
                     .Replace("\n", "\\n")
                     .Replace("\t", "\\t");
+        }
+
+        // ─── Contrast colour helper ───────────────────────────────────────────
+
+        /// <summary>Returns Color.White for dark backgrounds, Color.Black for light ones.</summary>
+        private static Color ContrastColor(Color bg)
+        {
+            double lum = (0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B) / 255.0;
+            return lum > 0.55 ? Color.Black : Color.White;
+        }
+
+        // ─── BorderlessTabControl ─────────────────────────────────────────────
+
+        /// <summary>
+        /// TabControl whose content area covers the native 2 px drawn border.
+        /// Intercepts TCM_ADJUSTRECT (0x1328) and expands the returned display
+        /// rectangle outward by 2 px on the left, right, and bottom sides.
+        /// </summary>
+        internal sealed class BorderlessTabControl : System.Windows.Forms.TabControl
+        {
+            [System.Runtime.InteropServices.StructLayout(
+                System.Runtime.InteropServices.LayoutKind.Sequential)]
+            private struct RECT { public int Left, Top, Right, Bottom; }
+
+            private const int TCM_ADJUSTRECT = 0x1328;
+
+            protected override void WndProc(ref System.Windows.Forms.Message m)
+            {
+                // wParam != 0 -> "given display rect, give me window rect"
+                // wParam == 0 -> "given window rect, give me display rect"  <- this is the one
+                //                WinForms uses to size/position tab pages.
+                if (m.Msg == TCM_ADJUSTRECT && m.WParam == System.IntPtr.Zero && !DesignMode)
+                {
+                    base.WndProc(ref m);   // let Windows compute the inset rect
+                    var rc = (RECT)System.Runtime.InteropServices.Marshal.PtrToStructure(
+                        m.LParam, typeof(RECT));
+                    rc.Left   -= 2;        // expand: cover left border
+                    rc.Right  += 2;        // expand: cover right border
+                    rc.Bottom += 2;        // expand: cover bottom border
+                    System.Runtime.InteropServices.Marshal.StructureToPtr(rc, m.LParam, false);
+                    return;
+                }
+                base.WndProc(ref m);
+            }
         }
     }
 }
