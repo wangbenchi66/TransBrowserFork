@@ -32,5 +32,20 @@
     <Setting Name="AutoHide" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
+    <Setting Name="ClickThroughMode" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="HotkeyBossKey" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Alt+Q</Value>
+    </Setting>
+    <Setting Name="HotkeyOpacityUp" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Ctrl+Alt+Up</Value>
+    </Setting>
+    <Setting Name="HotkeyOpacityDown" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Ctrl+Alt+Down</Value>
+    </Setting>
+    <Setting Name="HotkeyClickThrough" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Ctrl+Alt+T</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

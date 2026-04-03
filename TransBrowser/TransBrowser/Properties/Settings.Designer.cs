@@ -142,5 +142,65 @@ namespace TransBrowser.Properties {
                 this["AutoHide"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool ClickThroughMode {
+            get {
+                return ((bool)(this["ClickThroughMode"]));
+            }
+            set {
+                this["ClickThroughMode"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Alt+Q")]
+        public string HotkeyBossKey {
+            get {
+                return ((string)(this["HotkeyBossKey"]));
+            }
+            set {
+                this["HotkeyBossKey"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Ctrl+Alt+Up")]
+        public string HotkeyOpacityUp {
+            get {
+                return ((string)(this["HotkeyOpacityUp"]));
+            }
+            set {
+                this["HotkeyOpacityUp"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Ctrl+Alt+Down")]
+        public string HotkeyOpacityDown {
+            get {
+                return ((string)(this["HotkeyOpacityDown"]));
+            }
+            set {
+                this["HotkeyOpacityDown"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Ctrl+Alt+T")]
+        public string HotkeyClickThrough {
+            get {
+                return ((string)(this["HotkeyClickThrough"]));
+            }
+            set {
+                this["HotkeyClickThrough"] = value;
+            }
+        }
     }
 }
