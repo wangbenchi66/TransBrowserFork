@@ -48,9 +48,9 @@ namespace TransBrowser
             this.退出ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 
             this.pageHeader1 = new AntdUI.PageHeader();
-            this.btnTopMost = new AntdUI.Button();
+            this.btnTopMost = new System.Windows.Forms.Label();
 
-            this.tabControl1 = new System.Windows.Forms.TabControl();
+            this.tabControl1 = new TransBrowser.MainForm.BorderlessTabControl();
             this.tabPageFirst = new System.Windows.Forms.TabPage();
             this.tabPageAdd = new System.Windows.Forms.TabPage();
 
@@ -80,6 +80,7 @@ namespace TransBrowser
             this.tabPageFirst.Controls.Add(this.webView21);
             this.tabPageFirst.Location = new System.Drawing.Point(4, 22);
             this.tabPageFirst.Name = "tabPageFirst";
+            this.tabPageFirst.Padding = new System.Windows.Forms.Padding(0);
             this.tabPageFirst.Size = new System.Drawing.Size(582, 361);
             this.tabPageFirst.TabIndex = 0;
             this.tabPageFirst.Text = "新标签页";
@@ -90,6 +91,7 @@ namespace TransBrowser
             // 
             this.tabPageAdd.Location = new System.Drawing.Point(4, 22);
             this.tabPageAdd.Name = "tabPageAdd";
+            this.tabPageAdd.Padding = new System.Windows.Forms.Padding(0);
             this.tabPageAdd.Size = new System.Drawing.Size(582, 361);
             this.tabPageAdd.TabIndex = 1;
             this.tabPageAdd.Text = "+";
@@ -209,14 +211,17 @@ namespace TransBrowser
             this.pageHeader1.Text = "TransBrowser";
 
             // 
-            // btnTopMost – always-on-top toggle
+            // btnTopMost – always-on-top toggle (Label for full color adaptability)
             // 
             this.btnTopMost.Text = "📌";
-            this.btnTopMost.Size = new System.Drawing.Size(30, 23);
+            this.btnTopMost.Size = new System.Drawing.Size(26, 22);
             this.btnTopMost.Location = new System.Drawing.Point(0, 0);
             this.btnTopMost.TabIndex = 3;
             this.btnTopMost.Name = "btnTopMost";
-            this.btnTopMost.Type = AntdUI.TTypeMini.Default;
+            this.btnTopMost.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.btnTopMost.BackColor = System.Drawing.Color.Transparent;
+            this.btnTopMost.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnTopMost.Font = new System.Drawing.Font("Segoe UI Emoji", 9F);
             this.btnTopMost.Click += new System.EventHandler(this.btnTopMost_Click);
 
             // 
@@ -257,10 +262,10 @@ namespace TransBrowser
         private AntdUI.PageHeader pageHeader1;
         private System.Windows.Forms.ToolStripMenuItem 退出ToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem 控制器ToolStripMenuItem;
-        private System.Windows.Forms.TabControl tabControl1;
+        private TransBrowser.MainForm.BorderlessTabControl tabControl1;
         private System.Windows.Forms.TabPage tabPageFirst;
         private System.Windows.Forms.TabPage tabPageAdd;
-        private AntdUI.Button btnTopMost;
+        private System.Windows.Forms.Label btnTopMost;
     }
 }
 

@@ -226,5 +226,13 @@ namespace TransBrowser.Properties {
             get { return ((bool)(this["TopMostWindow"])); }
             set { this["TopMostWindow"] = value; }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string CustomSites {
+            get { return ((string)(this["CustomSites"])); }
+            set { this["CustomSites"] = value; }
+        }
     }
 }

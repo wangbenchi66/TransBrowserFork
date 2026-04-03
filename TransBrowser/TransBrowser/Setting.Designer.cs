@@ -104,6 +104,7 @@ namespace TransBrowser
             this.switch1.Size = new System.Drawing.Size(40, 23);
             this.switch1.TabIndex = 5;
             this.switch1.Text = "switch1";
+            this.switch1.Visible = false;
             // 
             // flowLayoutPanel1
             // 
@@ -175,6 +176,7 @@ namespace TransBrowser
             this.label2.Size = new System.Drawing.Size(53, 23);
             this.label2.TabIndex = 0;
             this.label2.Text = "无窗口";
+            this.label2.Visible = false;
             // 
             // label6
             // 

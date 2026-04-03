@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows.Forms;
 using static TransBrowser.Tools.GlobalHotkey;
 
@@ -91,12 +92,61 @@ namespace TransBrowser
             return null;
         }
 
+        // ─── Custom site management (#3/#4) ──────────────────────────────────
+
+        private class CustomSite
+        {
+            public string Name { get; set; }
+            public string Url { get; set; }
+        }
+
+        private List<CustomSite> LoadCustomSites()
+        {
+            var list = new List<CustomSite>();
+            string raw = Properties.Settings.Default.CustomSites ?? "";
+            if (raw == "[]" || string.IsNullOrWhiteSpace(raw)) return list;
+            foreach (string line in raw.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                int tab = line.IndexOf('\t');
+                if (tab >= 0)
+                    list.Add(new CustomSite { Name = line.Substring(0, tab), Url = line.Substring(tab + 1).Trim() });
+            }
+            return list;
+        }
+
+        private void SaveCustomSites(List<CustomSite> sites)
+        {
+            var sb = new StringBuilder();
+            foreach (var s in sites)
+            {
+                string name = (s.Name ?? "").Replace("\t", " ").Replace("\n", " ");
+                string url = (s.Url ?? "").Replace("\t", "").Replace("\n", "");
+                sb.Append(name).Append('\t').Append(url).Append('\n');
+            }
+            Properties.Settings.Default.CustomSites = sb.ToString();
+            Properties.Settings.Default.Save();
+        }
+
+        private void RefreshNewTabPages()
+        {
+            for (int i = 0; i < tabControl1.TabPages.Count - 1; i++)
+            {
+                var wv = GetTabWebView(tabControl1.TabPages[i]);
+                if (wv?.CoreWebView2 != null)
+                {
+                    var src = wv.Source?.AbsoluteUri;
+                    if (src == null || src == "about:blank")
+                        wv.CoreWebView2.NavigateToString(GetNewTabHtml());
+                }
+            }
+        }
+
         // ─── Constructor ──────────────────────────────────────────────────────
         public MainForm()
         {
             InitializeComponent();
             // #6: Disable default window shadow
-            // this.Shadow = 0;  // Shadow property may not exist in current AntdUI version
+            this.Shadow = 0;
             // Start async WebView2 init for the first tab
             InitializeWebView();
         }
@@ -133,7 +183,8 @@ namespace TransBrowser
         // ─── Settings restoration ─────────────────────────────────────────────
         public void Init()
         {
-            ShowWindowsBar(Properties.Settings.Default.NoTitle);
+            // Always start with floating header (no explicit "无窗口" toggle)
+            ShowWindowsBar(false);
             SetShowInTaskBar(Properties.Settings.Default.ShowInTaskbar);
             SetPosition(Properties.Settings.Default.FormPosition);
             SetTans(Properties.Settings.Default.FormOpacity);
@@ -166,6 +217,7 @@ namespace TransBrowser
         {
             int insertIndex = tabControl1.TabPages.Count - 1; // before the "+" tab
             var page = new System.Windows.Forms.TabPage("新标签页");
+            page.Padding = System.Windows.Forms.Padding.Empty;   // no inner whitespace
             var wv = new WebView2();
             wv.Dock = DockStyle.Fill;
             wv.DefaultBackgroundColor = Color.White;
@@ -203,6 +255,43 @@ namespace TransBrowser
             // Custom context menu (right-click)
             wv.CoreWebView2.ContextMenuRequested -= CoreWebView2_ContextMenuRequested;
             wv.CoreWebView2.ContextMenuRequested += CoreWebView2_ContextMenuRequested;
+
+            // Handle messages from new-tab page (add/remove custom sites)
+            wv.CoreWebView2.WebMessageReceived -= CoreWebView2_WebMessageReceived;
+            wv.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
+        }
+
+        private void CoreWebView2_WebMessageReceived(object sender, CoreWebView2WebMessageReceivedEventArgs e)
+        {
+            string msg = e.TryGetWebMessageAsString();
+            if (string.IsNullOrEmpty(msg)) return;
+
+            // Protocol: "add\tname\turl" or "remove\turl"
+            var parts = msg.Split('\t');
+            if (parts.Length < 2) return;
+
+            var sites = LoadCustomSites();
+
+            if (parts[0] == "add" && parts.Length >= 3)
+            {
+                string name = parts[1].Trim();
+                string url = parts[2].Trim();
+                if (string.IsNullOrEmpty(url)) return;
+                if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                    !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    url = "https://" + url;
+                if (string.IsNullOrEmpty(name)) name = url;
+                sites.Add(new CustomSite { Name = name, Url = url });
+                SaveCustomSites(sites);
+                this.BeginInvoke((MethodInvoker)RefreshNewTabPages);
+            }
+            else if (parts[0] == "remove" && parts.Length >= 2)
+            {
+                string url = parts[1].Trim();
+                sites.RemoveAll(s => s.Url == url);
+                SaveCustomSites(sites);
+                this.BeginInvoke((MethodInvoker)RefreshNewTabPages);
+            }
         }
 
         private void UpdateTabTitle(CoreWebView2 core)
@@ -357,6 +446,8 @@ namespace TransBrowser
         public void SetDefaultColor(Color color)
         {
             this.pageHeader1.BackColor = color;
+            // Recompute pin-button contrast colour for the new background
+            UpdateTopMostButton();
         }
 
         public void SetShowInTaskBar(bool show)
@@ -767,7 +858,7 @@ namespace TransBrowser
                 ? new Point(e.X + tabControl1.Left, e.Y + tabControl1.Top)
                 : e.Location;
 
-            if (formPt.Y < HEADER_HOVER_HEIGHT && !Properties.Settings.Default.NoTitle)
+            if (formPt.Y < HEADER_HOVER_HEIGHT)
             {
                 _headerHideTimer.Stop();
                 if (!_headerVisible)
@@ -796,7 +887,26 @@ namespace TransBrowser
         private void UpdateTopMostButton()
         {
             if (btnTopMost == null) return;
-            btnTopMost.Type = this.TopMost ? AntdUI.TTypeMini.Primary : AntdUI.TTypeMini.Default;
+
+            // Derive a foreground colour that contrasts with the current header background
+            Color bg = pageHeader1.BackColor;
+            Color contrast = ContrastColor(bg);
+
+            if (this.TopMost)
+            {
+                // Active: show a clearly visible accent that works on both dark and light backgrounds.
+                // Pick the hue that contrasts better: blue on light bg, orange on dark bg.
+                double lum = (0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B) / 255.0;
+                btnTopMost.ForeColor = lum > 0.55
+                    ? Color.FromArgb(24, 144, 255)   // blue on light header
+                    : Color.FromArgb(255, 185, 50);  // gold/orange on dark header
+            }
+            else
+            {
+                // Inactive: semi-transparent contrast colour – blends with any background
+                btnTopMost.ForeColor = Color.FromArgb(140, contrast.R, contrast.G, contrast.B);
+            }
+
             UpdateTopMostButtonPosition();
         }
 
@@ -812,25 +922,53 @@ namespace TransBrowser
 
         private string GetNewTabHtml()
         {
+            var customSites = LoadCustomSites();
+
+            // Build custom sites JSON for JS injection
+            var jsonSb = new StringBuilder("[");
+            for (int i = 0; i < customSites.Count; i++)
+            {
+                if (i > 0) jsonSb.Append(",");
+                jsonSb.Append("{\"n\":\"")
+                      .Append(JsEscape(customSites[i].Name))
+                      .Append("\",\"u\":\"")
+                      .Append(JsEscape(customSites[i].Url))
+                      .Append("\"}");
+            }
+            jsonSb.Append("]");
+            string customJson = jsonSb.ToString();
+
             return @"<!DOCTYPE html>
 <html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width'>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,-apple-system,sans-serif;background:#f0f2f5;color:#333;height:100vh;display:flex;align-items:center;justify-content:center}
-.container{width:90%;max-width:620px}
+body{font-family:system-ui,-apple-system,sans-serif;background:#f0f2f5;color:#333;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.container{width:90%;max-width:640px}
 h2{text-align:center;color:#555;font-size:18px;font-weight:500;margin-bottom:24px}
 .url-row{display:flex;gap:8px;margin-bottom:28px}
 .url-row input{flex:1;padding:10px 14px;border:1px solid #d9d9d9;border-radius:8px;font-size:14px;outline:none;transition:border-color .2s}
 .url-row input:focus{border-color:#1677ff}
-.url-row button{padding:10px 18px;background:#1677ff;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;transition:background .2s}
+.url-row button{padding:10px 18px;background:#1677ff;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;transition:background .2s;white-space:nowrap}
 .url-row button:hover{background:#4096ff}
-.section-title{font-size:12px;color:#999;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px}
-.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.section-title{font-size:12px;color:#999;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;justify-content:space-between}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
 @media(max-width:480px){.grid{grid-template-columns:repeat(3,1fr)}}
-.card{background:#fff;border:1px solid #f0f0f0;border-radius:10px;padding:14px 8px;text-align:center;cursor:pointer;transition:all .2s;text-decoration:none;color:#333;display:block}
+.card{background:#fff;border:1px solid #f0f0f0;border-radius:10px;padding:12px 8px;text-align:center;cursor:pointer;transition:all .2s;text-decoration:none;color:#333;display:block;position:relative}
 .card:hover{border-color:#1677ff;box-shadow:0 4px 12px rgba(22,119,255,.15);transform:translateY(-2px)}
-.card .emoji{font-size:26px;margin-bottom:6px}
-.card .name{font-size:12px;color:#666}
+.card .emoji{font-size:24px;margin-bottom:5px}
+.card .name{font-size:11px;color:#666;word-break:break-all}
+.card .del{position:absolute;top:3px;right:4px;font-size:11px;color:#ccc;cursor:pointer;line-height:1;display:none}
+.card:hover .del{display:block}
+.card .del:hover{color:#ff4d4f}
+.add-card{background:#f8f9fb;border:1px dashed #d9d9d9;border-radius:10px;padding:12px 8px;text-align:center;cursor:pointer;color:#bbb;font-size:22px;transition:all .2s}
+.add-card:hover{border-color:#1677ff;color:#1677ff}
+.add-form{display:none;background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:16px;margin-top:10px}
+.add-form input{width:100%;padding:8px 10px;border:1px solid #d9d9d9;border-radius:6px;font-size:13px;outline:none;margin-bottom:8px}
+.add-form input:focus{border-color:#1677ff}
+.add-form .btns{display:flex;gap:8px}
+.add-form .btns button{flex:1;padding:8px;border:none;border-radius:6px;cursor:pointer;font-size:13px}
+.add-form .btns .save{background:#1677ff;color:#fff}
+.add-form .btns .cancel{background:#f0f0f0;color:#666}
 </style></head>
 <body>
 <div class='container'>
@@ -839,7 +977,7 @@ h2{text-align:center;color:#555;font-size:18px;font-weight:500;margin-bottom:24p
     <input id='u' type='text' placeholder='输入网址，回车打开...' autofocus onkeydown=""if(event.key==='Enter')go()"">
     <button onclick='go()'>打开</button>
   </div>
-  <div class='section-title'>快捷网站</div>
+  <div class='section-title'><span>内置快捷</span></div>
   <div class='grid'>
     <a class='card' onclick=""nav('https://weread.qq.com/')"">
       <div class='emoji'>📚</div><div class='name'>微信读书</div>
@@ -851,13 +989,115 @@ h2{text-align:center;color:#555;font-size:18px;font-weight:500;margin-bottom:24p
       <div class='emoji'>📺</div><div class='name'>哔哩哔哩</div>
     </a>
   </div>
+  <div class='section-title'><span>我的网站</span></div>
+  <div class='grid' id='customGrid'></div>
+  <div class='add-form' id='addForm'>
+    <input id='siteName' placeholder='网站名称（可选）'>
+    <input id='siteUrl' placeholder='网站地址，如 https://example.com'>
+    <div class='btns'>
+      <button class='save' onclick='saveCustom()'>保存</button>
+      <button class='cancel' onclick='hideForm()'>取消</button>
+    </div>
+  </div>
 </div>
 <script>
+var CUSTOM=" + customJson + @";
+function renderCustom(){
+  var g=document.getElementById('customGrid');
+  g.innerHTML='';
+  for(var i=0;i<CUSTOM.length;i++){
+    var s=CUSTOM[i];
+    var a=document.createElement('a');
+    a.className='card';
+    a.setAttribute('data-url',s.u);
+    a.onclick=(function(u){return function(e){if(e.target.classList.contains('del'))return;nav(u);};})(s.u);
+    a.innerHTML='<div class=""emoji"">🔗</div><div class=""name"">'+esc(s.n)+'</div><span class=""del"" title=""删除"" onclick=""removeCustom(\''+esc(s.u)+'\');"">✕</span>';
+    g.appendChild(a);
+  }
+  var plus=document.createElement('div');
+  plus.className='add-card';
+  plus.title='添加自定义网站';
+  plus.textContent='+';
+  plus.onclick=function(){document.getElementById('addForm').style.display='block';document.getElementById('siteUrl').focus();};
+  g.appendChild(plus);
+}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;');}
+function nav(u){if(/^javascript:/i.test(u)||/^data:/i.test(u))return;location.href=u;}
 function go(){var u=document.getElementById('u').value.trim();if(!u)return;if(/^javascript:/i.test(u)||/^data:/i.test(u))return;if(!/^https?:\/\//i.test(u))u='https://'+u;location.href=u;}
-function nav(u){location.href=u;}
+function saveCustom(){
+  var n=document.getElementById('siteName').value.trim();
+  var u=document.getElementById('siteUrl').value.trim();
+  if(!u)return;
+  if(/^javascript:/i.test(u)||/^data:/i.test(u))return;
+  window.chrome.webview.postMessage('add\t'+(n||u)+'\t'+u);
+  hideForm();
+}
+function removeCustom(u){
+  if(confirm('确认删除该网站？'))window.chrome.webview.postMessage('remove\t'+u);
+}
+function hideForm(){
+  document.getElementById('addForm').style.display='none';
+  document.getElementById('siteName').value='';
+  document.getElementById('siteUrl').value='';
+}
+renderCustom();
 </script>
 </body></html>";
         }
+
+        private static string JsEscape(string s)
+        {
+            if (s == null) return "";
+            return s.Replace("\\", "\\\\")
+                    .Replace("\"", "\\\"")
+                    .Replace("/", "\\/")
+                    .Replace("\r", "\\r")
+                    .Replace("\n", "\\n")
+                    .Replace("\t", "\\t");
+        }
+
+        // ─── Contrast colour helper ───────────────────────────────────────────
+
+        /// <summary>Returns Color.White for dark backgrounds, Color.Black for light ones.</summary>
+        private static Color ContrastColor(Color bg)
+        {
+            double lum = (0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B) / 255.0;
+            return lum > 0.55 ? Color.Black : Color.White;
+        }
+
+        // ─── BorderlessTabControl ─────────────────────────────────────────────
+
+        /// <summary>
+        /// TabControl whose content area covers the native 2 px drawn border.
+        /// Intercepts TCM_ADJUSTRECT (0x1328) and expands the returned display
+        /// rectangle outward by 2 px on the left, right, and bottom sides.
+        /// </summary>
+        internal sealed class BorderlessTabControl : System.Windows.Forms.TabControl
+        {
+            [System.Runtime.InteropServices.StructLayout(
+                System.Runtime.InteropServices.LayoutKind.Sequential)]
+            private struct RECT { public int Left, Top, Right, Bottom; }
+
+            private const int TCM_ADJUSTRECT = 0x1328;
+
+            protected override void WndProc(ref System.Windows.Forms.Message m)
+            {
+                // wParam != 0 -> "given display rect, give me window rect"
+                // wParam == 0 -> "given window rect, give me display rect"  <- this is the one
+                //                WinForms uses to size/position tab pages.
+                if (m.Msg == TCM_ADJUSTRECT && m.WParam == System.IntPtr.Zero && !DesignMode)
+                {
+                    base.WndProc(ref m);   // let Windows compute the inset rect
+                    var rc = (RECT)System.Runtime.InteropServices.Marshal.PtrToStructure(
+                        m.LParam, typeof(RECT));
+                    rc.Left   -= 2;        // expand: cover left border
+                    rc.Right  += 2;        // expand: cover right border
+                    rc.Bottom += 2;        // expand: cover bottom border
+                    System.Runtime.InteropServices.Marshal.StructureToPtr(rc, m.LParam, false);
+                    return;
+                }
+                base.WndProc(ref m);
+            }
+        }
     }
 }
-
