@@ -81,13 +81,13 @@ namespace TransBrowser
             {
                 if (!Tools.HotkeyParser.TryParse(vals[i], out _, out _))
                 {
-                    MessageBox.Show($"快捷键 "{labels[i]}" 格式无效：{vals[i]}", "快捷键错误",
+                    MessageBox.Show($"快捷键 '{labels[i]}' 格式无效：{vals[i]}", "快捷键错误",
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
                 if (seen.ContainsKey(vals[i]))
                 {
-                    MessageBox.Show($"快捷键冲突：{labels[i]} 与 {seen[vals[i]]} 相同（{vals[i]}）",
+                    MessageBox.Show($"快捷键冲突：'{labels[i]}' 与 '{seen[vals[i]]}' 相同（{vals[i]}）",
                         "快捷键冲突", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }

@@ -84,7 +84,7 @@ namespace TransBrowser
             }
         }
 
-        private static WebView2 GetTabWebView(TabPage page)
+        private static WebView2 GetTabWebView(System.Windows.Forms.TabPage page)
         {
             foreach (Control c in page.Controls)
                 if (c is WebView2 wv) return wv;
@@ -96,7 +96,7 @@ namespace TransBrowser
         {
             InitializeComponent();
             // #6: Disable default window shadow
-            this.Shadow = 0;
+            // this.Shadow = 0;  // Shadow property may not exist in current AntdUI version
             // Start async WebView2 init for the first tab
             InitializeWebView();
         }
@@ -162,10 +162,10 @@ namespace TransBrowser
 
         // ─── Tab management ───────────────────────────────────────────────────
 
-        private TabPage AddNewTab(string url = null)
+        private System.Windows.Forms.TabPage AddNewTab(string url = null)
         {
             int insertIndex = tabControl1.TabPages.Count - 1; // before the "+" tab
-            var page = new TabPage("新标签页");
+            var page = new System.Windows.Forms.TabPage("新标签页");
             var wv = new WebView2();
             wv.Dock = DockStyle.Fill;
             wv.DefaultBackgroundColor = Color.White;
@@ -244,7 +244,7 @@ namespace TransBrowser
                     }
                     else // right-click
                     {
-                        var menu = new ContextMenuStrip();
+                        var menu = new System.Windows.Forms.ContextMenuStrip();
                         int capturedI = i;
                         menu.Items.Add("关闭标签", null, (s, _) => CloseTab(capturedI));
                         menu.Items.Add("在新标签页中打开", null, (s, _) => AddNewTab());
