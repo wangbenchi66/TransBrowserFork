@@ -187,7 +187,7 @@ namespace TransBrowser
             // 
             // colorPicker1
             // 
-            this.colorPicker1.Location = new System.Drawing.Point(290, 41);
+            this.colorPicker1.Location = new System.Drawing.Point(315, 41);
             this.colorPicker1.Name = "colorPicker1";
             this.colorPicker1.Size = new System.Drawing.Size(42, 23);
             this.colorPicker1.TabIndex = 9;
@@ -206,7 +206,7 @@ namespace TransBrowser
             // 
             this.label4.Location = new System.Drawing.Point(235, 41);
             this.label4.Name = "label4";
-            this.label4.Size = new System.Drawing.Size(49, 23);
+            this.label4.Size = new System.Drawing.Size(75, 23);
             this.label4.TabIndex = 8;
             this.label4.Text = "状态栏背景色";
             // 

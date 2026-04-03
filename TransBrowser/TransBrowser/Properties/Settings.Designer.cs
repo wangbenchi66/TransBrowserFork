@@ -73,7 +73,7 @@ namespace TransBrowser.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("https://gitee.com/yclown/TransBrowser")]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
         public string DefaultUrl {
             get {
                 return ((string)(this["DefaultUrl"]));

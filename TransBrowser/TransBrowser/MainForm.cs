@@ -95,6 +95,8 @@ namespace TransBrowser
         public MainForm()
         {
             InitializeComponent();
+            // #6: Disable default window shadow
+            this.Shadow = 0;
             // Start async WebView2 init for the first tab
             InitializeWebView();
         }
@@ -554,7 +556,7 @@ namespace TransBrowser
             }
             _settingForm = new Setting(this);
             _settingForm.StartPosition = FormStartPosition.CenterScreen;
-            _settingForm.FormClosed += (s, e2) => _settingForm = null;
+            _settingForm.FormClosed += (s, args) => _settingForm = null;
             _settingForm.Show();
         }
 
@@ -743,7 +745,7 @@ namespace TransBrowser
         {
             _headerHideTimer = new System.Windows.Forms.Timer();
             _headerHideTimer.Interval = 1500;
-            _headerHideTimer.Tick += (s, e2) => {
+            _headerHideTimer.Tick += (s, args) => {
                 _headerHideTimer.Stop();
                 Point cur = this.PointToClient(System.Windows.Forms.Cursor.Position);
                 if (cur.Y >= HEADER_HOVER_HEIGHT)
@@ -755,8 +757,8 @@ namespace TransBrowser
             };
             this.MouseMove += MainForm_MouseMoveForHeader;
             tabControl1.MouseMove += MainForm_MouseMoveForHeader;
-            pageHeader1.MouseLeave += (s, e2) => _headerHideTimer.Start();
-            pageHeader1.MouseEnter += (s, e2) => { _headerHideTimer.Stop(); };
+            pageHeader1.MouseLeave += (s, args) => _headerHideTimer.Start();
+            pageHeader1.MouseEnter += (s, args) => { _headerHideTimer.Stop(); };
         }
 
         private void MainForm_MouseMoveForHeader(object sender, MouseEventArgs e)
@@ -851,7 +853,7 @@ h2{text-align:center;color:#555;font-size:18px;font-weight:500;margin-bottom:24p
   </div>
 </div>
 <script>
-function go(){var u=document.getElementById('u').value.trim();if(!u)return;if(!/^https?:\/\//i.test(u))u='https://'+u;location.href=u;}
+function go(){var u=document.getElementById('u').value.trim();if(!u)return;if(/^javascript:/i.test(u)||/^data:/i.test(u))return;if(!/^https?:\/\//i.test(u))u='https://'+u;location.href=u;}
 function nav(u){location.href=u;}
 </script>
 </body></html>";
