@@ -27,7 +27,6 @@ namespace TransBrowser
         {
             this.slider1.Value = (int)Properties.Settings.Default.FormOpacity;
             this.input1.Text = Properties.Settings.Default.DefaultUrl;
-            this.switch1.Checked = Properties.Settings.Default.NoTitle;
             this.switch2.Checked = Properties.Settings.Default.ShowInTaskbar;
             this.colorPicker1.Value = Properties.Settings.Default.ThemeBackColor;
             this.autohide_sw.Checked = Properties.Settings.Default.AutoHide;
@@ -43,7 +42,6 @@ namespace TransBrowser
             // Wire events
             this.slider1.ValueChanged += new AntdUI.IntEventHandler(this.slider1_ValueChanged);
             this.button1.Click += new System.EventHandler(this.button1_Click);
-            this.switch1.CheckedChanged += new AntdUI.BoolEventHandler(this.switch1_CheckedChanged);
             this.switch2.CheckedChanged += new AntdUI.BoolEventHandler(this.switch2_CheckedChanged);
             this.colorPicker1.ValueChanged += new AntdUI.ColorEventHandler(this.colorPicker1_ValueChanged);
             this.autohide_sw.CheckedChanged += new AntdUI.BoolEventHandler(this.switch4_CheckedChanged);
