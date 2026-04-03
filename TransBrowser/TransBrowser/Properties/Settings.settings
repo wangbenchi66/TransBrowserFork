@@ -39,13 +39,22 @@
       <Value Profile="(Default)">Alt+Q</Value>
     </Setting>
     <Setting Name="HotkeyOpacityUp" Type="System.String" Scope="User">
-      <Value Profile="(Default)">Ctrl+Alt+Up</Value>
+      <Value Profile="(Default)">Alt+Up</Value>
     </Setting>
     <Setting Name="HotkeyOpacityDown" Type="System.String" Scope="User">
-      <Value Profile="(Default)">Ctrl+Alt+Down</Value>
+      <Value Profile="(Default)">Alt+Down</Value>
     </Setting>
     <Setting Name="HotkeyClickThrough" Type="System.String" Scope="User">
       <Value Profile="(Default)">Ctrl+Alt+T</Value>
+    </Setting>
+    <Setting Name="ShowTabBar" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="NoImageMode" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="TopMostWindow" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
     </Setting>
   </Settings>
 </SettingsFile>

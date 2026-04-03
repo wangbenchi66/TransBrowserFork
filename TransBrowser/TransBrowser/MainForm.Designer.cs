@@ -48,6 +48,7 @@ namespace TransBrowser
             this.退出ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 
             this.pageHeader1 = new AntdUI.PageHeader();
+            this.btnTopMost = new AntdUI.Button();
 
             this.tabControl1 = new System.Windows.Forms.TabControl();
             this.tabPageFirst = new System.Windows.Forms.TabPage();
@@ -208,6 +209,17 @@ namespace TransBrowser
             this.pageHeader1.Text = "TransBrowser";
 
             // 
+            // btnTopMost – always-on-top toggle
+            // 
+            this.btnTopMost.Text = "📌";
+            this.btnTopMost.Size = new System.Drawing.Size(30, 23);
+            this.btnTopMost.Location = new System.Drawing.Point(0, 0);
+            this.btnTopMost.TabIndex = 3;
+            this.btnTopMost.Name = "btnTopMost";
+            this.btnTopMost.Type = AntdUI.TTypeMini.Default;
+            this.btnTopMost.Click += new System.EventHandler(this.btnTopMost_Click);
+
+            // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
@@ -216,6 +228,7 @@ namespace TransBrowser
             this.ContextMenuStrip = this.contextMenuStrip1;
             this.Controls.Add(this.tabControl1);
             this.Controls.Add(this.pageHeader1);
+            this.Controls.Add(this.btnTopMost);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Name = "MainForm";
             this.Text = "TransBrowser";
@@ -247,6 +260,7 @@ namespace TransBrowser
         private System.Windows.Forms.TabControl tabControl1;
         private System.Windows.Forms.TabPage tabPageFirst;
         private System.Windows.Forms.TabPage tabPageAdd;
+        private AntdUI.Button btnTopMost;
     }
 }
 

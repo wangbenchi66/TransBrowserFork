@@ -169,7 +169,7 @@ namespace TransBrowser.Properties {
 
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("Ctrl+Alt+Up")]
+        [global::System.Configuration.DefaultSettingValueAttribute("Alt+Up")]
         public string HotkeyOpacityUp {
             get {
                 return ((string)(this["HotkeyOpacityUp"]));
@@ -181,7 +181,7 @@ namespace TransBrowser.Properties {
 
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("Ctrl+Alt+Down")]
+        [global::System.Configuration.DefaultSettingValueAttribute("Alt+Down")]
         public string HotkeyOpacityDown {
             get {
                 return ((string)(this["HotkeyOpacityDown"]));
@@ -201,6 +201,30 @@ namespace TransBrowser.Properties {
             set {
                 this["HotkeyClickThrough"] = value;
             }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool ShowTabBar {
+            get { return ((bool)(this["ShowTabBar"])); }
+            set { this["ShowTabBar"] = value; }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool NoImageMode {
+            get { return ((bool)(this["NoImageMode"])); }
+            set { this["NoImageMode"] = value; }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool TopMostWindow {
+            get { return ((bool)(this["TopMostWindow"])); }
+            set { this["TopMostWindow"] = value; }
         }
     }
 }

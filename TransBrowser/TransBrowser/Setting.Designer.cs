@@ -36,6 +36,10 @@ namespace TransBrowser
             this.flowLayoutPanel1 = new AntdUI.In.FlowLayoutPanel();
             this.panel3 = new System.Windows.Forms.Panel();
             this.autohide_sw = new AntdUI.Switch();
+            this.label10 = new AntdUI.Label();
+            this.switch5 = new AntdUI.Switch();
+            this.label11 = new AntdUI.Label();
+            this.switch6 = new AntdUI.Switch();
             this.label9 = new AntdUI.Label();
             this.switch3 = new AntdUI.Switch();
             this.label2 = new AntdUI.Label();
@@ -86,7 +90,7 @@ namespace TransBrowser
             // slider1
             // 
             this.slider1.Location = new System.Drawing.Point(67, 3);
-            this.slider1.MinValue = 20;
+            this.slider1.MinValue = 1;
             this.slider1.Name = "slider1";
             this.slider1.ShowValue = true;
             this.slider1.Size = new System.Drawing.Size(372, 32);
@@ -129,9 +133,13 @@ namespace TransBrowser
             this.panel3.Controls.Add(this.label3);
             this.panel3.Controls.Add(this.label4);
             this.panel3.Controls.Add(this.switch2);
+            this.panel3.Controls.Add(this.label10);
+            this.panel3.Controls.Add(this.switch5);
+            this.panel3.Controls.Add(this.label11);
+            this.panel3.Controls.Add(this.switch6);
             this.panel3.Location = new System.Drawing.Point(3, 3);
             this.panel3.Name = "panel3";
-            this.panel3.Size = new System.Drawing.Size(450, 103);
+            this.panel3.Size = new System.Drawing.Size(450, 135);
             this.panel3.TabIndex = 20;
             // 
             // autohide_sw
@@ -200,7 +208,7 @@ namespace TransBrowser
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(49, 23);
             this.label4.TabIndex = 8;
-            this.label4.Text = "背景色";
+            this.label4.Text = "状态栏背景色";
             // 
             // switch2
             // 
@@ -209,6 +217,38 @@ namespace TransBrowser
             this.switch2.Size = new System.Drawing.Size(40, 23);
             this.switch2.TabIndex = 7;
             this.switch2.Text = "switch2";
+            // 
+            // label10 - 显示标签栏
+            // 
+            this.label10.Location = new System.Drawing.Point(3, 103);
+            this.label10.Name = "label10";
+            this.label10.Size = new System.Drawing.Size(53, 23);
+            this.label10.TabIndex = 17;
+            this.label10.Text = "显示标签栏";
+            // 
+            // switch5
+            // 
+            this.switch5.Location = new System.Drawing.Point(62, 103);
+            this.switch5.Name = "switch5";
+            this.switch5.Size = new System.Drawing.Size(40, 23);
+            this.switch5.TabIndex = 18;
+            this.switch5.Text = "switch5";
+            // 
+            // label11 - 无图模式
+            // 
+            this.label11.Location = new System.Drawing.Point(108, 103);
+            this.label11.Name = "label11";
+            this.label11.Size = new System.Drawing.Size(53, 23);
+            this.label11.TabIndex = 19;
+            this.label11.Text = "无图模式";
+            // 
+            // switch6
+            // 
+            this.switch6.Location = new System.Drawing.Point(167, 103);
+            this.switch6.Name = "switch6";
+            this.switch6.Size = new System.Drawing.Size(40, 23);
+            this.switch6.TabIndex = 20;
+            this.switch6.Text = "switch6";
             // 
             // panel1
             // 
@@ -407,7 +447,7 @@ namespace TransBrowser
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(480, 415);
+            this.ClientSize = new System.Drawing.Size(480, 450);
             this.Controls.Add(this.pageHeader1);
             this.Controls.Add(this.flowLayoutPanel1);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
@@ -463,5 +503,9 @@ namespace TransBrowser
         private AntdUI.Label lblClickThrough;
         private System.Windows.Forms.TextBox txtClickThrough;
         private AntdUI.Button btnApplyHotkeys;
+        private AntdUI.Label label10;
+        private AntdUI.Switch switch5;
+        private AntdUI.Label label11;
+        private AntdUI.Switch switch6;
     }
 }
