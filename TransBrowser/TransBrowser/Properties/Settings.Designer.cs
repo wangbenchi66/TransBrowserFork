@@ -234,5 +234,13 @@ namespace TransBrowser.Properties {
             get { return ((string)(this["CustomSites"])); }
             set { this["CustomSites"] = value; }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool HoverHeaderMode {
+            get { return ((bool)(this["HoverHeaderMode"])); }
+            set { this["HoverHeaderMode"] = value; }
+        }
     }
 }
