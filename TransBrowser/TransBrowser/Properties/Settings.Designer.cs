@@ -303,5 +303,13 @@ namespace TransBrowser.Properties {
                 this["AntiScreenshotMode"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("70")]
+        public int MaterialIntensity {
+            get { return ((int)(this["MaterialIntensity"])); }
+            set { this["MaterialIntensity"] = value; }
+        }
     }
 }

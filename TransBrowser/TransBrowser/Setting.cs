@@ -26,7 +26,12 @@ namespace TransBrowser
         public void Init()
         {
             // 不透明度改为透明度：100%不透明 = 0%透明
-            this.slider1.Value = 100 - (int)Properties.Settings.Default.FormOpacity;
+            // When glass material mode is ON the slider shows material intensity, otherwise opacity.
+            bool materialOn = Properties.Settings.Default.WindowTransparent;
+            int sliderVal = materialOn
+                ? Properties.Settings.Default.MaterialIntensity
+                : 100 - (int)Properties.Settings.Default.FormOpacity;
+            this.slider1.Value = Math.Max(this.slider1.MinValue, Math.Min(100, sliderVal));
             this.inputUrl.Text = Properties.Settings.Default.DefaultUrl;
             this.colorPicker1.Value = Properties.Settings.Default.ThemeBackColor;
             this.autohide_sw.Checked = Properties.Settings.Default.AutoHide;
@@ -38,7 +43,10 @@ namespace TransBrowser
             // 新增功能设置
             this.swGrayscale.Checked = Properties.Settings.Default.GrayscaleMode;
             this.swAntiScreenshot.Checked = Properties.Settings.Default.AntiScreenshotMode;
-            this.swWindowTransparent.Checked = Properties.Settings.Default.WindowTransparent;
+            this.swWindowTransparent.Checked = materialOn;
+
+            // Slider label reflects current mode
+            UpdateSliderLabel(materialOn);
 
             // Hotkey fields
             this.txtBossKey.Text = Properties.Settings.Default.HotkeyBossKey;
@@ -68,6 +76,12 @@ namespace TransBrowser
                 tb.GotFocus += (s, e2) => ((TextBox)s).BackColor = Color.LightYellow;
                 tb.LostFocus += (s, e2) => ((TextBox)s).BackColor = SystemColors.Window;
             }
+        }
+
+        /// <summary>Update slider label text to reflect current mode.</summary>
+        private void UpdateSliderLabel(bool materialMode)
+        {
+            label1.Text = materialMode ? "材质强度" : "透明度";
         }
 
         // ─── Hotkey capture ───────────────────────────────────────────────────
@@ -146,13 +160,24 @@ namespace TransBrowser
 
         private void slider1_ValueChanged(object sender, IntEventArgs e)
         {
-            // 透明度slider：0%透明=100%不透明，100%透明=1%不透明
-            int opacity = 100 - slider1.Value;
-            // 确保至少有1%不透明度，避免完全透明
-            if (opacity < 1) opacity = 1;
-            mainForm.SetTans(opacity);
-            Properties.Settings.Default.FormOpacity = opacity;
-            Properties.Settings.Default.Save();
+            bool materialOn = Properties.Settings.Default.WindowTransparent;
+            if (materialOn)
+            {
+                // Slider controls material intensity (1–100; higher = more opaque tint)
+                int intensity = Math.Max(1, Math.Min(100, slider1.Value));
+                mainForm?.SetMaterialIntensity(intensity);
+                Properties.Settings.Default.MaterialIntensity = intensity;
+                Properties.Settings.Default.Save();
+            }
+            else
+            {
+                // Slider controls window opacity: 0%透明=100%不透明, 100%透明=1%不透明
+                int opacity = 100 - slider1.Value;
+                if (opacity < 1) opacity = 1;
+                mainForm?.SetTans(opacity);
+                Properties.Settings.Default.FormOpacity = opacity;
+                Properties.Settings.Default.Save();
+            }
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -208,12 +233,21 @@ namespace TransBrowser
             Properties.Settings.Default.Save();
         }
 
-        public void SyncOpacity(int opacityValue)
+        public void SyncOpacity(int value)
         {
-            // opacityValue是不透明度(1-100)，需要转换为透明度显示
-            int transparencyValue = 100 - opacityValue;
+            bool materialOn = Properties.Settings.Default.WindowTransparent;
             this.slider1.ValueChanged -= slider1_ValueChanged;
-            this.slider1.Value = transparencyValue;
+            if (materialOn)
+            {
+                // value is material intensity (1–100) – show directly
+                this.slider1.Value = Math.Max(this.slider1.MinValue, Math.Min(100, value));
+            }
+            else
+            {
+                // value is opacity (1–100) – convert to transparency display
+                int transparencyValue = 100 - value;
+                this.slider1.Value = Math.Max(this.slider1.MinValue, Math.Min(100, transparencyValue));
+            }
             this.slider1.ValueChanged += slider1_ValueChanged;
         }
 
@@ -259,10 +293,21 @@ namespace TransBrowser
 
         private void swWindowTransparent_CheckedChanged(object sender, BoolEventArgs e)
         {
-            bool windowTransparent = e.Value;
-            Properties.Settings.Default.WindowTransparent = windowTransparent;
-            Properties.Settings.Default.Save();
-            try { mainForm?.SetWindowBackgroundTransparent(windowTransparent); } catch { }
+            bool enable = e.Value;
+            // Always use the persisted material intensity when toggling
+            int intensity = Properties.Settings.Default.MaterialIntensity;
+
+            try { mainForm?.ApplyMaterialEffect(enable, intensity); } catch { }
+
+            // Update slider label to reflect the new mode
+            UpdateSliderLabel(enable);
+
+            // Sync slider: material mode → show intensity, opacity mode → show transparency
+            this.slider1.ValueChanged -= slider1_ValueChanged;
+            this.slider1.Value = enable
+                ? Properties.Settings.Default.MaterialIntensity
+                : 100 - (int)Properties.Settings.Default.FormOpacity;
+            this.slider1.ValueChanged += new AntdUI.IntEventHandler(this.slider1_ValueChanged);
         }
 
         private void swAntiScreenshot_CheckedChanged(object sender, BoolEventArgs e)

@@ -95,6 +95,7 @@
     <Compile Include="Setting.Designer.cs">
       <DependentUpon>Setting.cs</DependentUpon>
     </Compile>
+    <Compile Include="Tools\DwmHelper.cs" />
     <Compile Include="Tools\GlobalHotkey.cs" />
     <Compile Include="Tools\HotkeyParser.cs" />
     <Compile Include="Tools\Ini.cs" />

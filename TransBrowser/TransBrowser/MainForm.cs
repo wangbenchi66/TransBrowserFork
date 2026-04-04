@@ -62,6 +62,11 @@ namespace TransBrowser
         // ─── Click-through state ───────────────────────────────────────────────
         private bool _clickThrough = false;
 
+        // ─── DWM glass material state ─────────────────────────────────────────
+        private bool _materialEnabled = false;
+        private int _materialIntensity = 70;
+        private Color _materialPrevBackColor = Color.Empty;
+
         // ─── Prevent duplicate settings windows ───────────────────────────────
         private Setting _settingForm = null;
 
@@ -96,68 +101,126 @@ namespace TransBrowser
         }
 
         /// <summary>
-        /// Makes the window background (non-client area and behind controls) transparent so
-        /// the desktop or underlying windows show through while controls remain visible.
-        /// This uses layered window with a color key and sets the WebView2 controls to
-        /// have transparent default background.
+        /// Apply or remove DWM glass material (Acrylic on Win10, Mica on Win11) from the window.
+        /// When enabled the window frame shows a frosted-glass / blur-behind effect; the
+        /// window Opacity is forced to 1.0 so page content remains crisp and readable.
+        /// </summary>
+        /// <param name="enable">True to enable the material; false to restore normal appearance.</param>
+        /// <param name="intensity">
+        /// Tint intensity 1–100 (higher = more opaque tint, less blur visible).
+        /// Only meaningful for the Acrylic path; Mica uses system defaults.
+        /// </param>
+        public void ApplyMaterialEffect(bool enable, int intensity)
+        {
+            _materialEnabled = enable;
+            _materialIntensity = Math.Max(1, Math.Min(100, intensity));
+
+            if (enable)
+            {
+                // Force window opacity to 1.0 – no whole-window alpha blending
+                this.Opacity = 1.0;
+
+                // Save original background colour the first time we enable
+                if (_materialPrevBackColor.IsEmpty)
+                    _materialPrevBackColor = this.BackColor;
+
+                // Apply DWM material (Mica on Win11, Acrylic on Win10)
+                Tools.DwmHelper.ApplyMaterial(this.Handle, _materialIntensity);
+
+                // Make the form background "transparent" to DWM:
+                // • On Win11 (Mica + extended frame) Color.Black is treated as DWM-transparent.
+                // • On Win10 (Acrylic via SetWindowCompositionAttribute) we set Black as well –
+                //   the acrylic effect is composited behind GDI drawing, so a very dark form
+                //   background lets the acrylic be visible through it.
+                this.BackColor = Color.Black;
+
+                // Make UI chrome controls transparent so the DWM material shines through
+                foreach (Control c in this.Controls)
+                {
+                    if (c is Microsoft.Web.WebView2.WinForms.WebView2) continue;
+                    try { c.BackColor = Color.Transparent; } catch { }
+                }
+
+                // WebView2: transparent background + CSS → DWM material shows beneath page content
+                for (int i = 0; i < tabControl1.TabPages.Count - 1; i++)
+                {
+                    var wv = GetTabWebView(tabControl1.TabPages[i]);
+                    if (wv != null)
+                    {
+                        wv.DefaultBackgroundColor = Color.Transparent;
+                        if (wv.CoreWebView2 != null)
+                            ApplyTransparentBackground(wv, true);
+                    }
+                }
+
+                this.Invalidate(true);
+            }
+            else
+            {
+                // Restore DWM to default (remove material)
+                Tools.DwmHelper.RemoveMaterial(this.Handle);
+
+                _materialEnabled = false;
+                _materialPrevBackColor = Color.Empty;
+
+                // Restore form background
+                this.BackColor = SystemColors.Control;
+
+                // Restore chrome control backgrounds
+                foreach (Control c in this.Controls)
+                {
+                    if (c is Microsoft.Web.WebView2.WinForms.WebView2) continue;
+                    try { c.BackColor = SystemColors.Control; } catch { }
+                }
+
+                // Restore WebView2 background unless TransparentBackground is still on
+                bool keepTransparent = Properties.Settings.Default.TransparentBackground;
+                for (int i = 0; i < tabControl1.TabPages.Count - 1; i++)
+                {
+                    var wv = GetTabWebView(tabControl1.TabPages[i]);
+                    if (wv != null)
+                    {
+                        wv.DefaultBackgroundColor = keepTransparent ? Color.Transparent : Color.White;
+                        if (wv.CoreWebView2 != null && !keepTransparent)
+                            ApplyTransparentBackground(wv, false);
+                    }
+                }
+
+                // Re-apply the saved opacity (non-material mode)
+                SetTans(Properties.Settings.Default.FormOpacity);
+
+                // Restore theme colour
+                SetDefaultColor(Properties.Settings.Default.ThemeBackColor);
+
+                this.Invalidate(true);
+            }
+
+            // Persist
+            Properties.Settings.Default.WindowTransparent = enable;
+            Properties.Settings.Default.Save();
+        }
+
+        /// <summary>
+        /// Update the DWM Acrylic tint intensity without toggling the effect on/off.
+        /// No-op when material mode is not active.
+        /// </summary>
+        public void SetMaterialIntensity(int intensity)
+        {
+            if (!_materialEnabled) return;
+            _materialIntensity = Math.Max(1, Math.Min(100, intensity));
+            Tools.DwmHelper.ApplyMaterial(this.Handle, _materialIntensity);
+            Properties.Settings.Default.MaterialIntensity = _materialIntensity;
+            Properties.Settings.Default.Save();
+        }
+
+        /// <summary>
+        /// Legacy: Makes the window background transparent using TransparencyKey.
+        /// Now delegates to <see cref="ApplyMaterialEffect"/> so that the same DWM
+        /// glass material is applied consistently.
         /// </summary>
         public void SetWindowBackgroundTransparent(bool enable)
         {
-            try
-            {
-                // Use TransparencyKey to make the form background transparent while keeping child controls visible.
-                var key = Color.Magenta; // chosen key color
-                if (enable)
-                {
-                    // Save previous colors
-                    _prevFormBackColor = this.BackColor;
-                    _prevTabControlBackColor = tabControl1.BackColor;
-                    _prevTabPageBackColors.Clear();
-                    for (int i = 0; i < tabControl1.TabPages.Count; i++)
-                        _prevTabPageBackColors[tabControl1.TabPages[i]] = tabControl1.TabPages[i].BackColor;
-
-                    // Apply transparency key
-                    this.BackColor = key;
-                    this.TransparencyKey = key;
-
-                    // Set child controls to transparent so they show desktop through where nothing else paints
-                    foreach (Control c in this.Controls)
-                    {
-                        if (c is WebView2) continue;
-                        try { c.BackColor = Color.Transparent; } catch { }
-                    }
-
-                    // TabControl and pages
-                    try { tabControl1.BackColor = Color.Transparent; } catch { }
-                    for (int i = 0; i < tabControl1.TabPages.Count; i++)
-                    {
-                        try { tabControl1.TabPages[i].BackColor = Color.Transparent; } catch { }
-                    }
-                }
-                else
-                {
-                    // Disable transparency and restore saved colors
-                    this.TransparencyKey = Color.Empty;
-                    this.BackColor = _prevFormBackColor.IsEmpty ? SystemColors.Control : _prevFormBackColor;
-
-                    try { tabControl1.BackColor = _prevTabControlBackColor; } catch { }
-                    for (int i = 0; i < tabControl1.TabPages.Count; i++)
-                    {
-                        var page = tabControl1.TabPages[i];
-                        if (_prevTabPageBackColors.ContainsKey(page))
-                        {
-                            try { page.BackColor = _prevTabPageBackColors[page]; } catch { }
-                        }
-                    }
-                }
-
-                Properties.Settings.Default.WindowTransparent = enable;
-                Properties.Settings.Default.Save();
-            }
-            catch (Exception ex)
-            {
-                Tools.LogHelper.Error(ex);
-            }
+            ApplyMaterialEffect(enable, Properties.Settings.Default.MaterialIntensity);
         }
 
         // ─── Multi-tab state ───────────────────────────────────────────────────
@@ -182,6 +245,7 @@ namespace TransBrowser
         }
 
         // Fields to remember original colours when toggling window background transparency
+        // (kept for backward compatibility – no longer used by the DWM material path)
         private Color _prevFormBackColor;
         private Color _prevTabControlBackColor;
         private Dictionary<System.Windows.Forms.TabPage, Color> _prevTabPageBackColors = new Dictionary<System.Windows.Forms.TabPage, Color>();
@@ -326,6 +390,20 @@ namespace TransBrowser
             InitializeWebView();
         }
 
+        // ─── DWM glass background painting override ───────────────────────────
+        protected override void OnPaintBackground(PaintEventArgs e)
+        {
+            if (_materialEnabled)
+            {
+                // For Win11 Mica: DwmExtendFrameIntoClientArea is active and GDI black
+                // pixels become DWM-transparent, letting the Mica backdrop show through.
+                // For Win10 Acrylic: painting black leaves the acrylic visible beneath.
+                e.Graphics.Clear(Color.Black);
+                return;
+            }
+            base.OnPaintBackground(e);
+        }
+
         // ─── Form Load ────────────────────────────────────────────────────────
         private void MainForm_Load(object sender, EventArgs e)
         {
@@ -367,7 +445,15 @@ namespace TransBrowser
             // ─── 现代化配色方案 ────────────────────────────────────────────
             Color bgColor, textColor, borderColor, hoverColor;
 
-            if (isSelected)
+            if (_materialEnabled)
+            {
+                // Glass material mode: use semi-transparent white so DWM Acrylic/Mica shows through
+                bgColor = isSelected
+                    ? Color.FromArgb(160, 255, 255, 255)   // 63% opaque white for active tab
+                    : Color.FromArgb(80, 255, 255, 255);   // 31% opaque white for inactive tabs
+                textColor = Color.FromArgb(32, 32, 32);
+            }
+            else if (isSelected)
             {
                 // 选中标签：纯白背景，深色文字
                 bgColor = Color.FromArgb(255, 255, 255);
@@ -494,7 +580,9 @@ namespace TransBrowser
         // ─── First-tab WebView2 async init ────────────────────────────────────
         private async void InitializeWebView()
         {
-            if (Properties.Settings.Default.TransparentBackground)
+            // Material mode is not applied yet at this point (Init() runs after),
+            // but honour TransparentBackground which is restored before InitializeWebView completes.
+            if (Properties.Settings.Default.TransparentBackground || Properties.Settings.Default.WindowTransparent)
                 webView21.DefaultBackgroundColor = Color.Transparent;
             await webView21.EnsureCoreWebView2Async(null);
             // Apply UA for mobile mode or saved default UA
@@ -513,7 +601,7 @@ namespace TransBrowser
             SetupWebViewEvents(webView21);
             // Register persistent transparent-background CSS so it is injected before
             // any page script runs, preventing a white flash on each navigation.
-            if (Properties.Settings.Default.TransparentBackground)
+            if (Properties.Settings.Default.TransparentBackground || Properties.Settings.Default.WindowTransparent)
                 await RegisterTransparentBackgroundScriptAsync(webView21);
             tabPageFirst.Text = "新标签页";
             // 启动时总是显示新标签页
@@ -561,11 +649,10 @@ namespace TransBrowser
             // Restore mobile mode if enabled
             SetMobileMold(Properties.Settings.Default.MobileMold);
 
-            // Restore window-level transparency (TransparencyKey / layered window).
-            // This must run at startup so the desktop shows through the WebView2 area
-            // whenever the user previously enabled transparent-background mode.
+            // Restore DWM glass material effect (replaces old TransparencyKey approach).
+            // ApplyMaterialEffect also handles WebView2 transparency if needed.
             if (Properties.Settings.Default.WindowTransparent)
-                SetWindowBackgroundTransparent(true);
+                ApplyMaterialEffect(true, Properties.Settings.Default.MaterialIntensity);
 
             inited = true;
 
@@ -582,7 +669,9 @@ namespace TransBrowser
             page.Padding = System.Windows.Forms.Padding.Empty;   // no inner whitespace
             var wv = new WebView2();
             wv.Dock = DockStyle.Fill;
-            wv.DefaultBackgroundColor = Color.White;
+            // When material mode is active, new WebView2 must also be transparent
+            wv.DefaultBackgroundColor = (_materialEnabled || Properties.Settings.Default.TransparentBackground)
+                ? Color.Transparent : Color.White;
             wv.CreationProperties = null;
             page.Controls.Add(wv);
 
@@ -595,7 +684,8 @@ namespace TransBrowser
 
         private async void SetupNewWebView(WebView2 wv, string url)
         {
-            if (Properties.Settings.Default.TransparentBackground)
+            bool wantTransparent = _materialEnabled || Properties.Settings.Default.TransparentBackground;
+            if (wantTransparent)
                 wv.DefaultBackgroundColor = Color.Transparent;
             await wv.EnsureCoreWebView2Async(null);
             try
@@ -613,7 +703,7 @@ namespace TransBrowser
             SetupWebViewEvents(wv);
             // Register persistent transparent-background CSS so it is injected before
             // any page script runs, preventing a white flash on each navigation.
-            if (Properties.Settings.Default.TransparentBackground)
+            if (_materialEnabled || Properties.Settings.Default.TransparentBackground)
                 await RegisterTransparentBackgroundScriptAsync(wv);
             if (!string.IsNullOrEmpty(url))
                 wv.CoreWebView2.Navigate(url);
@@ -828,8 +918,8 @@ namespace TransBrowser
             if (Properties.Settings.Default.NoImageMode)
                 ApplyNoImageCss(wv, true);
 
-            // 应用背景透明
-            if (Properties.Settings.Default.TransparentBackground)
+            // 应用背景透明（材质模式和网页透明模式都需要）
+            if (_materialEnabled || Properties.Settings.Default.TransparentBackground)
                 ApplyTransparentBackground(wv, true);
 
             // 应用灰度模式
@@ -891,6 +981,13 @@ namespace TransBrowser
 
         public void SetTans(double trans)
         {
+            // When DWM material is active, the Opacity must remain 1.0 to keep page content
+            // crisp.  The slider instead controls the material tint intensity.
+            if (_materialEnabled)
+            {
+                this.Opacity = 1.0;
+                return;
+            }
             trans = Math.Round(trans / 100.0, 2);
             this.Opacity = trans;
         }
@@ -1188,11 +1285,11 @@ namespace TransBrowser
             Properties.Settings.Default.TransparentBackground = enable;
             Properties.Settings.Default.Save();
 
-            // Webpage transparency requires the host window to be transparent too so
-            // that the desktop is visible through the WebView2 area.  Enable the layered
-            // window (TransparencyKey) whenever we turn on transparent-background mode.
-            if (enable)
-                SetWindowBackgroundTransparent(true);
+            // Note: We no longer auto-enable the old TransparencyKey approach here.
+            // The DWM glass material (ApplyMaterialEffect / swWindowTransparent) is now
+            // the correct way to show the desktop through the window.
+            // Transparent-background mode makes the WebView2 area transparent so the DWM
+            // material (if active) or the desktop (if WindowTransparent is on) shows through.
 
             for (int i = 0; i < tabControl1.TabPages.Count - 1; i++)
             {
@@ -1658,10 +1755,22 @@ namespace TransBrowser
             RegisterHotkeyFromSetting((int)HotkeyId.ClickThrough, Properties.Settings.Default.HotkeyClickThrough);
         }
 
+        private const int WM_ERASEBKGND = 0x0014;
+
         protected override void WndProc(ref System.Windows.Forms.Message m)
         {
             switch (m.Msg)
             {
+                case WM_ERASEBKGND:
+                    // When DWM material is active, suppress GDI background erasure.
+                    // OnPaintBackground handles the black fill that DWM uses as "transparent".
+                    if (_materialEnabled)
+                    {
+                        m.Result = (IntPtr)1;
+                        return;
+                    }
+                    break;
+
                 case WM_HOTKEY:
                     HandleHotkey(m.WParam.ToInt32());
                     base.WndProc(ref m);
@@ -1750,28 +1859,50 @@ namespace TransBrowser
                     break;
 
                 case HotkeyId.OpacityReset:
-                    // Toggle between 100% and previous opacity
-                    double current = Properties.Settings.Default.FormOpacity;
-                    if (current != 100)
+                    if (_materialEnabled)
                     {
-                        // save current and set to 100
-                        _lastOpacityBeforeReset = current;
-                        SetTans(100);
-                        Properties.Settings.Default.FormOpacity = 100;
-                        Properties.Settings.Default.Save();
-                        if (_settingForm != null && !_settingForm.IsDisposed)
-                            _settingForm.SyncOpacity(100);
+                        // In material mode: toggle between full intensity (100) and previous
+                        if (_materialIntensity != 100)
+                        {
+                            _lastOpacityBeforeReset = _materialIntensity;
+                            SetMaterialIntensity(100);
+                            if (_settingForm != null && !_settingForm.IsDisposed)
+                                _settingForm.SyncOpacity(100);
+                        }
+                        else
+                        {
+                            int restore = (_lastOpacityBeforeReset > 0) ? (int)_lastOpacityBeforeReset : 70;
+                            SetMaterialIntensity(restore);
+                            if (_settingForm != null && !_settingForm.IsDisposed)
+                                _settingForm.SyncOpacity(restore);
+                            _lastOpacityBeforeReset = -1;
+                        }
                     }
                     else
                     {
-                        // restore previous if available
-                        double restore = (_lastOpacityBeforeReset > 0) ? _lastOpacityBeforeReset : 100;
-                        SetTans(restore);
-                        Properties.Settings.Default.FormOpacity = restore;
-                        Properties.Settings.Default.Save();
-                        if (_settingForm != null && !_settingForm.IsDisposed)
-                            _settingForm.SyncOpacity((int)restore);
-                        _lastOpacityBeforeReset = -1;
+                        // Toggle between 100% and previous opacity
+                        double current = Properties.Settings.Default.FormOpacity;
+                        if (current != 100)
+                        {
+                            // save current and set to 100
+                            _lastOpacityBeforeReset = current;
+                            SetTans(100);
+                            Properties.Settings.Default.FormOpacity = 100;
+                            Properties.Settings.Default.Save();
+                            if (_settingForm != null && !_settingForm.IsDisposed)
+                                _settingForm.SyncOpacity(100);
+                        }
+                        else
+                        {
+                            // restore previous if available
+                            double restore = (_lastOpacityBeforeReset > 0) ? _lastOpacityBeforeReset : 100;
+                            SetTans(restore);
+                            Properties.Settings.Default.FormOpacity = restore;
+                            Properties.Settings.Default.Save();
+                            if (_settingForm != null && !_settingForm.IsDisposed)
+                                _settingForm.SyncOpacity((int)restore);
+                            _lastOpacityBeforeReset = -1;
+                        }
                     }
                     break;
 
@@ -1783,6 +1914,16 @@ namespace TransBrowser
 
         private void AdjustOpacity(int delta)
         {
+            if (_materialEnabled)
+            {
+                // In material mode, the hotkeys adjust the DWM tint intensity instead
+                int newIntensity = Math.Max(1, Math.Min(100, _materialIntensity + delta));
+                SetMaterialIntensity(newIntensity);
+                if (_settingForm != null && !_settingForm.IsDisposed)
+                    _settingForm.SyncOpacity(newIntensity);
+                return;
+            }
+
             // Use the actual window opacity as source of truth (avoid desync when window-transparent mode was used)
             double current = Math.Round(this.Opacity * 100.0);
             double newVal = Math.Max(1, Math.Min(100, current + delta));
