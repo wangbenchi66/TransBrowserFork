@@ -43,6 +43,8 @@ namespace TransBrowser
             this.label9 = new AntdUI.Label();
             this.label12 = new AntdUI.Label();
             this.switch7 = new AntdUI.Switch();
+            this.label13 = new AntdUI.Label();
+            this.switch8 = new AntdUI.Switch();
             this.switch3 = new AntdUI.Switch();
             this.label2 = new AntdUI.Label();
             this.label6 = new AntdUI.Label();
@@ -83,19 +85,19 @@ namespace TransBrowser
             // 
             // label1
             // 
-            this.label1.Location = new System.Drawing.Point(3, 3);
+            this.label1.Location = new System.Drawing.Point(3, 6);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(58, 32);
+            this.label1.Size = new System.Drawing.Size(70, 26);
             this.label1.TabIndex = 3;
-            this.label1.Text = "不透明度";
+            this.label1.Text = "透明度";
             // 
             // slider1
             // 
-            this.slider1.Location = new System.Drawing.Point(67, 3);
+            this.slider1.Location = new System.Drawing.Point(76, 6);
             this.slider1.MinValue = 1;
             this.slider1.Name = "slider1";
             this.slider1.ShowValue = true;
-            this.slider1.Size = new System.Drawing.Size(372, 32);
+            this.slider1.Size = new System.Drawing.Size(365, 26);
             this.slider1.TabIndex = 4;
             this.slider1.Text = "slider1";
             // 
@@ -142,16 +144,18 @@ namespace TransBrowser
             this.panel3.Controls.Add(this.switch6);
             this.panel3.Controls.Add(this.label12);
             this.panel3.Controls.Add(this.switch7);
+            this.panel3.Controls.Add(this.label13);
+            this.panel3.Controls.Add(this.switch8);
             this.panel3.Location = new System.Drawing.Point(3, 3);
             this.panel3.Name = "panel3";
-            this.panel3.Size = new System.Drawing.Size(450, 135);
+            this.panel3.Size = new System.Drawing.Size(450, 170);
             this.panel3.TabIndex = 20;
             // 
             // autohide_sw
             // 
-            this.autohide_sw.Location = new System.Drawing.Point(62, 70);
+            this.autohide_sw.Location = new System.Drawing.Point(76, 70);
             this.autohide_sw.Name = "autohide_sw";
-            this.autohide_sw.Size = new System.Drawing.Size(40, 23);
+            this.autohide_sw.Size = new System.Drawing.Size(40, 26);
             this.autohide_sw.TabIndex = 16;
             this.autohide_sw.Text = "switch4";
             // 
@@ -159,7 +163,7 @@ namespace TransBrowser
             // 
             this.label9.Location = new System.Drawing.Point(3, 70);
             this.label9.Name = "label9";
-            this.label9.Size = new System.Drawing.Size(65, 23);
+            this.label9.Size = new System.Drawing.Size(70, 26);
             this.label9.TabIndex = 15;
             this.label9.Text = "失焦隐藏";
             // 
@@ -193,84 +197,102 @@ namespace TransBrowser
             // 
             // colorPicker1
             // 
-            this.colorPicker1.Location = new System.Drawing.Point(315, 41);
+            this.colorPicker1.Location = new System.Drawing.Point(215, 38);
             this.colorPicker1.Name = "colorPicker1";
-            this.colorPicker1.Size = new System.Drawing.Size(42, 23);
+            this.colorPicker1.Size = new System.Drawing.Size(50, 26);
             this.colorPicker1.TabIndex = 9;
             this.colorPicker1.Text = "colorPicker1";
             this.colorPicker1.Value = System.Drawing.Color.FromArgb(((int)(((byte)(22)))), ((int)(((byte)(119)))), ((int)(((byte)(255)))));
             // 
             // label3
             // 
-            this.label3.Location = new System.Drawing.Point(108, 41);
+            this.label3.Location = new System.Drawing.Point(3, 38);
             this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(75, 23);
+            this.label3.Size = new System.Drawing.Size(70, 26);
             this.label3.TabIndex = 6;
             this.label3.Text = "任务栏显示";
+            this.label3.Visible = false;
             // 
             // label4
             // 
-            this.label4.Location = new System.Drawing.Point(235, 41);
+            this.label4.Location = new System.Drawing.Point(122, 38);
             this.label4.Name = "label4";
-            this.label4.Size = new System.Drawing.Size(75, 23);
+            this.label4.Size = new System.Drawing.Size(90, 26);
             this.label4.TabIndex = 8;
             this.label4.Text = "状态栏背景色";
             // 
             // switch2
             // 
-            this.switch2.Location = new System.Drawing.Point(189, 41);
+            this.switch2.Location = new System.Drawing.Point(76, 38);
             this.switch2.Name = "switch2";
-            this.switch2.Size = new System.Drawing.Size(40, 23);
+            this.switch2.Size = new System.Drawing.Size(40, 26);
             this.switch2.TabIndex = 7;
             this.switch2.Text = "switch2";
+            this.switch2.Visible = false;
             // 
             // label10 - 显示标签栏
             // 
-            this.label10.Location = new System.Drawing.Point(3, 103);
+            this.label10.Location = new System.Drawing.Point(3, 102);
             this.label10.Name = "label10";
-            this.label10.Size = new System.Drawing.Size(53, 23);
+            this.label10.Size = new System.Drawing.Size(70, 26);
             this.label10.TabIndex = 17;
             this.label10.Text = "显示标签栏";
             // 
             // switch5
             // 
-            this.switch5.Location = new System.Drawing.Point(62, 103);
+            this.switch5.Location = new System.Drawing.Point(76, 102);
             this.switch5.Name = "switch5";
-            this.switch5.Size = new System.Drawing.Size(40, 23);
+            this.switch5.Size = new System.Drawing.Size(40, 26);
             this.switch5.TabIndex = 18;
             this.switch5.Text = "switch5";
             // 
             // label11 - 无图模式
             // 
-            this.label11.Location = new System.Drawing.Point(108, 103);
+            this.label11.Location = new System.Drawing.Point(122, 102);
             this.label11.Name = "label11";
-            this.label11.Size = new System.Drawing.Size(53, 23);
+            this.label11.Size = new System.Drawing.Size(70, 26);
             this.label11.TabIndex = 19;
             this.label11.Text = "无图模式";
             // 
             // switch6
             // 
-            this.switch6.Location = new System.Drawing.Point(167, 103);
+            this.switch6.Location = new System.Drawing.Point(195, 102);
             this.switch6.Name = "switch6";
-            this.switch6.Size = new System.Drawing.Size(40, 23);
+            this.switch6.Size = new System.Drawing.Size(40, 26);
             this.switch6.TabIndex = 20;
             this.switch6.Text = "switch6";
             // 
-            // label12 – 状态栏悬停隐藏
+            // label12 – 任务栏悬停显示
             // 
-            this.label12.Location = new System.Drawing.Point(213, 103);
+            this.label12.Location = new System.Drawing.Point(241, 102);
             this.label12.Name = "label12";
-            this.label12.Size = new System.Drawing.Size(82, 23);
+            this.label12.Size = new System.Drawing.Size(100, 26);
             this.label12.TabIndex = 21;
-            this.label12.Text = "状态栏悬停隐藏";
+            this.label12.Text = "任务栏悬停显示";
             // 
             // switch7 – hover header mode toggle
             // 
-            this.switch7.Location = new System.Drawing.Point(301, 103);
+            this.switch7.Location = new System.Drawing.Point(344, 102);
             this.switch7.Name = "switch7";
-            this.switch7.Size = new System.Drawing.Size(40, 23);
+            this.switch7.Size = new System.Drawing.Size(40, 26);
             this.switch7.TabIndex = 22;
             this.switch7.Text = "switch7";
+            // 
+            // label13 – 网页背景透明
+            // 
+            this.label13.Location = new System.Drawing.Point(3, 134);
+            this.label13.Name = "label13";
+            this.label13.Size = new System.Drawing.Size(90, 26);
+            this.label13.TabIndex = 23;
+            this.label13.Text = "网页背景透明";
+            // 
+            // switch8 – transparent background toggle
+            // 
+            this.switch8.Location = new System.Drawing.Point(96, 134);
+            this.switch8.Name = "switch8";
+            this.switch8.Size = new System.Drawing.Size(40, 26);
+            this.switch8.TabIndex = 24;
+            this.switch8.Text = "switch8";
             // 
             // panel1
             // 
@@ -328,7 +350,7 @@ namespace TransBrowser
             this.button1.Name = "button1";
             this.button1.Size = new System.Drawing.Size(52, 33);
             this.button1.TabIndex = 12;
-            this.button1.Text = "加载";
+            this.button1.Text = "打开";
             this.button1.Type = AntdUI.TTypeMini.Primary;
             // 
             // input1
@@ -377,7 +399,7 @@ namespace TransBrowser
             this.lblOpacityUp.Name = "lblOpacityUp";
             this.lblOpacityUp.Size = new System.Drawing.Size(60, 22);
             this.lblOpacityUp.TabIndex = 3;
-            this.lblOpacityUp.Text = "透明度+";
+            this.lblOpacityUp.Text = "降低透明";
 
             this.txtOpacityUp.Location = new System.Drawing.Point(285, 27);
             this.txtOpacityUp.Name = "txtOpacityUp";
@@ -388,7 +410,7 @@ namespace TransBrowser
             this.lblOpacityDown.Name = "lblOpacityDown";
             this.lblOpacityDown.Size = new System.Drawing.Size(80, 22);
             this.lblOpacityDown.TabIndex = 5;
-            this.lblOpacityDown.Text = "透明度-";
+            this.lblOpacityDown.Text = "提高透明";
 
             this.txtOpacityDown.Location = new System.Drawing.Point(89, 57);
             this.txtOpacityDown.Name = "txtOpacityDown";
@@ -410,7 +432,7 @@ namespace TransBrowser
             this.btnApplyHotkeys.Name = "btnApplyHotkeys";
             this.btnApplyHotkeys.Size = new System.Drawing.Size(120, 33);
             this.btnApplyHotkeys.TabIndex = 9;
-            this.btnApplyHotkeys.Text = "应用快捷键";
+            this.btnApplyHotkeys.Text = "保存设置";
             this.btnApplyHotkeys.Type = AntdUI.TTypeMini.Primary;
 
             // 
@@ -531,5 +553,7 @@ namespace TransBrowser
         private AntdUI.Switch switch6;
         private AntdUI.Label label12;
         private AntdUI.Switch switch7;
+        private AntdUI.Label label13;
+        private AntdUI.Switch switch8;
     }
 }

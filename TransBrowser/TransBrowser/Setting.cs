@@ -21,18 +21,20 @@ namespace TransBrowser
             InitializeComponent();
         }
 
-        private void Setting_Load(object sender, EventArgs e) { }
+        private void Setting_Load(object sender, EventArgs e)
+        { }
 
         public void Init()
         {
-            this.slider1.Value = (int)Properties.Settings.Default.FormOpacity;
+            // 不透明度改为透明度：100%不透明 = 0%透明
+            this.slider1.Value = 100 - (int)Properties.Settings.Default.FormOpacity;
             this.input1.Text = Properties.Settings.Default.DefaultUrl;
-            this.switch2.Checked = Properties.Settings.Default.ShowInTaskbar;
             this.colorPicker1.Value = Properties.Settings.Default.ThemeBackColor;
             this.autohide_sw.Checked = Properties.Settings.Default.AutoHide;
             this.switch5.Checked = Properties.Settings.Default.ShowTabBar;
             this.switch6.Checked = Properties.Settings.Default.NoImageMode;
             this.switch7.Checked = Properties.Settings.Default.HoverHeaderMode;
+            this.switch8.Checked = Properties.Settings.Default.TransparentBackground;
 
             // Hotkey fields
             this.txtBossKey.Text = Properties.Settings.Default.HotkeyBossKey;
@@ -43,13 +45,13 @@ namespace TransBrowser
             // Wire events
             this.slider1.ValueChanged += new AntdUI.IntEventHandler(this.slider1_ValueChanged);
             this.button1.Click += new System.EventHandler(this.button1_Click);
-            this.switch2.CheckedChanged += new AntdUI.BoolEventHandler(this.switch2_CheckedChanged);
             this.colorPicker1.ValueChanged += new AntdUI.ColorEventHandler(this.colorPicker1_ValueChanged);
             this.autohide_sw.CheckedChanged += new AntdUI.BoolEventHandler(this.switch4_CheckedChanged);
             this.btnApplyHotkeys.Click += new System.EventHandler(this.btnApplyHotkeys_Click);
             this.switch5.CheckedChanged += new AntdUI.BoolEventHandler(this.switch5_CheckedChanged);
             this.switch6.CheckedChanged += new AntdUI.BoolEventHandler(this.switch6_CheckedChanged);
             this.switch7.CheckedChanged += new AntdUI.BoolEventHandler(this.switch7_CheckedChanged);
+            this.switch8.CheckedChanged += new AntdUI.BoolEventHandler(this.switch8_CheckedChanged);
 
             // Hotkey textboxes capture key presses
             foreach (TextBox tb in new[] { txtBossKey, txtOpacityUp, txtOpacityDown, txtClickThrough })
@@ -75,7 +77,7 @@ namespace TransBrowser
         {
             // Conflict check: no two configurable hotkeys may be identical
             var vals = new[] { txtBossKey.Text, txtOpacityUp.Text, txtOpacityDown.Text, txtClickThrough.Text };
-            var labels = new[] { "老板键", "不透明度+", "不透明度-", "鼠标穿透" };
+            var labels = new[] { "老板键", "降低透明度", "提高透明度", "鼠标穿透" };
             var seen = new Dictionary<string, string>();
             foreach (int i in new[] { 0, 1, 2, 3 })
             {
@@ -107,20 +109,35 @@ namespace TransBrowser
 
         // ─── Existing handlers ────────────────────────────────────────────────
 
-        private void select1_SelectedIndexChanged(object sender, IntEventArgs e) { }
+        private void select1_SelectedIndexChanged(object sender, IntEventArgs e)
+        { }
 
         private void slider1_ValueChanged(object sender, IntEventArgs e)
         {
-            mainForm.SetTans(slider1.Value);
-            Properties.Settings.Default.FormOpacity = slider1.Value;
+            // 透明度slider：0%透明=100%不透明，100%透明=1%不透明
+            int opacity = 100 - slider1.Value;
+            // 确保至少有1%不透明度，避免完全透明
+            if (opacity < 1) opacity = 1;
+            mainForm.SetTans(opacity);
+            Properties.Settings.Default.FormOpacity = opacity;
             Properties.Settings.Default.Save();
         }
 
         private void button1_Click(object sender, EventArgs e)
         {
-            mainForm.LoadUrl(this.input1.Text);
-            Properties.Settings.Default.DefaultUrl = this.input1.Text;
-            Properties.Settings.Default.Save();
+            // 修改3：点击加载按钮时在新标签页中打开网页
+            string url = this.input1.Text.Trim();
+            if (!string.IsNullOrEmpty(url))
+            {
+                if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                    !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                {
+                    url = "https://" + url;
+                }
+                mainForm.AddNewTab(url);
+                Properties.Settings.Default.DefaultUrl = url;
+                Properties.Settings.Default.Save();
+            }
         }
 
         private void switch1_CheckedChanged(object sender, BoolEventArgs e)
@@ -128,14 +145,6 @@ namespace TransBrowser
             bool notitle = e.Value;
             mainForm.ShowWindowsBar(notitle);
             Properties.Settings.Default.NoTitle = notitle;
-            Properties.Settings.Default.Save();
-        }
-
-        private void switch2_CheckedChanged(object sender, BoolEventArgs e)
-        {
-            bool showintask = e.Value;
-            mainForm.SetShowInTaskBar(showintask);
-            Properties.Settings.Default.ShowInTaskbar = showintask;
             Properties.Settings.Default.Save();
         }
 
@@ -169,12 +178,12 @@ namespace TransBrowser
 
         private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            System.Diagnostics.Process.Start("https://github.com/yclown/TransBrowser");
+            System.Diagnostics.Process.Start("https://www.baidu.com");
         }
 
         private void linkLabel2_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            System.Diagnostics.Process.Start("https://gitee.com/yclown/TransBrowser");
+            System.Diagnostics.Process.Start("https://www.baidu.com");
         }
 
         private void switch4_CheckedChanged(object sender, BoolEventArgs e)
@@ -184,10 +193,12 @@ namespace TransBrowser
             Properties.Settings.Default.Save();
         }
 
-        public void SyncOpacity(int value)
+        public void SyncOpacity(int opacityValue)
         {
+            // opacityValue是不透明度(1-100)，需要转换为透明度显示
+            int transparencyValue = 100 - opacityValue;
             this.slider1.ValueChanged -= slider1_ValueChanged;
-            this.slider1.Value = value;
+            this.slider1.Value = transparencyValue;
             this.slider1.ValueChanged += slider1_ValueChanged;
         }
 
@@ -215,6 +226,13 @@ namespace TransBrowser
             Properties.Settings.Default.HoverHeaderMode = hoverMode;
             Properties.Settings.Default.Save();
         }
+
+        private void switch8_CheckedChanged(object sender, BoolEventArgs e)
+        {
+            bool transparentBg = e.Value;
+            mainForm.SetTransparentBackground(transparentBg);
+            Properties.Settings.Default.TransparentBackground = transparentBg;
+            Properties.Settings.Default.Save();
+        }
     }
 }
-

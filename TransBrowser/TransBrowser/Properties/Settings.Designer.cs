@@ -242,5 +242,21 @@ namespace TransBrowser.Properties {
             get { return ((bool)(this["HoverHeaderMode"])); }
             set { this["HoverHeaderMode"] = value; }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool TransparentBackground {
+            get { return ((bool)(this["TransparentBackground"])); }
+            set { this["TransparentBackground"] = value; }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string BrowsingHistory {
+            get { return ((string)(this["BrowsingHistory"])); }
+            set { this["BrowsingHistory"] = value; }
+        }
     }
 }

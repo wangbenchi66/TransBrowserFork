@@ -4,6 +4,7 @@ using Microsoft.Web.WebView2.WinForms;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
@@ -70,7 +71,8 @@ namespace TransBrowser
             BossKey = 200,
             OpacityUp = 201,
             OpacityDown = 202,
-            ClickThrough = 203
+            ClickThrough = 203,
+            OpacityReset = 204
         }
 
         // ─── Multi-tab state ───────────────────────────────────────────────────
@@ -94,12 +96,23 @@ namespace TransBrowser
             return null;
         }
 
+        // 用于存储 WebView2 的事件处理器映射，避免 Lambda 无法移除的问题
+        private Dictionary<CoreWebView2, EventHandler<object>> _titleChangedHandlers 
+            = new Dictionary<CoreWebView2, EventHandler<object>>();
+
         // ─── Custom site management (#3/#4) ──────────────────────────────────
 
         private class CustomSite
         {
             public string Name { get; set; }
             public string Url { get; set; }
+        }
+
+        private class HistoryItem
+        {
+            public string Title { get; set; }
+            public string Url { get; set; }
+            public DateTime VisitTime { get; set; }
         }
 
         private List<CustomSite> LoadCustomSites()
@@ -129,6 +142,70 @@ namespace TransBrowser
             Properties.Settings.Default.Save();
         }
 
+        // ─── Browsing history management ─────────────────────────────────────
+
+        private List<HistoryItem> LoadHistory()
+        {
+            var list = new List<HistoryItem>();
+            string raw = Properties.Settings.Default.BrowsingHistory ?? "";
+            if (string.IsNullOrWhiteSpace(raw)) return list;
+
+            foreach (string line in raw.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var parts = line.Split('\t');
+                if (parts.Length >= 3)
+                {
+                    if (DateTime.TryParse(parts[2], out DateTime visitTime))
+                    {
+                        list.Add(new HistoryItem
+                        {
+                            Title = parts[0],
+                            Url = parts[1],
+                            VisitTime = visitTime
+                        });
+                    }
+                }
+            }
+
+            // 按访问时间倒序排列，最新的在前面
+            return list.OrderByDescending(h => h.VisitTime).Take(50).ToList();
+        }
+
+        private void SaveHistory(List<HistoryItem> history)
+        {
+            var sb = new StringBuilder();
+            foreach (var h in history.Take(50)) // 只保存最近50条
+            {
+                string title = (h.Title ?? "").Replace("\t", " ").Replace("\n", " ");
+                string url = (h.Url ?? "").Replace("\t", "").Replace("\n", "");
+                sb.Append(title).Append('\t').Append(url).Append('\t')
+                  .Append(h.VisitTime.ToString("o")).Append('\n');
+            }
+            Properties.Settings.Default.BrowsingHistory = sb.ToString();
+            Properties.Settings.Default.Save();
+        }
+
+        private void AddToHistory(string title, string url)
+        {
+            if (string.IsNullOrEmpty(url) || url == "about:blank") return;
+            if (url.StartsWith("data:") || url.StartsWith("javascript:")) return;
+
+            var history = LoadHistory();
+
+            // 移除相同URL的旧记录
+            history.RemoveAll(h => h.Url == url);
+
+            // 添加新记录
+            history.Insert(0, new HistoryItem
+            {
+                Title = string.IsNullOrEmpty(title) ? url : title,
+                Url = url,
+                VisitTime = DateTime.Now
+            });
+
+            SaveHistory(history);
+        }
+
         private void RefreshNewTabPages()
         {
             for (int i = 0; i < tabControl1.TabPages.Count - 1; i++)
@@ -147,8 +224,11 @@ namespace TransBrowser
         public MainForm()
         {
             InitializeComponent();
-            // #6: Disable default window shadow
-            this.Shadow = 0;
+            // 完全移除所有内边距，消除窗体和控件之间的间距
+            this.Padding = System.Windows.Forms.Padding.Empty;
+            tabControl1.Padding = System.Drawing.Point.Empty;
+            tabControl1.Margin = System.Windows.Forms.Padding.Empty;
+            pageHeader1.Margin = System.Windows.Forms.Padding.Empty;
             // Start async WebView2 init for the first tab
             InitializeWebView();
         }
@@ -169,6 +249,153 @@ namespace TransBrowser
 
             // Set up floating header behavior
             InitFloatingHeader();
+
+            // Enable custom tab drawing for close buttons
+            InitTabControlDrawing();
+        }
+
+        // ─── Custom tab drawing (close button) ────────────────────────────────
+        private void InitTabControlDrawing()
+        {
+            tabControl1.DrawMode = System.Windows.Forms.TabDrawMode.OwnerDrawFixed;
+            tabControl1.DrawItem += TabControl1_DrawItem;
+            tabControl1.Multiline = false; // 强制单行显示
+        }
+
+        private void TabControl1_DrawItem(object sender, System.Windows.Forms.DrawItemEventArgs e)
+        {
+            if (e.Index < 0) return;
+
+            var tab = tabControl1.TabPages[e.Index];
+            var tabRect = tabControl1.GetTabRect(e.Index);
+            bool isLastTab = e.Index == tabControl1.TabPages.Count - 1; // "+" tab
+            bool isSelected = e.Index == tabControl1.SelectedIndex;
+
+            // ─── 现代化配色方案 ────────────────────────────────────────────
+            Color bgColor, textColor, borderColor, hoverColor;
+
+            if (isSelected)
+            {
+                // 选中标签：纯白背景，深色文字
+                bgColor = Color.FromArgb(255, 255, 255);
+                textColor = Color.FromArgb(32, 32, 32);
+            }
+            else
+            {
+                // 未选中标签：浅灰背景，中灰文字
+                bgColor = Color.FromArgb(242, 242, 242);
+                textColor = Color.FromArgb(90, 90, 90);
+            }
+
+            borderColor = Color.FromArgb(218, 218, 218);
+            hoverColor = Color.FromArgb(232, 17, 35); // 关闭按钮悬停色
+
+            // ─── 绘制背景 ──────────────────────────────────────────────────
+            using (var bgBrush = new SolidBrush(bgColor))
+            {
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+                // 绘制圆角矩形背景（顶部圆角）
+                if (isSelected)
+                {
+                    // 选中标签：完整背景
+                    e.Graphics.FillRectangle(bgBrush, tabRect);
+                }
+                else
+                {
+                    // 未选中标签：稍微缩小的背景
+                    var innerRect = new Rectangle(
+                        tabRect.X + 1, 
+                        tabRect.Y + 2, 
+                        tabRect.Width - 2, 
+                        tabRect.Height - 2);
+                    e.Graphics.FillRectangle(bgBrush, innerRect);
+                }
+            }
+
+            // ─── 绘制分隔线 ────────────────────────────────────────────────
+            // 只在标签之间绘制细微的分隔线
+            if (!isLastTab && !isSelected && e.Index + 1 < tabControl1.TabPages.Count - 1)
+            {
+                bool nextIsSelected = (e.Index + 1) == tabControl1.SelectedIndex;
+                if (!nextIsSelected)
+                {
+                    using (var pen = new Pen(Color.FromArgb(230, 230, 230), 1))
+                    {
+                        e.Graphics.DrawLine(pen, 
+                            tabRect.Right - 1, tabRect.Top + 8, 
+                            tabRect.Right - 1, tabRect.Bottom - 8);
+                    }
+                }
+            }
+
+            // 移除蓝色下划线，使用更简洁的设计
+
+            // ─── 绘制文本 ──────────────────────────────────────────────────
+            int leftPadding = isLastTab ? 8 : 12;
+            int rightPadding = isLastTab ? 8 : 28; // 为关闭按钮留空间
+
+            var textRect = new Rectangle(
+                tabRect.X + leftPadding, 
+                tabRect.Y + 2, 
+                tabRect.Width - leftPadding - rightPadding, 
+                tabRect.Height - 2);
+
+            using (var textBrush = new SolidBrush(textColor))
+            {
+                var sf = new StringFormat
+                {
+                    Alignment = isLastTab ? StringAlignment.Center : StringAlignment.Near,
+                    LineAlignment = StringAlignment.Center,
+                    Trimming = StringTrimming.EllipsisCharacter,
+                    FormatFlags = StringFormatFlags.NoWrap
+                };
+
+                // 使用稍大字体使其更清晰
+                using (var font = new Font(e.Font.FontFamily, e.Font.Size, FontStyle.Regular))
+                {
+                    e.Graphics.DrawString(tab.Text, font, textBrush, textRect, sf);
+                }
+            }
+
+            // ─── 绘制关闭按钮（圆形背景 + X 符号）─────────────────────────
+            if (!isLastTab)
+            {
+                var closeRect = new Rectangle(
+                    tabRect.Right - 20, 
+                    tabRect.Y + (tabRect.Height - 14) / 2, 
+                    14, 14);
+
+                // 检测鼠标悬停
+                Point mousePos = tabControl1.PointToClient(Cursor.Position);
+                bool isHovering = closeRect.Contains(mousePos);
+
+                // 绘制圆形背景（悬停时）
+                if (isHovering)
+                {
+                    using (var hoverBrush = new SolidBrush(Color.FromArgb(240, 240, 240)))
+                    {
+                        e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                        e.Graphics.FillEllipse(hoverBrush, closeRect);
+                    }
+                }
+
+                // 绘制 X 符号
+                Color closeColor = isHovering ? hoverColor : Color.FromArgb(120, 120, 120);
+                using (var closePen = new Pen(closeColor, 1.5f))
+                {
+                    e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+                    // X 的两条对角线
+                    int offset = 4;
+                    e.Graphics.DrawLine(closePen, 
+                        closeRect.Left + offset, closeRect.Top + offset, 
+                        closeRect.Right - offset, closeRect.Bottom - offset);
+                    e.Graphics.DrawLine(closePen, 
+                        closeRect.Right - offset, closeRect.Top + offset, 
+                        closeRect.Left + offset, closeRect.Bottom - offset);
+                }
+            }
         }
 
         // ─── First-tab WebView2 async init ────────────────────────────────────
@@ -177,14 +404,20 @@ namespace TransBrowser
             await webView21.EnsureCoreWebView2Async(null);
             SetupWebViewEvents(webView21);
             tabPageFirst.Text = "新标签页";
-            string startUrl = Properties.Settings.Default.DefaultUrl;
-            if (string.IsNullOrEmpty(startUrl))
-                webView21.CoreWebView2.NavigateToString(GetNewTabHtml());
+            // 启动时总是显示新标签页
+            webView21.CoreWebView2.NavigateToString(GetNewTabHtml());
         }
 
         // ─── Settings restoration ─────────────────────────────────────────────
         public void Init()
         {
+            // 首次启动时初始化默认值
+            if (Properties.Settings.Default.FormOpacity <= 0 || Properties.Settings.Default.FormOpacity > 100)
+            {
+                Properties.Settings.Default.FormOpacity = 100;
+                Properties.Settings.Default.Save();
+            }
+
             // Always start with floating header (no explicit "无窗口" toggle)
             ShowWindowsBar(false);
             SetShowInTaskBar(Properties.Settings.Default.ShowInTaskbar);
@@ -215,7 +448,7 @@ namespace TransBrowser
 
         // ─── Tab management ───────────────────────────────────────────────────
 
-        private System.Windows.Forms.TabPage AddNewTab(string url = null)
+        public System.Windows.Forms.TabPage AddNewTab(string url = null)
         {
             int insertIndex = tabControl1.TabPages.Count - 1; // before the "+" tab
             var page = new System.Windows.Forms.TabPage("新标签页");
@@ -248,8 +481,10 @@ namespace TransBrowser
             wv.CoreWebView2.NewWindowRequested -= CoreWebView2_NewWindowRequested;
             wv.CoreWebView2.NewWindowRequested += CoreWebView2_NewWindowRequested;
 
-            // Use lambda so the compiler picks the right delegate type automatically
-            wv.CoreWebView2.DocumentTitleChanged += (s, _) => UpdateTabTitle(s as CoreWebView2);
+            // 创建并存储标题变化事件处理器，以便正确移除
+            EventHandler<object> titleHandler = (s, _) => UpdateTabTitle(s as CoreWebView2);
+            _titleChangedHandlers[wv.CoreWebView2] = titleHandler;
+            wv.CoreWebView2.DocumentTitleChanged += titleHandler;
 
             wv.NavigationCompleted -= Wv_NavigationCompleted;
             wv.NavigationCompleted += Wv_NavigationCompleted;
@@ -307,7 +542,21 @@ namespace TransBrowser
                     string title = string.IsNullOrEmpty(core.DocumentTitle) ? "新标签页" : core.DocumentTitle;
                     if (title.Length > 20) title = title.Substring(0, 18) + "…";
                     int capturedI = i;
-                    this.BeginInvoke((MethodInvoker)(() => tabControl1.TabPages[capturedI].Text = title));
+                    this.BeginInvoke((MethodInvoker)(() => 
+                    {
+                        // 边界检查：确保标签还存在
+                        if (capturedI >= 0 && capturedI < tabControl1.TabPages.Count - 1)
+                        {
+                            try
+                            {
+                                tabControl1.TabPages[capturedI].Text = title;
+                            }
+                            catch (ArgumentOutOfRangeException)
+                            {
+                                // 标签已被删除，忽略
+                            }
+                        }
+                    }));
                     break;
                 }
             }
@@ -322,24 +571,39 @@ namespace TransBrowser
 
         private void tabControl1_MouseDown(object sender, MouseEventArgs e)
         {
-            if (e.Button != MouseButtons.Middle && e.Button != MouseButtons.Right)
-                return;
-
             for (int i = 0; i < tabControl1.TabPages.Count - 1; i++) // skip "+" tab
             {
-                if (tabControl1.GetTabRect(i).Contains(e.Location))
+                var tabRect = tabControl1.GetTabRect(i);
+                if (tabRect.Contains(e.Location))
                 {
+                    // 与绘制时保持一致的关闭按钮矩形（右边距20px，14x14居中）
+                    var closeRect = new Rectangle(
+                        tabRect.Right - 20, 
+                        tabRect.Y + (tabRect.Height - 14) / 2, 
+                        14, 14);
+
+                    if (e.Button == MouseButtons.Left && closeRect.Contains(e.Location))
+                    {
+                        CloseTab(i);
+                        return;
+                    }
+
+                    // Middle-click to close
                     if (e.Button == MouseButtons.Middle)
                     {
                         CloseTab(i);
+                        return;
                     }
-                    else // right-click
+
+                    // Right-click menu
+                    if (e.Button == MouseButtons.Right)
                     {
                         var menu = new System.Windows.Forms.ContextMenuStrip();
                         int capturedI = i;
                         menu.Items.Add("关闭标签", null, (s, _) => CloseTab(capturedI));
                         menu.Items.Add("在新标签页中打开", null, (s, _) => AddNewTab());
                         menu.Show(tabControl1, e.Location);
+                        return;
                     }
                     break;
                 }
@@ -351,17 +615,46 @@ namespace TransBrowser
             if (tabControl1.TabPages.Count <= 2) // only one real tab + "+" tab
                 return; // don't close the last real tab
 
+            // 边界检查
+            if (index < 0 || index >= tabControl1.TabPages.Count - 1)
+                return;
+
             var page = tabControl1.TabPages[index];
             var wv = GetTabWebView(page);
             if (wv != null)
             {
+                // 先移除事件处理，避免在 Dispose 时触发
+                try
+                {
+                    if (wv.CoreWebView2 != null)
+                    {
+                        wv.CoreWebView2.NewWindowRequested -= CoreWebView2_NewWindowRequested;
+
+                        // 移除存储的标题变化事件处理器
+                        if (_titleChangedHandlers.ContainsKey(wv.CoreWebView2))
+                        {
+                            wv.CoreWebView2.DocumentTitleChanged -= _titleChangedHandlers[wv.CoreWebView2];
+                            _titleChangedHandlers.Remove(wv.CoreWebView2);
+                        }
+
+                        wv.CoreWebView2.ContextMenuRequested -= CoreWebView2_ContextMenuRequested;
+                        wv.CoreWebView2.WebMessageReceived -= CoreWebView2_WebMessageReceived;
+                    }
+                    wv.NavigationCompleted -= Wv_NavigationCompleted;
+                }
+                catch { }
+
                 wv.Dispose();
             }
             tabControl1.TabPages.RemoveAt(index);
 
             // Ensure we're not sitting on the "+" tab after removal
             if (tabControl1.SelectedIndex >= tabControl1.TabPages.Count - 1)
-                tabControl1.SelectedIndex = tabControl1.TabPages.Count - 2;
+            {
+                int newIndex = Math.Max(0, tabControl1.TabPages.Count - 2);
+                if (newIndex >= 0 && newIndex < tabControl1.TabPages.Count)
+                    tabControl1.SelectedIndex = newIndex;
+            }
         }
 
         // ─── WebView2 events ──────────────────────────────────────────────────
@@ -382,9 +675,17 @@ namespace TransBrowser
             {
                 Properties.Settings.Default.DefaultUrl = wv.Source.AbsoluteUri;
                 Properties.Settings.Default.Save();
+
+                // 添加到历史记录
+                string title = wv.CoreWebView2?.DocumentTitle ?? "";
+                AddToHistory(title, wv.Source.AbsoluteUri);
             }
             if (Properties.Settings.Default.NoImageMode)
                 ApplyNoImageCss(wv, true);
+
+            // 应用背景透明
+            if (Properties.Settings.Default.TransparentBackground)
+                ApplyTransparentBackground(wv, true);
         }
 
         // ─── Custom right-click context menu ──────────────────────────────────
@@ -448,13 +749,103 @@ namespace TransBrowser
         public void SetDefaultColor(Color color)
         {
             this.pageHeader1.BackColor = color;
+
+            // 同时设置操作按钮的背景色，实现整体统一
+            // 如果颜色是透明的（Alpha < 255），则需要特殊处理
+            bool isTransparent = color.A < 255;
+
+            if (btnMinimize != null) 
+            {
+                btnMinimize.BackColor = color;
+                // 透明时需要确保控件支持透明度
+                if (isTransparent && btnMinimize.Parent != null)
+                    btnMinimize.Parent.Refresh();
+            }
+
+            if (btnClose != null)
+            {
+                // 关闭按钮在未悬停时也使用统一背景色
+                btnClose.BackColor = color;
+                // 更新悬停事件以保持正确的背景色
+                btnClose.MouseEnter -= BtnClose_MouseEnter;
+                btnClose.MouseLeave -= BtnClose_MouseLeave;
+                btnClose.MouseEnter += BtnClose_MouseEnter;
+                btnClose.MouseLeave += BtnClose_MouseLeave;
+
+                if (isTransparent && btnClose.Parent != null)
+                    btnClose.Parent.Refresh();
+            }
+
+            if (btnTopMost != null) 
+            {
+                btnTopMost.BackColor = color;
+                if (isTransparent && btnTopMost.Parent != null)
+                    btnTopMost.Parent.Refresh();
+            }
+
             // Recompute pin-button contrast colour for the new background
             UpdateTopMostButton();
         }
 
+        private void BtnClose_MouseEnter(object sender, EventArgs e)
+        {
+            btnClose.BackColor = Color.FromArgb(232, 17, 35);
+            btnClose.ForeColor = Color.White;
+        }
+
+        private void BtnClose_MouseLeave(object sender, EventArgs e)
+        {
+            btnClose.BackColor = pageHeader1.BackColor; // 恢复为标题栏背景色
+            btnClose.ForeColor = Color.Gray;
+        }
+
         public void SetShowInTaskBar(bool show)
         {
-            this.ShowInTaskbar = show;
+            // 避免在窗口句柄未创建或正在销毁时修改 ShowInTaskbar
+            if (!this.IsHandleCreated || this.IsDisposed || this.Disposing)
+                return;
+
+            try
+            {
+                // 使用 BeginInvoke 延迟执行，避免在消息处理期间直接修改属性
+                // 这样可以防止创建窗口句柄时出错
+                this.BeginInvoke(new Action(() =>
+                {
+                    try
+                    {
+                        // 再次检查窗口状态
+                        if (this.IsDisposed || this.Disposing || !this.IsHandleCreated)
+                            return;
+
+                        if (show)
+                        {
+                            // 显示在任务栏
+                            if (!this.ShowInTaskbar)
+                                this.ShowInTaskbar = true;
+                        }
+                        else
+                        {
+                            // 隐藏任务栏图标
+                            // 只有在窗口不是最小化状态时才立即隐藏
+                            // 最小化状态下会在 OnResize 中处理
+                            if (this.WindowState != FormWindowState.Minimized && this.ShowInTaskbar)
+                            {
+                                this.ShowInTaskbar = false;
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // 捕获内部异常，防止程序崩溃
+                        Tools.LogHelper.Error(ex);
+                    }
+                }));
+            }
+            catch (Exception ex)
+            {
+                // 如果 BeginInvoke 失败（比如窗口正在销毁），记录错误但不抛出
+                Tools.LogHelper.Error(ex);
+            }
         }
 
         public void SetSize(Size size)
@@ -497,8 +888,8 @@ namespace TransBrowser
             if (show)
             {
                 tabControl1.Appearance = System.Windows.Forms.TabAppearance.Normal;
-                tabControl1.SizeMode = System.Windows.Forms.TabSizeMode.Normal;
-                tabControl1.ItemSize = new System.Drawing.Size(0, 0);
+                tabControl1.SizeMode = System.Windows.Forms.TabSizeMode.Normal; // 自适应宽度
+                tabControl1.ItemSize = new System.Drawing.Size(0, 20); // 高度20，宽度0表示自适应
             }
             else
             {
@@ -529,6 +920,109 @@ namespace TransBrowser
             else
             {
                 string js = "(function(){var s=document.getElementById('__trans_noimg');if(s)s.remove();})()";
+                await wv.CoreWebView2.ExecuteScriptAsync(js);
+            }
+        }
+
+        public void SetTransparentBackground(bool enable)
+        {
+            Properties.Settings.Default.TransparentBackground = enable;
+            Properties.Settings.Default.Save();
+
+            for (int i = 0; i < tabControl1.TabPages.Count - 1; i++)
+            {
+                var wv = GetTabWebView(tabControl1.TabPages[i]);
+                if (wv?.CoreWebView2 != null)
+                    ApplyTransparentBackground(wv, enable);
+            }
+        }
+
+        private async void ApplyTransparentBackground(Microsoft.Web.WebView2.WinForms.WebView2 wv, bool enable)
+        {
+            if (enable)
+            {
+                // 超强力透明CSS：使用通配符和最高优先级覆盖所有元素背景
+                string css = @"*,*::before,*::after{background:transparent!important;background-color:transparent!important;background-image:none!important}
+                    html,body,#app,#root,.root,[class*='container'],[class*='wrapper'],[class*='main'],[class*='content'],[class*='page'],[class*='layout']{background:transparent!important;background-color:transparent!important}";
+                string js = $@"(function(){{
+                    try{{
+                        // 1. 注入强力CSS样式
+                        var s=document.getElementById('__trans_bg');
+                        if(!s){{
+                            s=document.createElement('style');
+                            s.id='__trans_bg';
+                            (document.head||document.documentElement).appendChild(s);
+                        }}
+                        s.textContent='{css}';
+
+                        // 2. 直接设置根元素内联样式
+                        if(document.documentElement)document.documentElement.style.cssText='background:transparent!important;background-color:transparent!important;';
+                        if(document.body)document.body.style.cssText='background:transparent!important;background-color:transparent!important;';
+
+                        // 3. 设置常见容器元素透明
+                        var containers=['#app','#root','.root','[class*=container]','[class*=wrapper]','[class*=main]'];
+                        containers.forEach(function(sel){{
+                            try{{
+                                var els=document.querySelectorAll(sel);
+                                els.forEach(function(el){{el.style.cssText='background:transparent!important;background-color:transparent!important;';}});
+                            }}catch(e){{}}
+                        }});
+
+                        // 4. 使用MutationObserver持续监听DOM变化并重新应用透明样式（适配SPA）
+                        if(!window.__transBgObserver){{
+                            window.__transBgObserver=new MutationObserver(function(mutations){{
+                                if(document.documentElement)document.documentElement.style.background='transparent';
+                                if(document.body)document.body.style.background='transparent';
+                            }});
+                            window.__transBgObserver.observe(document.documentElement||document.body,{{childList:true,subtree:true,attributes:true,attributeFilter:['style','class']}});
+                        }}
+
+                        // 5. 定期强制重新应用（双保险，应对动态内联样式）
+                        if(window.__transBgInterval)clearInterval(window.__transBgInterval);
+                        window.__transBgInterval=setInterval(function(){{
+                            if(document.documentElement&&document.documentElement.style.backgroundColor!=='transparent'){{
+                                document.documentElement.style.cssText='background:transparent!important;background-color:transparent!important;';
+                            }}
+                            if(document.body&&document.body.style.backgroundColor!=='transparent'){{
+                                document.body.style.cssText='background:transparent!important;background-color:transparent!important;';
+                            }}
+                        }},500);
+                    }}catch(e){{}}
+                }})()";
+                await wv.CoreWebView2.ExecuteScriptAsync(js);
+            }
+            else
+            {
+                // 关闭透明：移除所有注入的样式和监听器
+                string js = @"(function(){{
+                    try{{
+                        // 移除CSS样式
+                        var s=document.getElementById('__trans_bg');
+                        if(s)s.remove();
+
+                        // 停止MutationObserver
+                        if(window.__transBgObserver){{
+                            window.__transBgObserver.disconnect();
+                            window.__transBgObserver=null;
+                        }}
+
+                        // 停止定时器
+                        if(window.__transBgInterval){{
+                            clearInterval(window.__transBgInterval);
+                            window.__transBgInterval=null;
+                        }}
+
+                        // 恢复根元素样式
+                        if(document.body){{
+                            document.body.style.background='';
+                            document.body.style.backgroundColor='';
+                        }}
+                        if(document.documentElement){{
+                            document.documentElement.style.background='';
+                            document.documentElement.style.backgroundColor='';
+                        }}
+                    }}catch(e){{}}
+                }})()";
                 await wv.CoreWebView2.ExecuteScriptAsync(js);
             }
         }
@@ -590,10 +1084,37 @@ namespace TransBrowser
 
         private void ShowMainWindow()
         {
-            if (!this.Visible)
-                this.Show();
-            this.WindowState = FormWindowState.Normal;
-            this.Activate();
+            // 恢复窗口时，先恢复任务栏设置，再显示窗口
+            // 这样可以避免任务栏预览冲突
+            try
+            {
+                bool shouldShowInTaskbar = Properties.Settings.Default.ShowInTaskbar;
+
+                // 先显示窗口和恢复状态
+                if (!this.Visible)
+                    this.Show();
+                this.WindowState = FormWindowState.Normal;
+
+                // 然后安全地设置任务栏显示
+                if (this.IsHandleCreated && !this.IsDisposed)
+                {
+                    this.BeginInvoke(new Action(() =>
+                    {
+                        try
+                        {
+                            if (!this.IsDisposed && this.IsHandleCreated)
+                                this.ShowInTaskbar = shouldShowInTaskbar;
+                        }
+                        catch { }
+                    }));
+                }
+
+                this.Activate();
+            }
+            catch (Exception ex)
+            {
+                Tools.LogHelper.Error(ex);
+            }
         }
 
         private void trayShowHideMenuItem_Click(object sender, EventArgs e)
@@ -624,11 +1145,54 @@ namespace TransBrowser
         protected override void OnResize(EventArgs e)
         {
             base.OnResize(e);
-            if (this.WindowState == FormWindowState.Minimized)
+
+            try
             {
-                this.Hide();
-                notifyIcon1.ShowBalloonTip(1000, "TransBrowser", "已最小化到托盘，双击图标恢复", ToolTipIcon.Info);
+                if (this.WindowState == FormWindowState.Minimized)
+                {
+                    // 最小化时确保在任务栏图标存在的情况下再隐藏
+                    // 这样可以避免任务栏预览冲突
+                    this.Hide();
+
+                    // 如果设置不显示在任务栏，延迟隐藏任务栏图标
+                    if (!Properties.Settings.Default.ShowInTaskbar && this.IsHandleCreated)
+                    {
+                        this.BeginInvoke(new Action(() =>
+                        {
+                            try
+                            {
+                                if (!this.IsDisposed && this.IsHandleCreated && !this.Visible)
+                                    this.ShowInTaskbar = false;
+                            }
+                            catch { }
+                        }));
+                    }
+
+                    notifyIcon1.ShowBalloonTip(1000, "TransBrowser", "已最小化到托盘，双击图标恢复", ToolTipIcon.Info);
+                }
+                else if (this.WindowState == FormWindowState.Normal)
+                {
+                    // 恢复正常状态时，重新应用任务栏设置
+                    if (this.IsHandleCreated)
+                    {
+                        bool shouldShow = Properties.Settings.Default.ShowInTaskbar;
+                        this.BeginInvoke(new Action(() =>
+                        {
+                            try
+                            {
+                                if (!this.IsDisposed && this.IsHandleCreated)
+                                    this.ShowInTaskbar = shouldShow;
+                            }
+                            catch { }
+                        }));
+                    }
+                }
             }
+            catch (Exception ex)
+            {
+                Tools.LogHelper.Error(ex);
+            }
+
             UpdateTopMostButtonPosition();
         }
 
@@ -696,9 +1260,30 @@ namespace TransBrowser
 
         private void Form1_Deactivate(object sender, EventArgs e)
         {
+            // 置顶窗口不自动隐藏
             if (this.TopMost) return;
+
+            // 开启失焦隐藏时，窗口失去焦点自动隐藏
+            // 注意：隐藏后老板键仍可以通过全局快捷键调用ShowMainWindow()恢复窗口
             if (Properties.Settings.Default.AutoHide)
+            {
+                // 先隐藏窗口，再处理任务栏图标，避免闪烁
                 this.Hide();
+
+                // 延迟隐藏任务栏图标，避免窗口句柄错误
+                if (!Properties.Settings.Default.ShowInTaskbar && this.IsHandleCreated)
+                {
+                    this.BeginInvoke(new Action(() =>
+                    {
+                        try
+                        {
+                            if (!this.IsDisposed && this.IsHandleCreated && !this.Visible)
+                                this.ShowInTaskbar = false;
+                        }
+                        catch { }
+                    }));
+                }
+            }
         }
 
         // ─── Global hotkeys ───────────────────────────────────────────────────
@@ -716,6 +1301,11 @@ namespace TransBrowser
             RegisterHotkeyFromSetting((int)HotkeyId.OpacityUp, Properties.Settings.Default.HotkeyOpacityUp);
             RegisterHotkeyFromSetting((int)HotkeyId.OpacityDown, Properties.Settings.Default.HotkeyOpacityDown);
             RegisterHotkeyFromSetting((int)HotkeyId.ClickThrough, Properties.Settings.Default.HotkeyClickThrough);
+
+            // Default transparency hotkeys (修改8：alt+方向键)
+            RegisterHotKey(this.Handle, (int)HotkeyId.OpacityReset, KeyModifiers.Alt, Keys.Up);     // Alt+↑ 重置100%
+            RegisterHotKey(this.Handle, (int)HotkeyId.OpacityDown, KeyModifiers.Alt, Keys.Left);    // Alt+← 减少
+            RegisterHotKey(this.Handle, (int)HotkeyId.OpacityUp, KeyModifiers.Alt, Keys.Right);     // Alt+→ 增加
         }
 
         private void UnregisterAllHotkeys()
@@ -790,9 +1380,32 @@ namespace TransBrowser
                 case HotkeyId.LegacyToggleShow:
                 case HotkeyId.BossKey:
                     if (this.Visible && this.WindowState != FormWindowState.Minimized)
+                    {
+                        // 修改5：隐藏时暂停所有网页并静音
+                        PauseAllWebViews();
+                        // 先隐藏窗口，再处理任务栏图标，避免闪烁
                         this.Hide();
+
+                        // 延迟隐藏任务栏图标，避免窗口句柄错误
+                        if (!Properties.Settings.Default.ShowInTaskbar && this.IsHandleCreated)
+                        {
+                            this.BeginInvoke(new Action(() =>
+                            {
+                                try
+                                {
+                                    if (!this.IsDisposed && this.IsHandleCreated && !this.Visible)
+                                        this.ShowInTaskbar = false;
+                                }
+                                catch { }
+                            }));
+                        }
+                    }
                     else
+                    {
                         ShowMainWindow();
+                        // 恢复时继续播放
+                        ResumeAllWebViews();
+                    }
                     break;
 
                 case HotkeyId.LegacyToggleTop:
@@ -815,6 +1428,15 @@ namespace TransBrowser
                     AdjustOpacity(-5);
                     break;
 
+                case HotkeyId.OpacityReset:
+                    // 修改7：重置透明度到100%
+                    SetTans(100);
+                    Properties.Settings.Default.FormOpacity = 100;
+                    Properties.Settings.Default.Save();
+                    if (_settingForm != null && !_settingForm.IsDisposed)
+                        _settingForm.SyncOpacity(100);
+                    break;
+
                 case HotkeyId.ClickThrough:
                     ToggleClickThrough();
                     break;
@@ -830,6 +1452,50 @@ namespace TransBrowser
             Properties.Settings.Default.Save();
             if (_settingForm != null && !_settingForm.IsDisposed)
                 _settingForm.SyncOpacity((int)newVal);
+        }
+
+        // ─── Pause/Resume all WebViews (for boss key) ────────────────────────
+
+        private void PauseAllWebViews()
+        {
+            string js = @"
+(function(){
+    document.querySelectorAll('video,audio').forEach(function(m){
+        if(!m.paused){
+            m.pause();
+            m.setAttribute('data-was-playing','1');
+        }
+    });
+})();";
+            for (int i = 0; i < tabControl1.TabPages.Count - 1; i++)
+            {
+                var wv = GetTabWebView(tabControl1.TabPages[i]);
+                if (wv?.CoreWebView2 != null)
+                {
+                    try { wv.CoreWebView2.ExecuteScriptAsync(js); } catch { }
+                }
+            }
+        }
+
+        private void ResumeAllWebViews()
+        {
+            string js = @"
+(function(){
+    document.querySelectorAll('video,audio').forEach(function(m){
+        if(m.getAttribute('data-was-playing')==='1'){
+            m.play();
+            m.removeAttribute('data-was-playing');
+        }
+    });
+})();";
+            for (int i = 0; i < tabControl1.TabPages.Count - 1; i++)
+            {
+                var wv = GetTabWebView(tabControl1.TabPages[i]);
+                if (wv?.CoreWebView2 != null)
+                {
+                    try { wv.CoreWebView2.ExecuteScriptAsync(js); } catch { }
+                }
+            }
         }
 
         // ─── Floating header behavior (#2) ────────────────────────────────────
@@ -962,6 +1628,16 @@ namespace TransBrowser
             UpdateTopMostButton();
         }
 
+        private void btnMinimize_Click(object sender, EventArgs e)
+        {
+            this.WindowState = FormWindowState.Minimized;
+        }
+
+        private void btnClose_Click(object sender, EventArgs e)
+        {
+            this.Close();
+        }
+
         private void UpdateTopMostButton()
         {
             if (btnTopMost == null) return;
@@ -969,6 +1645,11 @@ namespace TransBrowser
             // Derive a foreground colour that contrasts with the current header background
             Color bg = pageHeader1.BackColor;
             Color contrast = ContrastColor(bg);
+
+            // 设置背景色为标题栏颜色
+            btnTopMost.BackColor = bg;
+            if (btnMinimize != null) btnMinimize.BackColor = bg;
+            if (btnClose != null) btnClose.BackColor = bg;
 
             if (this.TopMost)
             {
@@ -985,15 +1666,51 @@ namespace TransBrowser
                 btnTopMost.ForeColor = Color.FromArgb(140, contrast.R, contrast.G, contrast.B);
             }
 
-            UpdateTopMostButtonPosition();
+            // 更新最小化和关闭按钮的前景色以适应背景
+            if (btnMinimize != null) btnMinimize.ForeColor = ContrastColor(bg);
+            if (btnClose != null) btnClose.ForeColor = ContrastColor(bg);
+
+            UpdateButtonPositions();
         }
 
         private void UpdateTopMostButtonPosition()
         {
-            if (btnTopMost == null) return;
-            btnTopMost.Location = new System.Drawing.Point(this.ClientSize.Width - TOPMOST_BTN_OFFSET, 0);
-            btnTopMost.BringToFront();
+            UpdateButtonPositions();
+        }
+
+        private void UpdateButtonPositions()
+        {
+            if (btnTopMost == null || btnMinimize == null || btnClose == null) return;
+
+            int rightEdge = this.ClientSize.Width;
+            const int buttonWidth = 26;
+            const int minWidthToShow = 300; // 最小宽度阈值
+
+            // 修改4：窗口小于一定宽度时隐藏最小化和关闭按钮
+            bool showExtraButtons = rightEdge >= minWidthToShow;
+
+            if (showExtraButtons)
+            {
+                // 从右到左排列：关闭、最小化、置顶
+                btnClose.Location = new System.Drawing.Point(rightEdge - buttonWidth, 0);
+                btnMinimize.Location = new System.Drawing.Point(rightEdge - buttonWidth * 2, 0);
+                btnTopMost.Location = new System.Drawing.Point(rightEdge - buttonWidth * 3, 0);
+
+                btnClose.Visible = _headerVisible;
+                btnMinimize.Visible = _headerVisible;
+            }
+            else
+            {
+                // 只显示置顶按钮
+                btnTopMost.Location = new System.Drawing.Point(rightEdge - TOPMOST_BTN_OFFSET, 0);
+                btnClose.Visible = false;
+                btnMinimize.Visible = false;
+            }
+
             btnTopMost.Visible = _headerVisible;
+            btnTopMost.BringToFront();
+            btnMinimize.BringToFront();
+            btnClose.BringToFront();
         }
 
         // ─── Custom new-tab HTML (#3/#4/#9) ──────────────────────────────────
@@ -1001,6 +1718,7 @@ namespace TransBrowser
         private string GetNewTabHtml()
         {
             var customSites = LoadCustomSites();
+            var history = LoadHistory();
 
             // Build custom sites JSON for JS injection
             var jsonSb = new StringBuilder("[");
@@ -1016,111 +1734,47 @@ namespace TransBrowser
             jsonSb.Append("]");
             string customJson = jsonSb.ToString();
 
+            // Build history JSON (all history for client-side filtering)
+            var historyJson = new StringBuilder("[");
+            for (int i = 0; i < history.Count; i++)
+            {
+                if (i > 0) historyJson.Append(",");
+                historyJson.Append("{\"t\":\"")
+                           .Append(JsEscape(history[i].Title))
+                           .Append("\",\"u\":\"")
+                           .Append(JsEscape(history[i].Url))
+                           .Append("\"}");
+            }
+            historyJson.Append("]");
+
+            // Load HTML template from file
+            string templatePath = System.IO.Path.Combine(
+                System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location),
+                "Resources", "newtab.html");
+
+            string html;
+            if (System.IO.File.Exists(templatePath))
+            {
+                html = System.IO.File.ReadAllText(templatePath, Encoding.UTF8);
+            }
+            else
+            {
+                // Fallback to embedded minimal HTML if file not found
+                html = GetFallbackNewTabHtml();
+            }
+
+            // Replace placeholders with actual data
+            html = html.Replace("##CUSTOM_DATA##", customJson);
+            html = html.Replace("##HISTORY_DATA##", historyJson.ToString());
+
+            return html;
+        }
+
+        private string GetFallbackNewTabHtml()
+        {
             return @"<!DOCTYPE html>
-<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width'>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,-apple-system,sans-serif;background:#f0f2f5;color:#333;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
-.container{width:90%;max-width:640px}
-h2{text-align:center;color:#555;font-size:18px;font-weight:500;margin-bottom:24px}
-.url-row{display:flex;gap:8px;margin-bottom:28px}
-.url-row input{flex:1;padding:10px 14px;border:1px solid #d9d9d9;border-radius:8px;font-size:14px;outline:none;transition:border-color .2s}
-.url-row input:focus{border-color:#1677ff}
-.url-row button{padding:10px 18px;background:#1677ff;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;transition:background .2s;white-space:nowrap}
-.url-row button:hover{background:#4096ff}
-.section-title{font-size:12px;color:#999;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;justify-content:space-between}
-.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
-@media(max-width:480px){.grid{grid-template-columns:repeat(3,1fr)}}
-.card{background:#fff;border:1px solid #f0f0f0;border-radius:10px;padding:12px 8px;text-align:center;cursor:pointer;transition:all .2s;text-decoration:none;color:#333;display:block;position:relative}
-.card:hover{border-color:#1677ff;box-shadow:0 4px 12px rgba(22,119,255,.15);transform:translateY(-2px)}
-.card .emoji{font-size:24px;margin-bottom:5px}
-.card .name{font-size:11px;color:#666;word-break:break-all}
-.card .del{position:absolute;top:3px;right:4px;font-size:11px;color:#ccc;cursor:pointer;line-height:1;display:none}
-.card:hover .del{display:block}
-.card .del:hover{color:#ff4d4f}
-.add-card{background:#f8f9fb;border:1px dashed #d9d9d9;border-radius:10px;padding:12px 8px;text-align:center;cursor:pointer;color:#bbb;font-size:22px;transition:all .2s}
-.add-card:hover{border-color:#1677ff;color:#1677ff}
-.add-form{display:none;background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:16px;margin-top:10px}
-.add-form input{width:100%;padding:8px 10px;border:1px solid #d9d9d9;border-radius:6px;font-size:13px;outline:none;margin-bottom:8px}
-.add-form input:focus{border-color:#1677ff}
-.add-form .btns{display:flex;gap:8px}
-.add-form .btns button{flex:1;padding:8px;border:none;border-radius:6px;cursor:pointer;font-size:13px}
-.add-form .btns .save{background:#1677ff;color:#fff}
-.add-form .btns .cancel{background:#f0f0f0;color:#666}
-</style></head>
-<body>
-<div class='container'>
-  <h2>🌐 新标签页</h2>
-  <div class='url-row'>
-    <input id='u' type='text' placeholder='输入网址，回车打开...' autofocus onkeydown=""if(event.key==='Enter')go()"">
-    <button onclick='go()'>打开</button>
-  </div>
-  <div class='section-title'><span>内置快捷</span></div>
-  <div class='grid'>
-    <a class='card' onclick=""nav('https://weread.qq.com/')"">
-      <div class='emoji'>📚</div><div class='name'>微信读书</div>
-    </a>
-    <a class='card' onclick=""nav('https://www.xiaohongshu.com')"">
-      <div class='emoji'>📕</div><div class='name'>小红书</div>
-    </a>
-    <a class='card' onclick=""nav('https://www.bilibili.com/')"">
-      <div class='emoji'>📺</div><div class='name'>哔哩哔哩</div>
-    </a>
-  </div>
-  <div class='section-title'><span>我的网站</span></div>
-  <div class='grid' id='customGrid'></div>
-  <div class='add-form' id='addForm'>
-    <input id='siteName' placeholder='网站名称（可选）'>
-    <input id='siteUrl' placeholder='网站地址，如 https://example.com'>
-    <div class='btns'>
-      <button class='save' onclick='saveCustom()'>保存</button>
-      <button class='cancel' onclick='hideForm()'>取消</button>
-    </div>
-  </div>
-</div>
-<script>
-var CUSTOM=" + customJson + @";
-function renderCustom(){
-  var g=document.getElementById('customGrid');
-  g.innerHTML='';
-  for(var i=0;i<CUSTOM.length;i++){
-    var s=CUSTOM[i];
-    var a=document.createElement('a');
-    a.className='card';
-    a.setAttribute('data-url',s.u);
-    a.onclick=(function(u){return function(e){if(e.target.classList.contains('del'))return;nav(u);};})(s.u);
-    a.innerHTML='<div class=""emoji"">🔗</div><div class=""name"">'+esc(s.n)+'</div><span class=""del"" title=""删除"" onclick=""removeCustom(\''+esc(s.u)+'\');"">✕</span>';
-    g.appendChild(a);
-  }
-  var plus=document.createElement('div');
-  plus.className='add-card';
-  plus.title='添加自定义网站';
-  plus.textContent='+';
-  plus.onclick=function(){document.getElementById('addForm').style.display='block';document.getElementById('siteUrl').focus();};
-  g.appendChild(plus);
-}
-function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;');}
-function nav(u){if(/^javascript:/i.test(u)||/^data:/i.test(u))return;location.href=u;}
-function go(){var u=document.getElementById('u').value.trim();if(!u)return;if(/^javascript:/i.test(u)||/^data:/i.test(u))return;if(!/^https?:\/\//i.test(u))u='https://'+u;location.href=u;}
-function saveCustom(){
-  var n=document.getElementById('siteName').value.trim();
-  var u=document.getElementById('siteUrl').value.trim();
-  if(!u)return;
-  if(/^javascript:/i.test(u)||/^data:/i.test(u))return;
-  window.chrome.webview.postMessage('add\t'+(n||u)+'\t'+u);
-  hideForm();
-}
-function removeCustom(u){
-  if(confirm('确认删除该网站？'))window.chrome.webview.postMessage('remove\t'+u);
-}
-function hideForm(){
-  document.getElementById('addForm').style.display='none';
-  document.getElementById('siteName').value='';
-  document.getElementById('siteUrl').value='';
-}
-renderCustom();
-</script>
-</body></html>";
+<html><head><meta charset='utf-8'><title>新标签页</title></head>
+<body><h1 style='text-align:center;color:#999;margin-top:50px'>新标签页加载失败</h1></body></html>";
         }
 
         private static string JsEscape(string s)

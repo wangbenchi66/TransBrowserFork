@@ -49,6 +49,8 @@ namespace TransBrowser
 
             this.pageHeader1 = new AntdUI.PageHeader();
             this.btnTopMost = new System.Windows.Forms.Label();
+            this.btnMinimize = new System.Windows.Forms.Label();
+            this.btnClose = new System.Windows.Forms.Label();
 
             this.tabControl1 = new TransBrowser.MainForm.BorderlessTabControl();
             this.tabPageFirst = new System.Windows.Forms.TabPage();
@@ -205,7 +207,7 @@ namespace TransBrowser
             this.pageHeader1.MinimizeBox = false;
             this.pageHeader1.Name = "pageHeader1";
             this.pageHeader1.ShowButton = true;
-            this.pageHeader1.ShowIcon = true;
+            this.pageHeader1.ShowIcon = false;  // 隐藏左上角图标
             this.pageHeader1.Size = new System.Drawing.Size(590, 23);
             this.pageHeader1.TabIndex = 2;
             this.pageHeader1.Text = "TransBrowser";
@@ -225,6 +227,36 @@ namespace TransBrowser
             this.btnTopMost.Click += new System.EventHandler(this.btnTopMost_Click);
 
             // 
+            // btnMinimize – minimize button
+            // 
+            this.btnMinimize.Text = "—";  // 水平线
+            this.btnMinimize.Size = new System.Drawing.Size(26, 22);
+            this.btnMinimize.Location = new System.Drawing.Point(0, 0);
+            this.btnMinimize.TabIndex = 4;
+            this.btnMinimize.Name = "btnMinimize";
+            this.btnMinimize.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.btnMinimize.BackColor = System.Drawing.Color.Transparent;
+            this.btnMinimize.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnMinimize.Font = new System.Drawing.Font("Microsoft YaHei UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnMinimize.ForeColor = System.Drawing.Color.Gray;
+            this.btnMinimize.Click += new System.EventHandler(this.btnMinimize_Click);
+
+            // 
+            // btnClose – close button
+            // 
+            this.btnClose.Text = "×";  // 乘号
+            this.btnClose.Size = new System.Drawing.Size(26, 22);
+            this.btnClose.Location = new System.Drawing.Point(0, 0);
+            this.btnClose.TabIndex = 5;
+            this.btnClose.Name = "btnClose";
+            this.btnClose.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.btnClose.BackColor = System.Drawing.Color.Transparent;
+            this.btnClose.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnClose.Font = new System.Drawing.Font("Microsoft YaHei UI", 12F, System.Drawing.FontStyle.Bold);
+            this.btnClose.ForeColor = System.Drawing.Color.Gray;
+            this.btnClose.Click += new System.EventHandler(this.btnClose_Click);
+
+            // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
@@ -234,6 +266,8 @@ namespace TransBrowser
             this.Controls.Add(this.tabControl1);
             this.Controls.Add(this.pageHeader1);
             this.Controls.Add(this.btnTopMost);
+            this.Controls.Add(this.btnMinimize);
+            this.Controls.Add(this.btnClose);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Name = "MainForm";
             this.Text = "TransBrowser";
@@ -266,6 +300,8 @@ namespace TransBrowser
         private System.Windows.Forms.TabPage tabPageFirst;
         private System.Windows.Forms.TabPage tabPageAdd;
         private System.Windows.Forms.Label btnTopMost;
+        private System.Windows.Forms.Label btnMinimize;
+        private System.Windows.Forms.Label btnClose;
     }
 }
 
