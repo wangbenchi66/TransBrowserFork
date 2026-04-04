@@ -35,10 +35,14 @@ namespace TransBrowser
         private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
         [DllImport("user32.dll", SetLastError = true)]
         private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint crKey, byte bAlpha, uint dwFlags);
 
         private const int GWL_EXSTYLE = -20;
         private const int WS_EX_TRANSPARENT = 0x00000020;
         private const int WS_EX_LAYERED = 0x00080000;
+        private const uint LWA_COLORKEY = 0x00000001;
+        private const uint LWA_ALPHA = 0x00000002;
 
         // ─── WM_NCHITTEST constants ────────────────────────────────────────────
         private const int WM_NCHITTEST = 0x0084;
@@ -153,6 +157,10 @@ namespace TransBrowser
 
                 Properties.Settings.Default.WindowTransparent = enable;
                 Properties.Settings.Default.Save();
+
+                // Re-apply opacity so that SetLayeredWindowAttributes reflects the updated
+                // TransparencyKey (LWA_COLORKEY needs to be combined with LWA_ALPHA).
+                SetTans(Properties.Settings.Default.FormOpacity);
             }
             catch (Exception ex)
             {
@@ -891,8 +899,43 @@ namespace TransBrowser
 
         public void SetTans(double trans)
         {
-            trans = Math.Round(trans / 100.0, 2);
-            this.Opacity = trans;
+            // Clamp to [1, 100] to prevent a completely invisible window
+            trans = Math.Max(1.0, Math.Min(100.0, trans));
+            double opacity = Math.Round(trans / 100.0, 2);
+
+            // Standard WinForms approach (may be bypassed by AntdUI.Window internals)
+            this.Opacity = opacity;
+
+            // Direct Win32 API for AntdUI.Window compatibility: apply alpha via the
+            // layered-window attribute, which works regardless of how AntdUI manages
+            // the window's WndProc / DWM compositing.
+            if (this.IsHandleCreated && !this.IsDisposed)
+            {
+                try
+                {
+                    int exStyle = GetWindowLong(this.Handle, GWL_EXSTYLE);
+                    if ((exStyle & WS_EX_LAYERED) == 0)
+                        SetWindowLong(this.Handle, GWL_EXSTYLE, exStyle | WS_EX_LAYERED);
+
+                    byte alpha = (byte)Math.Round(opacity * 255.0);
+                    uint flags = LWA_ALPHA;
+                    uint colorKey = 0;
+
+                    // When WindowTransparent mode is active, preserve the color key
+                    if (this.TransparencyKey != Color.Empty)
+                    {
+                        flags |= LWA_COLORKEY;
+                        var tk = this.TransparencyKey;
+                        colorKey = (uint)(tk.R | (tk.G << 8) | (tk.B << 16));
+                    }
+
+                    SetLayeredWindowAttributes(this.Handle, colorKey, alpha, flags);
+                }
+                catch (Exception ex)
+                {
+                    Tools.LogHelper.Error(ex);
+                }
+            }
         }
 
         public void SetDefaultColor(Color color)
