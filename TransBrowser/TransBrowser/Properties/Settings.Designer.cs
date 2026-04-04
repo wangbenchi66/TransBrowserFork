@@ -25,6 +25,15 @@ namespace TransBrowser.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool WindowTransparent {
+            get { return ((bool)(this["WindowTransparent"])); }
+            set { this["WindowTransparent"] = value; }
+        }
+
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("100, 100")]
         public global::System.Drawing.Point FormPosition {
             get {

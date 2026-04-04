@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
-using static TransBrowser.Tools.GlobalHotkey;
 
 namespace TransBrowser
 {
@@ -39,6 +38,7 @@ namespace TransBrowser
             // 新增功能设置
             this.swGrayscale.Checked = Properties.Settings.Default.GrayscaleMode;
             this.swAntiScreenshot.Checked = Properties.Settings.Default.AntiScreenshotMode;
+            this.swWindowTransparent.Checked = Properties.Settings.Default.WindowTransparent;
 
             // Hotkey fields
             this.txtBossKey.Text = Properties.Settings.Default.HotkeyBossKey;
@@ -58,6 +58,7 @@ namespace TransBrowser
             this.swTransparentBg.CheckedChanged += new AntdUI.BoolEventHandler(this.swTransparentBg_CheckedChanged);
             this.swGrayscale.CheckedChanged += new AntdUI.BoolEventHandler(this.swGrayscale_CheckedChanged);
             this.swAntiScreenshot.CheckedChanged += new AntdUI.BoolEventHandler(this.swAntiScreenshot_CheckedChanged);
+            this.swWindowTransparent.CheckedChanged += new AntdUI.BoolEventHandler(this.swWindowTransparent_CheckedChanged);
 
             // Hotkey textboxes capture key presses
             foreach (TextBox tb in new[] { txtBossKey, txtOpacityUp, txtOpacityDown, txtClickThrough })
@@ -76,7 +77,32 @@ namespace TransBrowser
             e.SuppressKeyPress = true;
             string formatted = Tools.HotkeyParser.FromKeyEventArgs(e);
             if (!string.IsNullOrEmpty(formatted))
-                ((TextBox)sender).Text = formatted;
+            {
+                var tb = (TextBox)sender;
+                tb.Text = formatted;
+
+                // Persist immediately for configurable hotkeys so they take effect without pressing 保存
+                try
+                {
+                    if (tb == txtBossKey)
+                    {
+                        Properties.Settings.Default.HotkeyBossKey = formatted;
+                        Properties.Settings.Default.Save();
+                        mainForm?.ReRegisterConfigurableHotkeys();
+                    }
+                    else if (tb == txtClickThrough)
+                    {
+                        Properties.Settings.Default.HotkeyClickThrough = formatted;
+                        Properties.Settings.Default.Save();
+                        mainForm?.ReRegisterConfigurableHotkeys();
+                    }
+                    else
+                    {
+                        // For other fields keep value in textbox; user may still press 保存
+                    }
+                }
+                catch { }
+            }
         }
 
         private void btnApplyHotkeys_Click(object sender, EventArgs e)
@@ -229,6 +255,14 @@ namespace TransBrowser
             mainForm.SetGrayscaleMode(grayscaleMode);
             Properties.Settings.Default.GrayscaleMode = grayscaleMode;
             Properties.Settings.Default.Save();
+        }
+
+        private void swWindowTransparent_CheckedChanged(object sender, BoolEventArgs e)
+        {
+            bool windowTransparent = e.Value;
+            Properties.Settings.Default.WindowTransparent = windowTransparent;
+            Properties.Settings.Default.Save();
+            try { mainForm?.SetWindowBackgroundTransparent(windowTransparent); } catch { }
         }
 
         private void swAntiScreenshot_CheckedChanged(object sender, BoolEventArgs e)

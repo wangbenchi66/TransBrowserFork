@@ -49,6 +49,8 @@
             this.swNoImage = new AntdUI.Switch();
             this.lblTransparentBg = new AntdUI.Label();
             this.swTransparentBg = new AntdUI.Switch();
+            this.lblWindowTransparent = new AntdUI.Label();
+            this.swWindowTransparent = new AntdUI.Switch();
             this.lblGrayscale = new AntdUI.Label();
             this.swGrayscale = new AntdUI.Switch();
             this.lblAntiScreenshot = new AntdUI.Label();
@@ -129,13 +131,15 @@
             this.panel3.Controls.Add(this.swNoImage);
             this.panel3.Controls.Add(this.lblTransparentBg);
             this.panel3.Controls.Add(this.swTransparentBg);
+            this.panel3.Controls.Add(this.lblWindowTransparent);
+            this.panel3.Controls.Add(this.swWindowTransparent);
             this.panel3.Controls.Add(this.lblGrayscale);
             this.panel3.Controls.Add(this.swGrayscale);
             this.panel3.Controls.Add(this.lblAntiScreenshot);
             this.panel3.Controls.Add(this.swAntiScreenshot);
             this.panel3.Location = new System.Drawing.Point(3, 3);
             this.panel3.Name = "panel3";
-            this.panel3.Size = new System.Drawing.Size(450, 162);
+            this.panel3.Size = new System.Drawing.Size(450, 190);
             this.panel3.TabIndex = 20;
             // 
             // autohide_sw
@@ -258,6 +262,14 @@
             this.lblTransparentBg.TabIndex = 23;
             this.lblTransparentBg.Text = "网页背景透明";
             // 
+            // lblWindowTransparent
+            // 
+            this.lblWindowTransparent.Location = new System.Drawing.Point(3, 134);
+            this.lblWindowTransparent.Name = "lblWindowTransparent";
+            this.lblWindowTransparent.Size = new System.Drawing.Size(120, 24);
+            this.lblWindowTransparent.TabIndex = 24;
+            this.lblWindowTransparent.Text = "软件背景透明";
+            // 
             // swTransparentBg
             // 
             this.swTransparentBg.Location = new System.Drawing.Point(333, 108);
@@ -265,9 +277,16 @@
             this.swTransparentBg.Size = new System.Drawing.Size(40, 24);
             this.swTransparentBg.TabIndex = 24;
             // 
+            // swWindowTransparent
+            // 
+            this.swWindowTransparent.Location = new System.Drawing.Point(130, 134);
+            this.swWindowTransparent.Name = "swWindowTransparent";
+            this.swWindowTransparent.Size = new System.Drawing.Size(40, 24);
+            this.swWindowTransparent.TabIndex = 25;
+            // 
             // lblGrayscale
             // 
-            this.lblGrayscale.Location = new System.Drawing.Point(3, 134);
+            this.lblGrayscale.Location = new System.Drawing.Point(3, 160);
             this.lblGrayscale.Name = "lblGrayscale";
             this.lblGrayscale.Size = new System.Drawing.Size(84, 24);
             this.lblGrayscale.TabIndex = 25;
@@ -275,14 +294,14 @@
             // 
             // swGrayscale
             // 
-            this.swGrayscale.Location = new System.Drawing.Point(90, 134);
+            this.swGrayscale.Location = new System.Drawing.Point(90, 160);
             this.swGrayscale.Name = "swGrayscale";
             this.swGrayscale.Size = new System.Drawing.Size(40, 24);
             this.swGrayscale.TabIndex = 26;
             // 
             // lblAntiScreenshot
             // 
-            this.lblAntiScreenshot.Location = new System.Drawing.Point(240, 134);
+            this.lblAntiScreenshot.Location = new System.Drawing.Point(240, 160);
             this.lblAntiScreenshot.Name = "lblAntiScreenshot";
             this.lblAntiScreenshot.Size = new System.Drawing.Size(90, 24);
             this.lblAntiScreenshot.TabIndex = 29;
@@ -290,7 +309,7 @@
             // 
             // swAntiScreenshot
             // 
-            this.swAntiScreenshot.Location = new System.Drawing.Point(333, 134);
+            this.swAntiScreenshot.Location = new System.Drawing.Point(333, 160);
             this.swAntiScreenshot.Name = "swAntiScreenshot";
             this.swAntiScreenshot.Size = new System.Drawing.Size(40, 24);
             this.swAntiScreenshot.TabIndex = 30;
@@ -351,7 +370,7 @@
             this.btnOpenUrl.Name = "btnOpenUrl";
             this.btnOpenUrl.Size = new System.Drawing.Size(52, 34);
             this.btnOpenUrl.TabIndex = 12;
-            this.btnOpenUrl.Text = "打开网址";
+            this.btnOpenUrl.Text = "切换";
             this.btnOpenUrl.Type = AntdUI.TTypeMini.Primary;
             // 
             // inputUrl
@@ -530,6 +549,8 @@
         private AntdUI.Switch swNoImage;
         private AntdUI.Label lblTransparentBg;
         private AntdUI.Switch swTransparentBg;
+        private AntdUI.Label lblWindowTransparent;
+        private AntdUI.Switch swWindowTransparent;
         private AntdUI.Label lblGrayscale;
         private AntdUI.Switch swGrayscale;
         private AntdUI.Label lblAntiScreenshot;

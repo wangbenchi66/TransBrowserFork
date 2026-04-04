@@ -65,6 +65,9 @@
     <Setting Name="TransparentBackground" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
+    <Setting Name="WindowTransparent" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
     <Setting Name="BrowsingHistory" Type="System.String" Scope="User">
       <Value Profile="(Default)"></Value>
     </Setting>

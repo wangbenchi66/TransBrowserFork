@@ -14,6 +14,8 @@ namespace TransBrowser
 {
     public partial class MainForm : Window
     {
+        // store previous opacity for toggle behavior
+        private double _lastOpacityBeforeReset = -1;
         public bool inited = false;
 
         // Mobile mode state
@@ -82,6 +84,71 @@ namespace TransBrowser
             OpacityReset = 204
         }
 
+        /// <summary>
+        /// Makes the window background (non-client area and behind controls) transparent so
+        /// the desktop or underlying windows show through while controls remain visible.
+        /// This uses layered window with a color key and sets the WebView2 controls to
+        /// have transparent default background.
+        /// </summary>
+        public void SetWindowBackgroundTransparent(bool enable)
+        {
+            try
+            {
+                // Use TransparencyKey to make the form background transparent while keeping child controls visible.
+                var key = Color.Magenta; // chosen key color
+                if (enable)
+                {
+                    // Save previous colors
+                    _prevFormBackColor = this.BackColor;
+                    _prevTabControlBackColor = tabControl1.BackColor;
+                    _prevTabPageBackColors.Clear();
+                    for (int i = 0; i < tabControl1.TabPages.Count; i++)
+                        _prevTabPageBackColors[tabControl1.TabPages[i]] = tabControl1.TabPages[i].BackColor;
+
+                    // Apply transparency key
+                    this.BackColor = key;
+                    this.TransparencyKey = key;
+
+                    // Set child controls to transparent so they show desktop through where nothing else paints
+                    foreach (Control c in this.Controls)
+                    {
+                        if (c is WebView2) continue;
+                        try { c.BackColor = Color.Transparent; } catch { }
+                    }
+
+                    // TabControl and pages
+                    try { tabControl1.BackColor = Color.Transparent; } catch { }
+                    for (int i = 0; i < tabControl1.TabPages.Count; i++)
+                    {
+                        try { tabControl1.TabPages[i].BackColor = Color.Transparent; } catch { }
+                    }
+                }
+                else
+                {
+                    // Disable transparency and restore saved colors
+                    this.TransparencyKey = Color.Empty;
+                    this.BackColor = _prevFormBackColor.IsEmpty ? SystemColors.Control : _prevFormBackColor;
+
+                    try { tabControl1.BackColor = _prevTabControlBackColor; } catch { }
+                    for (int i = 0; i < tabControl1.TabPages.Count; i++)
+                    {
+                        var page = tabControl1.TabPages[i];
+                        if (_prevTabPageBackColors.ContainsKey(page))
+                        {
+                            try { page.BackColor = _prevTabPageBackColors[page]; } catch { }
+                        }
+                    }
+                }
+
+                Properties.Settings.Default.WindowTransparent = enable;
+                Properties.Settings.Default.Save();
+            }
+            catch (Exception ex)
+            {
+                Tools.LogHelper.Error(ex);
+            }
+        }
+
         // ─── Multi-tab state ───────────────────────────────────────────────────
         /// <summary>Returns the WebView2 in the currently selected tab (never the "+" sentinel tab).</summary>
         private WebView2 ActiveWebView
@@ -102,6 +169,11 @@ namespace TransBrowser
                 if (c is WebView2 wv) return wv;
             return null;
         }
+
+        // Fields to remember original colours when toggling window background transparency
+        private Color _prevFormBackColor;
+        private Color _prevTabControlBackColor;
+        private Dictionary<System.Windows.Forms.TabPage, Color> _prevTabPageBackColors = new Dictionary<System.Windows.Forms.TabPage, Color>();
 
         // 用于存储 WebView2 的事件处理器映射，避免 Lambda 无法移除的问题
         private Dictionary<CoreWebView2, EventHandler<object>> _titleChangedHandlers
@@ -236,6 +308,9 @@ namespace TransBrowser
             tabControl1.Padding = System.Drawing.Point.Empty;
             tabControl1.Margin = System.Windows.Forms.Padding.Empty;
             pageHeader1.Margin = System.Windows.Forms.Padding.Empty;
+            // Load local config from ./config/appsettings.json if present
+            Tools.LocalConfig.Load();
+
             // Start async WebView2 init for the first tab
             InitializeWebView();
         }
@@ -472,6 +547,9 @@ namespace TransBrowser
             SetMobileMold(Properties.Settings.Default.MobileMold);
 
             inited = true;
+
+            // Save current settings into local config file for persistence in app folder
+            Tools.LocalConfig.Save();
         }
 
         // ─── Tab management ───────────────────────────────────────────────────
@@ -1502,14 +1580,13 @@ namespace TransBrowser
 
             // New configurable hotkeys
             RegisterHotkeyFromSetting((int)HotkeyId.BossKey, Properties.Settings.Default.HotkeyBossKey);
-            RegisterHotkeyFromSetting((int)HotkeyId.OpacityUp, Properties.Settings.Default.HotkeyOpacityUp);
-            RegisterHotkeyFromSetting((int)HotkeyId.OpacityDown, Properties.Settings.Default.HotkeyOpacityDown);
             RegisterHotkeyFromSetting((int)HotkeyId.ClickThrough, Properties.Settings.Default.HotkeyClickThrough);
 
-            // Default transparency hotkeys (修改8：alt+方向键)
-            RegisterHotKey(this.Handle, (int)HotkeyId.OpacityReset, KeyModifiers.Alt, Keys.Up);     // Alt+↑ 重置100%
-            RegisterHotKey(this.Handle, (int)HotkeyId.OpacityDown, KeyModifiers.Alt, Keys.Left);    // Alt+← 减少
-            RegisterHotKey(this.Handle, (int)HotkeyId.OpacityUp, KeyModifiers.Alt, Keys.Right);     // Alt+→ 增加
+            // Default transparency hotkeys (alt+方向键): 描述更新在设置界面
+            // Fixed opacity hotkeys: Alt+Up toggle between 100% and previous; Alt+Left decrease; Alt+Right increase
+            RegisterHotKey(this.Handle, (int)HotkeyId.OpacityReset, KeyModifiers.Alt, Keys.Up);
+            RegisterHotKey(this.Handle, (int)HotkeyId.OpacityDown, KeyModifiers.Alt, Keys.Left);
+            RegisterHotKey(this.Handle, (int)HotkeyId.OpacityUp, KeyModifiers.Alt, Keys.Right);
         }
 
         private void UnregisterAllHotkeys()
@@ -1529,15 +1606,11 @@ namespace TransBrowser
         /// </summary>
         public void ReRegisterConfigurableHotkeys()
         {
-            // Unregister configurable ones first
+            // Unregister only configurable ones (boss key and click-through). Opacity keys are fixed.
             UnregisterHotKey(this.Handle, (int)HotkeyId.BossKey);
-            UnregisterHotKey(this.Handle, (int)HotkeyId.OpacityUp);
-            UnregisterHotKey(this.Handle, (int)HotkeyId.OpacityDown);
             UnregisterHotKey(this.Handle, (int)HotkeyId.ClickThrough);
 
             RegisterHotkeyFromSetting((int)HotkeyId.BossKey, Properties.Settings.Default.HotkeyBossKey);
-            RegisterHotkeyFromSetting((int)HotkeyId.OpacityUp, Properties.Settings.Default.HotkeyOpacityUp);
-            RegisterHotkeyFromSetting((int)HotkeyId.OpacityDown, Properties.Settings.Default.HotkeyOpacityDown);
             RegisterHotkeyFromSetting((int)HotkeyId.ClickThrough, Properties.Settings.Default.HotkeyClickThrough);
         }
 
@@ -1633,12 +1706,29 @@ namespace TransBrowser
                     break;
 
                 case HotkeyId.OpacityReset:
-                    // 修改7：重置透明度到100%
-                    SetTans(100);
-                    Properties.Settings.Default.FormOpacity = 100;
-                    Properties.Settings.Default.Save();
-                    if (_settingForm != null && !_settingForm.IsDisposed)
-                        _settingForm.SyncOpacity(100);
+                    // Toggle between 100% and previous opacity
+                    double current = Properties.Settings.Default.FormOpacity;
+                    if (current != 100)
+                    {
+                        // save current and set to 100
+                        _lastOpacityBeforeReset = current;
+                        SetTans(100);
+                        Properties.Settings.Default.FormOpacity = 100;
+                        Properties.Settings.Default.Save();
+                        if (_settingForm != null && !_settingForm.IsDisposed)
+                            _settingForm.SyncOpacity(100);
+                    }
+                    else
+                    {
+                        // restore previous if available
+                        double restore = (_lastOpacityBeforeReset > 0) ? _lastOpacityBeforeReset : 100;
+                        SetTans(restore);
+                        Properties.Settings.Default.FormOpacity = restore;
+                        Properties.Settings.Default.Save();
+                        if (_settingForm != null && !_settingForm.IsDisposed)
+                            _settingForm.SyncOpacity((int)restore);
+                        _lastOpacityBeforeReset = -1;
+                    }
                     break;
 
                 case HotkeyId.ClickThrough:
@@ -1649,7 +1739,8 @@ namespace TransBrowser
 
         private void AdjustOpacity(int delta)
         {
-            double current = Properties.Settings.Default.FormOpacity;
+            // Use the actual window opacity as source of truth (avoid desync when window-transparent mode was used)
+            double current = Math.Round(this.Opacity * 100.0);
             double newVal = Math.Max(1, Math.Min(100, current + delta));
             SetTans(newVal);
             Properties.Settings.Default.FormOpacity = newVal;
