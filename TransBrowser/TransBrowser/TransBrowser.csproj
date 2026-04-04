@@ -132,6 +132,9 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
     <None Include="优化说明.md" />
+    <None Include="快速使用指南.md" />
+    <None Include="新功能说明-灰度文字防截屏.md" />
+    <None Include="更新日志-界面优化.md" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

@@ -258,5 +258,41 @@ namespace TransBrowser.Properties {
             get { return ((string)(this["BrowsingHistory"])); }
             set { this["BrowsingHistory"] = value; }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool GrayscaleMode {
+            get {
+                return ((bool)(this["GrayscaleMode"]));
+            }
+            set {
+                this["GrayscaleMode"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("100")]
+        public int TextScale {
+            get {
+                return ((int)(this["TextScale"]));
+            }
+            set {
+                this["TextScale"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool AntiScreenshotMode {
+            get {
+                return ((bool)(this["AntiScreenshotMode"]));
+            }
+            set {
+                this["AntiScreenshotMode"] = value;
+            }
+        }
     }
 }

@@ -28,13 +28,17 @@ namespace TransBrowser
         {
             // 不透明度改为透明度：100%不透明 = 0%透明
             this.slider1.Value = 100 - (int)Properties.Settings.Default.FormOpacity;
-            this.input1.Text = Properties.Settings.Default.DefaultUrl;
+            this.inputUrl.Text = Properties.Settings.Default.DefaultUrl;
             this.colorPicker1.Value = Properties.Settings.Default.ThemeBackColor;
             this.autohide_sw.Checked = Properties.Settings.Default.AutoHide;
-            this.switch5.Checked = Properties.Settings.Default.ShowTabBar;
-            this.switch6.Checked = Properties.Settings.Default.NoImageMode;
-            this.switch7.Checked = Properties.Settings.Default.HoverHeaderMode;
-            this.switch8.Checked = Properties.Settings.Default.TransparentBackground;
+            this.swShowTabBar.Checked = Properties.Settings.Default.ShowTabBar;
+            this.swNoImage.Checked = Properties.Settings.Default.NoImageMode;
+            this.swHoverHeader.Checked = Properties.Settings.Default.HoverHeaderMode;
+            this.swTransparentBg.Checked = Properties.Settings.Default.TransparentBackground;
+
+            // 新增功能设置
+            this.swGrayscale.Checked = Properties.Settings.Default.GrayscaleMode;
+            this.swAntiScreenshot.Checked = Properties.Settings.Default.AntiScreenshotMode;
 
             // Hotkey fields
             this.txtBossKey.Text = Properties.Settings.Default.HotkeyBossKey;
@@ -44,14 +48,16 @@ namespace TransBrowser
 
             // Wire events
             this.slider1.ValueChanged += new AntdUI.IntEventHandler(this.slider1_ValueChanged);
-            this.button1.Click += new System.EventHandler(this.button1_Click);
+            this.btnOpenUrl.Click += new System.EventHandler(this.button1_Click);
             this.colorPicker1.ValueChanged += new AntdUI.ColorEventHandler(this.colorPicker1_ValueChanged);
             this.autohide_sw.CheckedChanged += new AntdUI.BoolEventHandler(this.switch4_CheckedChanged);
             this.btnApplyHotkeys.Click += new System.EventHandler(this.btnApplyHotkeys_Click);
-            this.switch5.CheckedChanged += new AntdUI.BoolEventHandler(this.switch5_CheckedChanged);
-            this.switch6.CheckedChanged += new AntdUI.BoolEventHandler(this.switch6_CheckedChanged);
-            this.switch7.CheckedChanged += new AntdUI.BoolEventHandler(this.switch7_CheckedChanged);
-            this.switch8.CheckedChanged += new AntdUI.BoolEventHandler(this.switch8_CheckedChanged);
+            this.swShowTabBar.CheckedChanged += new AntdUI.BoolEventHandler(this.swShowTabBar_CheckedChanged);
+            this.swNoImage.CheckedChanged += new AntdUI.BoolEventHandler(this.swNoImage_CheckedChanged);
+            this.swHoverHeader.CheckedChanged += new AntdUI.BoolEventHandler(this.swHoverHeader_CheckedChanged);
+            this.swTransparentBg.CheckedChanged += new AntdUI.BoolEventHandler(this.swTransparentBg_CheckedChanged);
+            this.swGrayscale.CheckedChanged += new AntdUI.BoolEventHandler(this.swGrayscale_CheckedChanged);
+            this.swAntiScreenshot.CheckedChanged += new AntdUI.BoolEventHandler(this.swAntiScreenshot_CheckedChanged);
 
             // Hotkey textboxes capture key presses
             foreach (TextBox tb in new[] { txtBossKey, txtOpacityUp, txtOpacityDown, txtClickThrough })
@@ -126,7 +132,7 @@ namespace TransBrowser
         private void button1_Click(object sender, EventArgs e)
         {
             // 修改3：点击加载按钮时在新标签页中打开网页
-            string url = this.input1.Text.Trim();
+            string url = this.inputUrl.Text.Trim();
             if (!string.IsNullOrEmpty(url))
             {
                 if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
@@ -138,14 +144,6 @@ namespace TransBrowser
                 Properties.Settings.Default.DefaultUrl = url;
                 Properties.Settings.Default.Save();
             }
-        }
-
-        private void switch1_CheckedChanged(object sender, BoolEventArgs e)
-        {
-            bool notitle = e.Value;
-            mainForm.ShowWindowsBar(notitle);
-            Properties.Settings.Default.NoTitle = notitle;
-            Properties.Settings.Default.Save();
         }
 
         private void colorPicker1_ValueChanged(object sender, ColorEventArgs e)
@@ -166,6 +164,7 @@ namespace TransBrowser
             bool MobileMold = e.Value;
             Properties.Settings.Default.MobileMold = MobileMold;
             Properties.Settings.Default.Save();
+            mainForm?.SetMobileMold(MobileMold);
         }
 
         private void button2_Click_1(object sender, EventArgs e)
@@ -174,16 +173,6 @@ namespace TransBrowser
             Properties.Settings.Default.DefaultUA = ua;
             Properties.Settings.Default.Save();
             mainForm.SetUA(ua);
-        }
-
-        private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
-        {
-            System.Diagnostics.Process.Start("https://www.baidu.com");
-        }
-
-        private void linkLabel2_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
-        {
-            System.Diagnostics.Process.Start("https://www.baidu.com");
         }
 
         private void switch4_CheckedChanged(object sender, BoolEventArgs e)
@@ -202,7 +191,7 @@ namespace TransBrowser
             this.slider1.ValueChanged += slider1_ValueChanged;
         }
 
-        private void switch5_CheckedChanged(object sender, BoolEventArgs e)
+        private void swShowTabBar_CheckedChanged(object sender, BoolEventArgs e)
         {
             bool showTabBar = e.Value;
             mainForm.SetTabBarVisible(showTabBar);
@@ -210,7 +199,7 @@ namespace TransBrowser
             Properties.Settings.Default.Save();
         }
 
-        private void switch6_CheckedChanged(object sender, BoolEventArgs e)
+        private void swNoImage_CheckedChanged(object sender, BoolEventArgs e)
         {
             bool noImage = e.Value;
             mainForm.SetNoImageMode(noImage);
@@ -218,20 +207,35 @@ namespace TransBrowser
             Properties.Settings.Default.Save();
         }
 
-        private void switch7_CheckedChanged(object sender, BoolEventArgs e)
+        private void swHoverHeader_CheckedChanged(object sender, BoolEventArgs e)
         {
-            // Toggle header hover-to-show / always-visible mode
             bool hoverMode = e.Value;
             mainForm?.ApplyHoverHeaderMode(hoverMode);
             Properties.Settings.Default.HoverHeaderMode = hoverMode;
             Properties.Settings.Default.Save();
         }
 
-        private void switch8_CheckedChanged(object sender, BoolEventArgs e)
+        private void swTransparentBg_CheckedChanged(object sender, BoolEventArgs e)
         {
             bool transparentBg = e.Value;
             mainForm.SetTransparentBackground(transparentBg);
             Properties.Settings.Default.TransparentBackground = transparentBg;
+            Properties.Settings.Default.Save();
+        }
+
+        private void swGrayscale_CheckedChanged(object sender, BoolEventArgs e)
+        {
+            bool grayscaleMode = e.Value;
+            mainForm.SetGrayscaleMode(grayscaleMode);
+            Properties.Settings.Default.GrayscaleMode = grayscaleMode;
+            Properties.Settings.Default.Save();
+        }
+
+        private void swAntiScreenshot_CheckedChanged(object sender, BoolEventArgs e)
+        {
+            bool antiScreenshot = e.Value;
+            mainForm.SetAntiScreenshotMode(antiScreenshot);
+            Properties.Settings.Default.AntiScreenshotMode = antiScreenshot;
             Properties.Settings.Default.Save();
         }
     }

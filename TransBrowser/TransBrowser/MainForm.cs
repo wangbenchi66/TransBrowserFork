@@ -16,6 +16,13 @@ namespace TransBrowser
     {
         public bool inited = false;
 
+        // Mobile mode state
+        private bool _mobileMode = false;
+        private Size _prevWindowSize;
+        private Point _prevWindowLocation;
+        private bool _hadSavedWindowBounds = false;
+        private bool _prevShowTabBar = true;
+
         // ─── Floating header state ────────────────────────────────────────────
         private const int HEADER_HOVER_HEIGHT = 28;
         private bool _headerVisible = true;
@@ -97,7 +104,7 @@ namespace TransBrowser
         }
 
         // 用于存储 WebView2 的事件处理器映射，避免 Lambda 无法移除的问题
-        private Dictionary<CoreWebView2, EventHandler<object>> _titleChangedHandlers 
+        private Dictionary<CoreWebView2, EventHandler<object>> _titleChangedHandlers
             = new Dictionary<CoreWebView2, EventHandler<object>>();
 
         // ─── Custom site management (#3/#4) ──────────────────────────────────
@@ -305,9 +312,9 @@ namespace TransBrowser
                 {
                     // 未选中标签：稍微缩小的背景
                     var innerRect = new Rectangle(
-                        tabRect.X + 1, 
-                        tabRect.Y + 2, 
-                        tabRect.Width - 2, 
+                        tabRect.X + 1,
+                        tabRect.Y + 2,
+                        tabRect.Width - 2,
                         tabRect.Height - 2);
                     e.Graphics.FillRectangle(bgBrush, innerRect);
                 }
@@ -322,8 +329,8 @@ namespace TransBrowser
                 {
                     using (var pen = new Pen(Color.FromArgb(230, 230, 230), 1))
                     {
-                        e.Graphics.DrawLine(pen, 
-                            tabRect.Right - 1, tabRect.Top + 8, 
+                        e.Graphics.DrawLine(pen,
+                            tabRect.Right - 1, tabRect.Top + 8,
                             tabRect.Right - 1, tabRect.Bottom - 8);
                     }
                 }
@@ -336,9 +343,9 @@ namespace TransBrowser
             int rightPadding = isLastTab ? 8 : 28; // 为关闭按钮留空间
 
             var textRect = new Rectangle(
-                tabRect.X + leftPadding, 
-                tabRect.Y + 2, 
-                tabRect.Width - leftPadding - rightPadding, 
+                tabRect.X + leftPadding,
+                tabRect.Y + 2,
+                tabRect.Width - leftPadding - rightPadding,
                 tabRect.Height - 2);
 
             using (var textBrush = new SolidBrush(textColor))
@@ -362,8 +369,8 @@ namespace TransBrowser
             if (!isLastTab)
             {
                 var closeRect = new Rectangle(
-                    tabRect.Right - 20, 
-                    tabRect.Y + (tabRect.Height - 14) / 2, 
+                    tabRect.Right - 20,
+                    tabRect.Y + (tabRect.Height - 14) / 2,
                     14, 14);
 
                 // 检测鼠标悬停
@@ -388,11 +395,11 @@ namespace TransBrowser
 
                     // X 的两条对角线
                     int offset = 4;
-                    e.Graphics.DrawLine(closePen, 
-                        closeRect.Left + offset, closeRect.Top + offset, 
+                    e.Graphics.DrawLine(closePen,
+                        closeRect.Left + offset, closeRect.Top + offset,
                         closeRect.Right - offset, closeRect.Bottom - offset);
-                    e.Graphics.DrawLine(closePen, 
-                        closeRect.Right - offset, closeRect.Top + offset, 
+                    e.Graphics.DrawLine(closePen,
+                        closeRect.Right - offset, closeRect.Top + offset,
                         closeRect.Left + offset, closeRect.Bottom - offset);
                 }
             }
@@ -401,7 +408,22 @@ namespace TransBrowser
         // ─── First-tab WebView2 async init ────────────────────────────────────
         private async void InitializeWebView()
         {
+            if (Properties.Settings.Default.TransparentBackground)
+                webView21.DefaultBackgroundColor = Color.Transparent;
             await webView21.EnsureCoreWebView2Async(null);
+            // Apply UA for mobile mode or saved default UA
+            try
+            {
+                if (_mobileMode)
+                {
+                    webView21.CoreWebView2.Settings.UserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1";
+                }
+                else if (!string.IsNullOrEmpty(Properties.Settings.Default.DefaultUA))
+                {
+                    webView21.CoreWebView2.Settings.UserAgent = Properties.Settings.Default.DefaultUA;
+                }
+            }
+            catch { }
             SetupWebViewEvents(webView21);
             tabPageFirst.Text = "新标签页";
             // 启动时总是显示新标签页
@@ -417,9 +439,8 @@ namespace TransBrowser
                 Properties.Settings.Default.FormOpacity = 100;
                 Properties.Settings.Default.Save();
             }
-
-            // Always start with floating header (no explicit "无窗口" toggle)
-            ShowWindowsBar(false);
+            // Note: "无窗口模式" (NoTitle) removed. Floating header and related
+            // behavior are driven by the HoverHeaderMode setting instead.
             SetShowInTaskBar(Properties.Settings.Default.ShowInTaskbar);
             SetPosition(Properties.Settings.Default.FormPosition);
             SetTans(Properties.Settings.Default.FormOpacity);
@@ -442,6 +463,13 @@ namespace TransBrowser
             SetTabBarVisible(Properties.Settings.Default.ShowTabBar);
             this.TopMost = Properties.Settings.Default.TopMostWindow;
             UpdateTopMostButton();
+
+            // Restore anti-screenshot mode
+            if (Properties.Settings.Default.AntiScreenshotMode)
+                SetAntiScreenshotMode(true);
+
+            // Restore mobile mode if enabled
+            SetMobileMold(Properties.Settings.Default.MobileMold);
 
             inited = true;
         }
@@ -468,7 +496,21 @@ namespace TransBrowser
 
         private async void SetupNewWebView(WebView2 wv, string url)
         {
+            if (Properties.Settings.Default.TransparentBackground)
+                wv.DefaultBackgroundColor = Color.Transparent;
             await wv.EnsureCoreWebView2Async(null);
+            try
+            {
+                if (_mobileMode && wv.CoreWebView2 != null)
+                {
+                    wv.CoreWebView2.Settings.UserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1";
+                }
+                else if (wv.CoreWebView2 != null && !string.IsNullOrEmpty(Properties.Settings.Default.DefaultUA))
+                {
+                    wv.CoreWebView2.Settings.UserAgent = Properties.Settings.Default.DefaultUA;
+                }
+            }
+            catch { }
             SetupWebViewEvents(wv);
             if (!string.IsNullOrEmpty(url))
                 wv.CoreWebView2.Navigate(url);
@@ -542,7 +584,7 @@ namespace TransBrowser
                     string title = string.IsNullOrEmpty(core.DocumentTitle) ? "新标签页" : core.DocumentTitle;
                     if (title.Length > 20) title = title.Substring(0, 18) + "…";
                     int capturedI = i;
-                    this.BeginInvoke((MethodInvoker)(() => 
+                    this.BeginInvoke((MethodInvoker)(() =>
                     {
                         // 边界检查：确保标签还存在
                         if (capturedI >= 0 && capturedI < tabControl1.TabPages.Count - 1)
@@ -576,10 +618,10 @@ namespace TransBrowser
                 var tabRect = tabControl1.GetTabRect(i);
                 if (tabRect.Contains(e.Location))
                 {
-                    // 与绘制时保持一致的关闭按钮矩形（右边距20px，14x14居中）
+                    // 同绘制时保持一致的关闭按钮矩形（右边距20px，14x14居中）
                     var closeRect = new Rectangle(
-                        tabRect.Right - 20, 
-                        tabRect.Y + (tabRect.Height - 14) / 2, 
+                        tabRect.Right - 20,
+                        tabRect.Y + (tabRect.Height - 14) / 2,
                         14, 14);
 
                     if (e.Button == MouseButtons.Left && closeRect.Contains(e.Location))
@@ -686,6 +728,10 @@ namespace TransBrowser
             // 应用背景透明
             if (Properties.Settings.Default.TransparentBackground)
                 ApplyTransparentBackground(wv, true);
+
+            // 应用灰度模式
+            if (Properties.Settings.Default.GrayscaleMode)
+                ApplyGrayscaleCss(wv, true);
         }
 
         // ─── Custom right-click context menu ──────────────────────────────────
@@ -754,7 +800,7 @@ namespace TransBrowser
             // 如果颜色是透明的（Alpha < 255），则需要特殊处理
             bool isTransparent = color.A < 255;
 
-            if (btnMinimize != null) 
+            if (btnMinimize != null)
             {
                 btnMinimize.BackColor = color;
                 // 透明时需要确保控件支持透明度
@@ -776,7 +822,7 @@ namespace TransBrowser
                     btnClose.Parent.Refresh();
             }
 
-            if (btnTopMost != null) 
+            if (btnTopMost != null)
             {
                 btnTopMost.BackColor = color;
                 if (isTransparent && btnTopMost.Parent != null)
@@ -873,7 +919,117 @@ namespace TransBrowser
             this.Location = point;
         }
 
-        public void SetMobileMold(bool mobileMold) { }
+        public void SetMobileMold(bool mobileMold)
+        {
+            try
+            {
+                _mobileMode = mobileMold;
+                Properties.Settings.Default.MobileMold = mobileMold;
+                Properties.Settings.Default.Save();
+
+                // Save/restore some UI state (size/location/tab bar)
+                if (mobileMold)
+                {
+                    if (!_hadSavedWindowBounds)
+                    {
+                        _prevWindowSize = this.Size;
+                        _prevWindowLocation = this.Location;
+                        _prevShowTabBar = Properties.Settings.Default.ShowTabBar;
+                        _hadSavedWindowBounds = true;
+                    }
+
+                    // Typical mobile portrait size (approx. phone viewport)
+                    var mobileSize = new Size(390, 844);
+                    if (this.InvokeRequired)
+                    {
+                        this.BeginInvoke(new Action(() =>
+                        {
+                            this.Size = mobileSize;
+                            var screen = Screen.PrimaryScreen.WorkingArea;
+                            this.Location = new Point(
+                                Math.Max(0, screen.Left + (screen.Width - mobileSize.Width) / 2),
+                                Math.Max(0, screen.Top + (screen.Height - mobileSize.Height) / 2));
+                            // hide tab bar to emulate single-tab mobile view
+                            SetTabBarVisible(false);
+                        }));
+                    }
+                    else
+                    {
+                        this.Size = mobileSize;
+                        var screen = Screen.PrimaryScreen.WorkingArea;
+                        this.Location = new Point(
+                            Math.Max(0, screen.Left + (screen.Width - mobileSize.Width) / 2),
+                            Math.Max(0, screen.Top + (screen.Height - mobileSize.Height) / 2));
+                        SetTabBarVisible(false);
+                    }
+
+                    // Apply mobile user agent to all ready WebView2 controls
+                    const string mobileUa = "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1";
+                    for (int i = 0; i < tabControl1.TabPages.Count - 1; i++)
+                    {
+                        var wv = GetTabWebView(tabControl1.TabPages[i]);
+                        if (wv?.CoreWebView2 != null)
+                        {
+                            try
+                            {
+                                wv.CoreWebView2.Settings.UserAgent = mobileUa;
+                                wv.Reload();
+                            }
+                            catch { }
+                        }
+                    }
+                }
+                else
+                {
+                    // Restore previous window bounds if available
+                    if (_hadSavedWindowBounds)
+                    {
+                        if (this.InvokeRequired)
+                        {
+                            this.BeginInvoke(new Action(() =>
+                            {
+                                this.Size = _prevWindowSize;
+                                this.Location = _prevWindowLocation;
+                                SetTabBarVisible(_prevShowTabBar);
+                            }));
+                        }
+                        else
+                        {
+                            this.Size = _prevWindowSize;
+                            this.Location = _prevWindowLocation;
+                            SetTabBarVisible(_prevShowTabBar);
+                        }
+                        _hadSavedWindowBounds = false;
+                    }
+
+                    // Restore user agent from settings (if provided)
+                    string defaultUa = Properties.Settings.Default.DefaultUA;
+                    for (int i = 0; i < tabControl1.TabPages.Count - 1; i++)
+                    {
+                        var wv = GetTabWebView(tabControl1.TabPages[i]);
+                        if (wv?.CoreWebView2 != null)
+                        {
+                            try
+                            {
+                                if (!string.IsNullOrEmpty(defaultUa))
+                                    wv.CoreWebView2.Settings.UserAgent = defaultUa;
+                                else
+                                    wv.CoreWebView2.Settings.UserAgent = string.Empty;
+                                wv.Reload();
+                            }
+                            catch { }
+                        }
+                    }
+                }
+
+                // Ensure future webviews created pick up the mobile UA by leaving _mobileMode flag
+                UpdateTopMostButton();
+            }
+            catch (Exception ex)
+            {
+                Tools.LogHelper.Error(ex);
+            }
+        }
 
         public void SetUA(string UA)
         {
@@ -932,98 +1088,135 @@ namespace TransBrowser
             for (int i = 0; i < tabControl1.TabPages.Count - 1; i++)
             {
                 var wv = GetTabWebView(tabControl1.TabPages[i]);
-                if (wv?.CoreWebView2 != null)
-                    ApplyTransparentBackground(wv, enable);
+                if (wv != null)
+                {
+                    // Set the WebView2-level background first; CSS handles the page content
+                    wv.DefaultBackgroundColor = enable ? Color.Transparent : Color.White;
+                    if (wv.CoreWebView2 != null)
+                        ApplyTransparentBackground(wv, enable);
+                }
             }
         }
 
         private async void ApplyTransparentBackground(Microsoft.Web.WebView2.WinForms.WebView2 wv, bool enable)
         {
+            // Keep DefaultBackgroundColor in sync when called from NavigationCompleted
+            wv.DefaultBackgroundColor = enable ? Color.Transparent : Color.White;
+
             if (enable)
             {
-                // 超强力透明CSS：使用通配符和最高优先级覆盖所有元素背景
-                string css = @"*,*::before,*::after{background:transparent!important;background-color:transparent!important;background-image:none!important}
-                    html,body,#app,#root,.root,[class*='container'],[class*='wrapper'],[class*='main'],[class*='content'],[class*='page'],[class*='layout']{background:transparent!important;background-color:transparent!important}";
+                // Remove page-level backgrounds so the transparent WebView2 shows through
+                string css = "html,body{background:transparent!important;background-color:transparent!important}";
+                string js = $"(function(){{var s=document.getElementById('__trans_bg');if(!s){{s=document.createElement('style');s.id='__trans_bg';(document.head||document.documentElement).appendChild(s);}}s.textContent='{css}';}})()";
+                await wv.CoreWebView2.ExecuteScriptAsync(js);
+            }
+            else
+            {
+                string js = "(function(){var s=document.getElementById('__trans_bg');if(s)s.remove();})()";
+                await wv.CoreWebView2.ExecuteScriptAsync(js);
+            }
+        }
+
+        // ─── Grayscale mode (灰度模式) ────────────────────────────────────────
+
+        public void SetGrayscaleMode(bool enable)
+        {
+            Properties.Settings.Default.GrayscaleMode = enable;
+            Properties.Settings.Default.Save();
+
+            for (int i = 0; i < tabControl1.TabPages.Count - 1; i++)
+            {
+                var wv = GetTabWebView(tabControl1.TabPages[i]);
+                if (wv?.CoreWebView2 != null)
+                    ApplyGrayscaleCss(wv, enable);
+            }
+        }
+
+        private async void ApplyGrayscaleCss(Microsoft.Web.WebView2.WinForms.WebView2 wv, bool enable)
+        {
+            if (enable)
+            {
+                // 灰度滤镜CSS
+                string css = "html{filter:grayscale(100%)!important;-webkit-filter:grayscale(100%)!important}";
                 string js = $@"(function(){{
                     try{{
-                        // 1. 注入强力CSS样式
-                        var s=document.getElementById('__trans_bg');
+                        var s=document.getElementById('__trans_grayscale');
                         if(!s){{
                             s=document.createElement('style');
-                            s.id='__trans_bg';
+                            s.id='__trans_grayscale';
                             (document.head||document.documentElement).appendChild(s);
                         }}
                         s.textContent='{css}';
-
-                        // 2. 直接设置根元素内联样式
-                        if(document.documentElement)document.documentElement.style.cssText='background:transparent!important;background-color:transparent!important;';
-                        if(document.body)document.body.style.cssText='background:transparent!important;background-color:transparent!important;';
-
-                        // 3. 设置常见容器元素透明
-                        var containers=['#app','#root','.root','[class*=container]','[class*=wrapper]','[class*=main]'];
-                        containers.forEach(function(sel){{
-                            try{{
-                                var els=document.querySelectorAll(sel);
-                                els.forEach(function(el){{el.style.cssText='background:transparent!important;background-color:transparent!important;';}});
-                            }}catch(e){{}}
-                        }});
-
-                        // 4. 使用MutationObserver持续监听DOM变化并重新应用透明样式（适配SPA）
-                        if(!window.__transBgObserver){{
-                            window.__transBgObserver=new MutationObserver(function(mutations){{
-                                if(document.documentElement)document.documentElement.style.background='transparent';
-                                if(document.body)document.body.style.background='transparent';
-                            }});
-                            window.__transBgObserver.observe(document.documentElement||document.body,{{childList:true,subtree:true,attributes:true,attributeFilter:['style','class']}});
-                        }}
-
-                        // 5. 定期强制重新应用（双保险，应对动态内联样式）
-                        if(window.__transBgInterval)clearInterval(window.__transBgInterval);
-                        window.__transBgInterval=setInterval(function(){{
-                            if(document.documentElement&&document.documentElement.style.backgroundColor!=='transparent'){{
-                                document.documentElement.style.cssText='background:transparent!important;background-color:transparent!important;';
-                            }}
-                            if(document.body&&document.body.style.backgroundColor!=='transparent'){{
-                                document.body.style.cssText='background:transparent!important;background-color:transparent!important;';
-                            }}
-                        }},500);
                     }}catch(e){{}}
                 }})()";
                 await wv.CoreWebView2.ExecuteScriptAsync(js);
             }
             else
             {
-                // 关闭透明：移除所有注入的样式和监听器
-                string js = @"(function(){{
-                    try{{
-                        // 移除CSS样式
-                        var s=document.getElementById('__trans_bg');
+                string js = @"(function(){
+                    try{
+                        var s=document.getElementById('__trans_grayscale');
                         if(s)s.remove();
-
-                        // 停止MutationObserver
-                        if(window.__transBgObserver){{
-                            window.__transBgObserver.disconnect();
-                            window.__transBgObserver=null;
-                        }}
-
-                        // 停止定时器
-                        if(window.__transBgInterval){{
-                            clearInterval(window.__transBgInterval);
-                            window.__transBgInterval=null;
-                        }}
-
-                        // 恢复根元素样式
-                        if(document.body){{
-                            document.body.style.background='';
-                            document.body.style.backgroundColor='';
-                        }}
-                        if(document.documentElement){{
-                            document.documentElement.style.background='';
-                            document.documentElement.style.backgroundColor='';
-                        }}
-                    }}catch(e){{}}
-                }})()";
+                    }catch(e){}
+                })()";
                 await wv.CoreWebView2.ExecuteScriptAsync(js);
+            }
+        }
+
+        // ─── Anti-screenshot mode (防截屏模式) ────────────────────────────────
+
+        [DllImport("user32.dll")]
+        private static extern bool SetWindowDisplayAffinity(IntPtr hWnd, uint dwAffinity);
+
+        private const uint WDA_NONE = 0x00000000;
+        private const uint WDA_MONITOR = 0x00000001;
+        private const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
+
+        /// <summary>Applies or removes the anti-screenshot affinity for a single window handle.</summary>
+        private static void ApplyAffinityToHandle(IntPtr handle, bool enable)
+        {
+            if (handle != IntPtr.Zero)
+                SetWindowDisplayAffinity(handle, enable ? WDA_EXCLUDEFROMCAPTURE : WDA_NONE);
+        }
+
+        /// <summary>Propagates the current anti-screenshot state to all open child windows.</summary>
+        private void ApplyAntiScreenshotToAllWindows(bool enable)
+        {
+            if (_settingForm != null && !_settingForm.IsDisposed && _settingForm.IsHandleCreated)
+                ApplyAffinityToHandle(_settingForm.Handle, enable);
+            if (control != null && !control.IsDisposed && control.IsHandleCreated)
+                ApplyAffinityToHandle(control.Handle, enable);
+        }
+
+        public void SetAntiScreenshotMode(bool enable)
+        {
+            Properties.Settings.Default.AntiScreenshotMode = enable;
+            Properties.Settings.Default.Save();
+
+            if (this.IsHandleCreated)
+            {
+                bool success = SetWindowDisplayAffinity(this.Handle,
+                    enable ? WDA_EXCLUDEFROMCAPTURE : WDA_NONE);
+
+                if (success)
+                {
+                    // Also apply to all currently open child windows
+                    ApplyAntiScreenshotToAllWindows(enable);
+
+                    string msg = enable ? "防截屏模式已开启\n大部分截屏软件将无法捕获此窗口"
+                                        : "防截屏模式已关闭";
+                    notifyIcon1.ShowBalloonTip(2000, "TransBrowser", msg, ToolTipIcon.Info);
+                }
+                else
+                {
+                    if (enable)
+                    {
+                        MessageBox.Show("防截屏模式启动失败\n可能需要 Windows 10 2004 或更高版本",
+                            "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Properties.Settings.Default.AntiScreenshotMode = false;
+                        Properties.Settings.Default.Save();
+                    }
+                }
             }
         }
 
@@ -1215,6 +1408,9 @@ namespace TransBrowser
             _settingForm.StartPosition = FormStartPosition.CenterScreen;
             _settingForm.FormClosed += (s, args) => _settingForm = null;
             _settingForm.Show();
+            // Apply anti-screenshot to the newly opened settings window if the mode is active
+            if (Properties.Settings.Default.AntiScreenshotMode && _settingForm.IsHandleCreated)
+                ApplyAffinityToHandle(_settingForm.Handle, true);
         }
 
         private void 退出ToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1234,9 +1430,17 @@ namespace TransBrowser
             control.setMainForm(this);
             control.StartPosition = FormStartPosition.CenterScreen;
             control.Show();
+            // Use BeginInvoke so the affinity is set after the window message loop
+            // has fully processed the Show() – guarantees the handle exists
+            if (Properties.Settings.Default.AntiScreenshotMode)
+                control.BeginInvoke(new Action(() =>
+                {
+                    if (!control.IsDisposed && control.IsHandleCreated)
+                        ApplyAffinityToHandle(control.Handle, true);
+                }));
         }
 
-        ControlPanel control = new ControlPanel();
+        private ControlPanel control = new ControlPanel();
 
         // ─── Location / resize persistence ────────────────────────────────────
 
@@ -1533,8 +1737,6 @@ namespace TransBrowser
 
         private void HeaderHoverPollTick(object sender, EventArgs e)
         {
-            if (Properties.Settings.Default.NoTitle) return;
-
             Point cur = this.PointToClient(Cursor.Position);
             bool inForm = cur.X >= 0 && cur.X < this.ClientSize.Width
                        && cur.Y >= 0 && cur.Y < this.ClientSize.Height;
@@ -1553,9 +1755,18 @@ namespace TransBrowser
             }
             else if (_headerVisible)
             {
-                // Cursor moved away from the header zone – start the hide countdown
-                // (only if it is not already running).
-                if (!_headerHideTimer.Enabled)
+                // When the tab bar is visible, extend the "keep visible" zone to cover
+                // the tab strip so the user can reach the tabs without the header hiding.
+                bool inTabBarZone = false;
+                if (Properties.Settings.Default.ShowTabBar && inForm)
+                {
+                    int tabBarBottom = pageHeader1.Bottom + tabControl1.ItemSize.Height + 2;
+                    inTabBarZone = cur.Y < tabBarBottom;
+                }
+
+                if (inTabBarZone)
+                    _headerHideTimer.Stop(); // cursor is on tab bar – do not hide header
+                else if (!_headerHideTimer.Enabled)
                     _headerHideTimer.Start();
             }
         }
@@ -1575,23 +1786,17 @@ namespace TransBrowser
             {
                 // Hover mode: hide the header initially; the polling timer will
                 // reveal it as soon as the cursor enters the trigger zone.
-                if (!Properties.Settings.Default.NoTitle)
-                {
-                    pageHeader1.Visible = false;
-                    _headerVisible = false;
-                    UpdateTopMostButtonPosition();
-                }
+                pageHeader1.Visible = false;
+                _headerVisible = false;
+                UpdateTopMostButtonPosition();
                 _headerHoverPollTimer.Start();
             }
             else
             {
-                // Fixed mode: header is always visible (unless NoTitle is active).
-                if (!Properties.Settings.Default.NoTitle)
-                {
-                    pageHeader1.Visible = true;
-                    _headerVisible = true;
-                    UpdateTopMostButtonPosition();
-                }
+                // Fixed mode: header is always visible.
+                pageHeader1.Visible = true;
+                _headerVisible = true;
+                UpdateTopMostButtonPosition();
             }
         }
 
@@ -1808,7 +2013,8 @@ namespace TransBrowser
         {
             [System.Runtime.InteropServices.StructLayout(
                 System.Runtime.InteropServices.LayoutKind.Sequential)]
-            private struct RECT { public int Left, Top, Right, Bottom; }
+            private struct RECT
+            { public int Left, Top, Right, Bottom; }
 
             private const int TCM_ADJUSTRECT = 0x1328;
 
@@ -1822,8 +2028,8 @@ namespace TransBrowser
                     base.WndProc(ref m);   // let Windows compute the inset rect
                     var rc = (RECT)System.Runtime.InteropServices.Marshal.PtrToStructure(
                         m.LParam, typeof(RECT));
-                    rc.Left   -= 2;        // expand: cover left border
-                    rc.Right  += 2;        // expand: cover right border
+                    rc.Left -= 2;        // expand: cover left border
+                    rc.Right += 2;        // expand: cover right border
                     rc.Bottom += 2;        // expand: cover bottom border
                     System.Runtime.InteropServices.Marshal.StructureToPtr(rc, m.LParam, false);
                     return;
