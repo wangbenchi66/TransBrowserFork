@@ -268,7 +268,7 @@
             this.lblWindowTransparent.Name = "lblWindowTransparent";
             this.lblWindowTransparent.Size = new System.Drawing.Size(120, 24);
             this.lblWindowTransparent.TabIndex = 24;
-            this.lblWindowTransparent.Text = "软件背景透明";
+            this.lblWindowTransparent.Text = "玻璃材质效果";
             // 
             // swTransparentBg
             // 
