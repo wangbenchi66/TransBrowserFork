@@ -91,7 +91,7 @@
             // slider1
             // 
             this.slider1.Location = new System.Drawing.Point(76, 4);
-            this.slider1.MinValue = 1;
+            this.slider1.MinValue = 0;
             this.slider1.Name = "slider1";
             this.slider1.ShowValue = true;
             this.slider1.Size = new System.Drawing.Size(365, 24);

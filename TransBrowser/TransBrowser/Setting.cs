@@ -147,9 +147,8 @@ namespace TransBrowser
         private void slider1_ValueChanged(object sender, IntEventArgs e)
         {
             // 透明度slider：0%透明=100%不透明，100%透明=1%不透明
-            int opacity = 100 - slider1.Value;
-            // 确保至少有1%不透明度，避免完全透明
-            if (opacity < 1) opacity = 1;
+            // Clamp to 1 so we never save 0 (which Init() would reset to 100 on next launch)
+            int opacity = Math.Max(1, 100 - e.Value);
             mainForm.SetTans(opacity);
             Properties.Settings.Default.FormOpacity = opacity;
             Properties.Settings.Default.Save();
