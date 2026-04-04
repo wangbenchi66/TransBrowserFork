@@ -41,6 +41,8 @@ namespace TransBrowser
             this.label11 = new AntdUI.Label();
             this.switch6 = new AntdUI.Switch();
             this.label9 = new AntdUI.Label();
+            this.label12 = new AntdUI.Label();
+            this.switch7 = new AntdUI.Switch();
             this.switch3 = new AntdUI.Switch();
             this.label2 = new AntdUI.Label();
             this.label6 = new AntdUI.Label();
@@ -138,6 +140,8 @@ namespace TransBrowser
             this.panel3.Controls.Add(this.switch5);
             this.panel3.Controls.Add(this.label11);
             this.panel3.Controls.Add(this.switch6);
+            this.panel3.Controls.Add(this.label12);
+            this.panel3.Controls.Add(this.switch7);
             this.panel3.Location = new System.Drawing.Point(3, 3);
             this.panel3.Name = "panel3";
             this.panel3.Size = new System.Drawing.Size(450, 135);
@@ -251,6 +255,22 @@ namespace TransBrowser
             this.switch6.Size = new System.Drawing.Size(40, 23);
             this.switch6.TabIndex = 20;
             this.switch6.Text = "switch6";
+            // 
+            // label12 – 状态栏悬停隐藏
+            // 
+            this.label12.Location = new System.Drawing.Point(213, 103);
+            this.label12.Name = "label12";
+            this.label12.Size = new System.Drawing.Size(82, 23);
+            this.label12.TabIndex = 21;
+            this.label12.Text = "状态栏悬停隐藏";
+            // 
+            // switch7 – hover header mode toggle
+            // 
+            this.switch7.Location = new System.Drawing.Point(301, 103);
+            this.switch7.Name = "switch7";
+            this.switch7.Size = new System.Drawing.Size(40, 23);
+            this.switch7.TabIndex = 22;
+            this.switch7.Text = "switch7";
             // 
             // panel1
             // 
@@ -509,5 +529,7 @@ namespace TransBrowser
         private AntdUI.Switch switch5;
         private AntdUI.Label label11;
         private AntdUI.Switch switch6;
+        private AntdUI.Label label12;
+        private AntdUI.Switch switch7;
     }
 }

@@ -56,6 +56,8 @@ namespace TransBrowser
 
         // ─── Floating header timer ────────────────────────────────────────────
         private System.Windows.Forms.Timer _headerHideTimer;
+        // Polls cursor position every 50 ms – works even when WebView2 captures the mouse
+        private System.Windows.Forms.Timer _headerHoverPollTimer;
 
         // ─── Hotkey IDs ────────────────────────────────────────────────────────
         private enum HotkeyId
@@ -834,11 +836,15 @@ namespace TransBrowser
 
         private void InitFloatingHeader()
         {
+            // Delayed-hide timer: fires after cursor leaves the header zone.
+            // Reduced from 1 500 ms to 400 ms for snappier UX.
             _headerHideTimer = new System.Windows.Forms.Timer();
-            _headerHideTimer.Interval = 1500;
-            _headerHideTimer.Tick += (s, args) => {
+            _headerHideTimer.Interval = 400;
+            _headerHideTimer.Tick += (s, args) =>
+            {
                 _headerHideTimer.Stop();
-                Point cur = this.PointToClient(System.Windows.Forms.Cursor.Position);
+                // Re-verify cursor position before hiding to avoid false dismissals.
+                Point cur = this.PointToClient(Cursor.Position);
                 if (cur.Y >= HEADER_HOVER_HEIGHT)
                 {
                     pageHeader1.Visible = false;
@@ -846,12 +852,84 @@ namespace TransBrowser
                     UpdateTopMostButtonPosition();
                 }
             };
-            this.MouseMove += MainForm_MouseMoveForHeader;
-            tabControl1.MouseMove += MainForm_MouseMoveForHeader;
-            pageHeader1.MouseLeave += (s, args) => _headerHideTimer.Start();
-            pageHeader1.MouseEnter += (s, args) => { _headerHideTimer.Stop(); };
+
+            // Polling timer: samples cursor position every 50 ms.
+            // Unlike MouseMove events, this fires reliably even when WebView2
+            // (a native HwndHost) has captured the mouse – fixing the root cause
+            // of the intermittent "header doesn't appear" bug.
+            _headerHoverPollTimer = new System.Windows.Forms.Timer();
+            _headerHoverPollTimer.Interval = 50;
+            _headerHoverPollTimer.Tick += HeaderHoverPollTick;
+
+            // Apply the persisted mode.
+            ApplyHoverHeaderMode(Properties.Settings.Default.HoverHeaderMode);
         }
 
+        private void HeaderHoverPollTick(object sender, EventArgs e)
+        {
+            if (Properties.Settings.Default.NoTitle) return;
+
+            Point cur = this.PointToClient(Cursor.Position);
+            bool inForm = cur.X >= 0 && cur.X < this.ClientSize.Width
+                       && cur.Y >= 0 && cur.Y < this.ClientSize.Height;
+
+            if (inForm && cur.Y < HEADER_HOVER_HEIGHT)
+            {
+                // Cursor is inside the trigger zone – cancel any pending hide
+                // and show the header if it is currently hidden.
+                _headerHideTimer.Stop();
+                if (!_headerVisible)
+                {
+                    pageHeader1.Visible = true;
+                    _headerVisible = true;
+                    UpdateTopMostButtonPosition();
+                }
+            }
+            else if (_headerVisible)
+            {
+                // Cursor moved away from the header zone – start the hide countdown
+                // (only if it is not already running).
+                if (!_headerHideTimer.Enabled)
+                    _headerHideTimer.Start();
+            }
+        }
+
+        /// <summary>
+        /// Switches header visibility mode at runtime.
+        /// <para>false (default) – fixed: header is always visible.</para>
+        /// <para>true – hover: header auto-hides and reappears when the cursor
+        /// approaches the top <see cref="HEADER_HOVER_HEIGHT"/> pixels.</para>
+        /// </summary>
+        public void ApplyHoverHeaderMode(bool enableHover)
+        {
+            if (_headerHideTimer != null) _headerHideTimer.Stop();
+            if (_headerHoverPollTimer != null) _headerHoverPollTimer.Stop();
+
+            if (enableHover)
+            {
+                // Hover mode: hide the header initially; the polling timer will
+                // reveal it as soon as the cursor enters the trigger zone.
+                if (!Properties.Settings.Default.NoTitle)
+                {
+                    pageHeader1.Visible = false;
+                    _headerVisible = false;
+                    UpdateTopMostButtonPosition();
+                }
+                _headerHoverPollTimer.Start();
+            }
+            else
+            {
+                // Fixed mode: header is always visible (unless NoTitle is active).
+                if (!Properties.Settings.Default.NoTitle)
+                {
+                    pageHeader1.Visible = true;
+                    _headerVisible = true;
+                    UpdateTopMostButtonPosition();
+                }
+            }
+        }
+
+        // Kept for backwards compatibility (no longer registered as an event handler).
         private void MainForm_MouseMoveForHeader(object sender, MouseEventArgs e)
         {
             Point formPt = (sender == (object)tabControl1)

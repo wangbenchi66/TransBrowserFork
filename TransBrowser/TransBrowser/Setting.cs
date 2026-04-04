@@ -32,6 +32,7 @@ namespace TransBrowser
             this.autohide_sw.Checked = Properties.Settings.Default.AutoHide;
             this.switch5.Checked = Properties.Settings.Default.ShowTabBar;
             this.switch6.Checked = Properties.Settings.Default.NoImageMode;
+            this.switch7.Checked = Properties.Settings.Default.HoverHeaderMode;
 
             // Hotkey fields
             this.txtBossKey.Text = Properties.Settings.Default.HotkeyBossKey;
@@ -48,6 +49,7 @@ namespace TransBrowser
             this.btnApplyHotkeys.Click += new System.EventHandler(this.btnApplyHotkeys_Click);
             this.switch5.CheckedChanged += new AntdUI.BoolEventHandler(this.switch5_CheckedChanged);
             this.switch6.CheckedChanged += new AntdUI.BoolEventHandler(this.switch6_CheckedChanged);
+            this.switch7.CheckedChanged += new AntdUI.BoolEventHandler(this.switch7_CheckedChanged);
 
             // Hotkey textboxes capture key presses
             foreach (TextBox tb in new[] { txtBossKey, txtOpacityUp, txtOpacityDown, txtClickThrough })
@@ -202,6 +204,15 @@ namespace TransBrowser
             bool noImage = e.Value;
             mainForm.SetNoImageMode(noImage);
             Properties.Settings.Default.NoImageMode = noImage;
+            Properties.Settings.Default.Save();
+        }
+
+        private void switch7_CheckedChanged(object sender, BoolEventArgs e)
+        {
+            // Toggle header hover-to-show / always-visible mode
+            bool hoverMode = e.Value;
+            mainForm?.ApplyHoverHeaderMode(hoverMode);
+            Properties.Settings.Default.HoverHeaderMode = hoverMode;
             Properties.Settings.Default.Save();
         }
     }
