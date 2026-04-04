@@ -1871,7 +1871,7 @@ namespace TransBrowser
                         }
                         else
                         {
-                            int restore = (_lastOpacityBeforeReset > 0) ? (int)_lastOpacityBeforeReset : 70;
+                            int restore = (_lastOpacityBeforeReset > 0) ? (int)_lastOpacityBeforeReset : Properties.Settings.Default.MaterialIntensity;
                             SetMaterialIntensity(restore);
                             if (_settingForm != null && !_settingForm.IsDisposed)
                                 _settingForm.SyncOpacity(restore);

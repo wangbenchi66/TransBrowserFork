@@ -55,7 +55,7 @@ namespace TransBrowser
             this.txtClickThrough.Text = Properties.Settings.Default.HotkeyClickThrough;
 
             // Wire events
-            this.slider1.ValueChanged += new AntdUI.IntEventHandler(this.slider1_ValueChanged);
+            this.slider1.ValueChanged += slider1_ValueChanged;
             this.btnOpenUrl.Click += new System.EventHandler(this.button1_Click);
             this.colorPicker1.ValueChanged += new AntdUI.ColorEventHandler(this.colorPicker1_ValueChanged);
             this.autohide_sw.CheckedChanged += new AntdUI.BoolEventHandler(this.switch4_CheckedChanged);
@@ -307,7 +307,7 @@ namespace TransBrowser
             this.slider1.Value = enable
                 ? Properties.Settings.Default.MaterialIntensity
                 : 100 - (int)Properties.Settings.Default.FormOpacity;
-            this.slider1.ValueChanged += new AntdUI.IntEventHandler(this.slider1_ValueChanged);
+            this.slider1.ValueChanged += slider1_ValueChanged;
         }
 
         private void swAntiScreenshot_CheckedChanged(object sender, BoolEventArgs e)

@@ -68,6 +68,9 @@ namespace TransBrowser.Tools
         private const int DWMWA_MICA_EFFECT = 1029;
 
         // ── OS version helpers ────────────────────────────────────────────────
+        // Note: Environment.OSVersion.Version.Build is the OS build number and is
+        // reliable on modern .NET Framework 4.5+ when the app manifest includes a
+        // supportedOS entry for Windows 10/11.  Windows 10 = 10240+, Win11 = 22000+.
 
         /// <summary>Windows 11 or higher (build ≥ 22000).</summary>
         public static bool IsWindows11OrHigher =>
@@ -112,8 +115,8 @@ namespace TransBrowser.Tools
             {
                 if (IsWindows11OrHigher)
                 {
-                    int none = DWMSBT_AUTO;
-                    DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, ref none, sizeof(int));
+                    int resetBackdrop = DWMSBT_AUTO;
+                    DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, ref resetBackdrop, sizeof(int));
 
                     int disable = 0;
                     DwmSetWindowAttribute(hwnd, DWMWA_MICA_EFFECT, ref disable, sizeof(int));
