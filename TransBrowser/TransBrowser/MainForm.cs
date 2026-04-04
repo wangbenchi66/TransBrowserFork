@@ -7,6 +7,7 @@ using System.Drawing;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using static TransBrowser.Tools.GlobalHotkey;
 
@@ -68,6 +69,16 @@ namespace TransBrowser
         private System.Windows.Forms.Timer _headerHideTimer;
         // Polls cursor position every 50 ms – works even when WebView2 captures the mouse
         private System.Windows.Forms.Timer _headerHoverPollTimer;
+
+        // ─── Transparent background CSS injection script ───────────────────────
+        // Shared by ApplyTransparentBackground (NavigationCompleted) and
+        // RegisterTransparentBackgroundScriptAsync (AddScriptToExecuteOnDocumentCreated).
+        private const string TransparentBgCssJs =
+            "(function(){var s=document.getElementById('__trans_bg');" +
+            "if(!s){s=document.createElement('style');s.id='__trans_bg';" +
+            "(document.head||document.documentElement).appendChild(s);}" +
+            "s.textContent='html,body{background:transparent!important;" +
+            "background-color:transparent!important}';})()";
 
         // ─── Hotkey IDs ────────────────────────────────────────────────────────
         private enum HotkeyId
@@ -500,6 +511,10 @@ namespace TransBrowser
             }
             catch { }
             SetupWebViewEvents(webView21);
+            // Register persistent transparent-background CSS so it is injected before
+            // any page script runs, preventing a white flash on each navigation.
+            if (Properties.Settings.Default.TransparentBackground)
+                await RegisterTransparentBackgroundScriptAsync(webView21);
             tabPageFirst.Text = "新标签页";
             // 启动时总是显示新标签页
             webView21.CoreWebView2.NavigateToString(GetNewTabHtml());
@@ -546,6 +561,12 @@ namespace TransBrowser
             // Restore mobile mode if enabled
             SetMobileMold(Properties.Settings.Default.MobileMold);
 
+            // Restore window-level transparency (TransparencyKey / layered window).
+            // This must run at startup so the desktop shows through the WebView2 area
+            // whenever the user previously enabled transparent-background mode.
+            if (Properties.Settings.Default.WindowTransparent)
+                SetWindowBackgroundTransparent(true);
+
             inited = true;
 
             // Save current settings into local config file for persistence in app folder
@@ -590,6 +611,10 @@ namespace TransBrowser
             }
             catch { }
             SetupWebViewEvents(wv);
+            // Register persistent transparent-background CSS so it is injected before
+            // any page script runs, preventing a white flash on each navigation.
+            if (Properties.Settings.Default.TransparentBackground)
+                await RegisterTransparentBackgroundScriptAsync(wv);
             if (!string.IsNullOrEmpty(url))
                 wv.CoreWebView2.Navigate(url);
             else
@@ -1163,6 +1188,12 @@ namespace TransBrowser
             Properties.Settings.Default.TransparentBackground = enable;
             Properties.Settings.Default.Save();
 
+            // Webpage transparency requires the host window to be transparent too so
+            // that the desktop is visible through the WebView2 area.  Enable the layered
+            // window (TransparencyKey) whenever we turn on transparent-background mode.
+            if (enable)
+                SetWindowBackgroundTransparent(true);
+
             for (int i = 0; i < tabControl1.TabPages.Count - 1; i++)
             {
                 var wv = GetTabWebView(tabControl1.TabPages[i]);
@@ -1184,15 +1215,28 @@ namespace TransBrowser
             if (enable)
             {
                 // Remove page-level backgrounds so the transparent WebView2 shows through
-                string css = "html,body{background:transparent!important;background-color:transparent!important}";
-                string js = $"(function(){{var s=document.getElementById('__trans_bg');if(!s){{s=document.createElement('style');s.id='__trans_bg';(document.head||document.documentElement).appendChild(s);}}s.textContent='{css}';}})()";
-                await wv.CoreWebView2.ExecuteScriptAsync(js);
+                await wv.CoreWebView2.ExecuteScriptAsync(TransparentBgCssJs);
             }
             else
             {
                 string js = "(function(){var s=document.getElementById('__trans_bg');if(s)s.remove();})()";
                 await wv.CoreWebView2.ExecuteScriptAsync(js);
             }
+        }
+
+        /// <summary>
+        /// Registers a persistent document-creation script that injects transparent-background
+        /// CSS before any page script runs.  This prevents the white flash that would otherwise
+        /// occur between a navigation start and the NavigationCompleted CSS injection.
+        /// Safe to call multiple times – WebView2 deduplicates by script content internally.
+        /// </summary>
+        private async Task RegisterTransparentBackgroundScriptAsync(WebView2 wv)
+        {
+            try
+            {
+                await wv.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(TransparentBgCssJs);
+            }
+            catch { }
         }
 
         // ─── Grayscale mode (灰度模式) ────────────────────────────────────────
