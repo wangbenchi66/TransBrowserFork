@@ -27,6 +27,8 @@ namespace TransBrowser
         {
             // 不透明度改为透明度：100%不透明 = 0%透明
             this.slider1.Value = 100 - (int)Properties.Settings.Default.FormOpacity;
+            // 软件背景透明度滑块：直接反映AppOpacity(1-100)
+            this.sliderAppOpacity.Value = (int)Math.Max(1, Math.Min(100, Properties.Settings.Default.AppOpacity));
             this.inputUrl.Text = Properties.Settings.Default.DefaultUrl;
             this.colorPicker1.Value = Properties.Settings.Default.ThemeBackColor;
             this.autohide_sw.Checked = Properties.Settings.Default.AutoHide;
@@ -48,6 +50,7 @@ namespace TransBrowser
 
             // Wire events
             this.slider1.ValueChanged += new AntdUI.IntEventHandler(this.slider1_ValueChanged);
+            this.sliderAppOpacity.ValueChanged += new AntdUI.IntEventHandler(this.sliderAppOpacity_ValueChanged);
             this.btnOpenUrl.Click += new System.EventHandler(this.button1_Click);
             this.colorPicker1.ValueChanged += new AntdUI.ColorEventHandler(this.colorPicker1_ValueChanged);
             this.autohide_sw.CheckedChanged += new AntdUI.BoolEventHandler(this.switch4_CheckedChanged);
@@ -151,8 +154,16 @@ namespace TransBrowser
             // 确保至少有1%不透明度，避免完全透明
             if (opacity < 1) opacity = 1;
             mainForm.SetTans(opacity);
-            Properties.Settings.Default.FormOpacity = opacity;
             Properties.Settings.Default.Save();
+        }
+
+        private void sliderAppOpacity_ValueChanged(object sender, IntEventArgs e)
+        {
+            // 软件背景透明度：100 = 完全不透明，1 = 几乎完全透明
+            int appOpacity = Math.Max(1, Math.Min(100, sliderAppOpacity.Value));
+            Properties.Settings.Default.AppOpacity = appOpacity;
+            Properties.Settings.Default.Save();
+            mainForm?.ApplyCombinedOpacity();
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -259,10 +270,10 @@ namespace TransBrowser
 
         private void swWindowTransparent_CheckedChanged(object sender, BoolEventArgs e)
         {
-            bool windowTransparent = e.Value;
-            Properties.Settings.Default.WindowTransparent = windowTransparent;
+            Properties.Settings.Default.WindowTransparent = e.Value;
             Properties.Settings.Default.Save();
-            try { mainForm?.SetWindowBackgroundTransparent(windowTransparent); } catch { }
+            // Note: WindowTransparent no longer toggles TransparencyKey.
+            // AppOpacity slider (sliderAppOpacity) now controls overall window opacity.
         }
 
         private void swAntiScreenshot_CheckedChanged(object sender, BoolEventArgs e)

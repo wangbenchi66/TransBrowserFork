@@ -67,6 +67,18 @@ namespace TransBrowser.Properties {
                 this["FormOpacity"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("100")]
+        public double AppOpacity {
+            get {
+                return ((double)(this["AppOpacity"]));
+            }
+            set {
+                this["AppOpacity"] = value;
+            }
+        }
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]

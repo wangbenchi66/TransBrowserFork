@@ -10,6 +10,7 @@ namespace TransBrowser.Tools
     public class LocalConfigData
     {
         public double FormOpacity { get; set; }
+        public double AppOpacity { get; set; }
         public string FormPosition { get; set; }
         public string FormSize { get; set; }
         public bool ShowInTaskbar { get; set; }
@@ -58,6 +59,7 @@ namespace TransBrowser.Tools
 
                     var s = Properties.Settings.Default;
                     s.FormOpacity = data.FormOpacity;
+                    s.AppOpacity = data.AppOpacity > 0 && data.AppOpacity <= 100 ? data.AppOpacity : 100;
                     try { var pp = data.FormPosition?.Split(','); if (pp?.Length == 2) s.FormPosition = new System.Drawing.Point(int.Parse(pp[0]), int.Parse(pp[1])); } catch { }
                     try { var ps = data.FormSize?.Split(','); if (ps?.Length == 2) s.FormSize = new System.Drawing.Size(int.Parse(ps[0]), int.Parse(ps[1])); } catch { }
                     s.ShowInTaskbar = data.ShowInTaskbar;
@@ -96,6 +98,7 @@ namespace TransBrowser.Tools
                 var data = new LocalConfigData
                 {
                     FormOpacity = s.FormOpacity,
+                    AppOpacity = s.AppOpacity,
                     FormPosition = s.FormPosition.X + "," + s.FormPosition.Y,
                     FormSize = s.FormSize.Width + "," + s.FormSize.Height,
                     ShowInTaskbar = s.ShowInTaskbar,
