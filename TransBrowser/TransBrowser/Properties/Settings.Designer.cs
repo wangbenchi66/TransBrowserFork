@@ -315,5 +315,17 @@ namespace TransBrowser.Properties {
                 this["DisableWindowShadow"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string CustomIconPath {
+            get {
+                return ((string)(this["CustomIconPath"]));
+            }
+            set {
+                this["CustomIconPath"] = value;
+            }
+        }
     }
 }

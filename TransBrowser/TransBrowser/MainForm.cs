@@ -64,6 +64,9 @@ namespace TransBrowser
 
         // ─── Prevent duplicate settings windows ───────────────────────────────
         private Setting _settingForm = null;
+        // When true the application should really exit. Otherwise closing the main
+        // window will be intercepted and the app will be hidden to tray.
+        private bool _allowExit = false;
 
         // ─── Floating header timer ────────────────────────────────────────────
         private System.Windows.Forms.Timer _headerHideTimer;
@@ -93,6 +96,41 @@ namespace TransBrowser
             OpacityDown = 202,
             ClickThrough = 203,
             OpacityReset = 204
+        }
+
+        /// <summary>
+        /// Sets a custom icon from the given .ico path. If path is null/empty or
+        /// file doesn't exist, restores the executable's embedded icon.
+        /// </summary>
+        public void SetCustomIcon(string path)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(path) && System.IO.File.Exists(path))
+                {
+                    using (var ic = new Icon(path))
+                    {
+                        this.Icon = (Icon)ic.Clone();
+                        if (this.notifyIcon1 != null)
+                            this.notifyIcon1.Icon = (Icon)ic.Clone();
+                    }
+                    return;
+                }
+            }
+            catch { }
+
+            // fallback to exe icon
+            try
+            {
+                var exeIcon = Icon.ExtractAssociatedIcon(System.Windows.Forms.Application.ExecutablePath);
+                if (exeIcon != null)
+                {
+                    this.Icon = exeIcon;
+                    if (this.notifyIcon1 != null)
+                        this.notifyIcon1.Icon = exeIcon;
+                }
+            }
+            catch { }
         }
 
         /// <summary>
@@ -314,6 +352,26 @@ namespace TransBrowser
         public MainForm()
         {
             InitializeComponent();
+            // Prefer the executable's embedded icon (official default) for both
+            // the window and the tray icon. If not available, fall back to the
+            // designer-assigned icon. A user-uploaded custom icon (if any)
+            // will be applied later from settings.
+            try
+            {
+                var exeIcon = Icon.ExtractAssociatedIcon(System.Windows.Forms.Application.ExecutablePath);
+                if (exeIcon != null)
+                {
+                    this.Icon = (Icon)exeIcon.Clone();
+                    if (this.notifyIcon1 != null)
+                        this.notifyIcon1.Icon = (Icon)exeIcon.Clone();
+                }
+                else
+                {
+                    if (this.Icon != null && this.notifyIcon1 != null)
+                        this.notifyIcon1.Icon = (Icon)this.Icon.Clone();
+                }
+            }
+            catch { }
             // 完全移除所有内边距，消除窗体和控件之间的间距
             this.Padding = System.Windows.Forms.Padding.Empty;
             tabControl1.Padding = System.Drawing.Point.Empty;
@@ -401,6 +459,9 @@ namespace TransBrowser
             this.ResizeEnd += MainForm_ResizeEnd;
             this.LocationChanged += MainForm_LocationChanged;
             this.Deactivate += Form1_Deactivate;
+            // Intercept form closing so closing the main window hides to tray
+            // instead of terminating the process.
+            this.FormClosing += MainForm_FormClosing;
 
             // Register global hotkeys
             RegisterAllHotkeys();
@@ -601,6 +662,10 @@ namespace TransBrowser
             SetTans(Properties.Settings.Default.FormOpacity);
             SetDefaultColor(Properties.Settings.Default.ThemeBackColor);
             SetSize(Properties.Settings.Default.FormSize);
+
+            // Apply saved ShowInTaskbar and custom icon
+            try { SetShowInTaskBar(Properties.Settings.Default.ShowInTaskbar); } catch { }
+            try { SetCustomIcon(Properties.Settings.Default.CustomIconPath); } catch { }
 
             // Restore click-through state
             if (Properties.Settings.Default.ClickThroughMode)
@@ -1043,6 +1108,8 @@ namespace TransBrowser
                             // 显示在任务栏
                             if (!this.ShowInTaskbar)
                                 this.ShowInTaskbar = true;
+                            // Ensure the taskbar uses the user's chosen icon (custom or exe default)
+                            try { SetCustomIcon(Properties.Settings.Default.CustomIconPath); } catch { }
                         }
                         else
                         {
@@ -1614,9 +1681,49 @@ namespace TransBrowser
 
         private void ExitApp()
         {
-            UnregisterAllHotkeys();
-            notifyIcon1.Visible = false;
-            System.Environment.Exit(0);
+            // Perform a graceful exit: allow closing and then close the main window.
+            try
+            {
+                _allowExit = true;
+                UnregisterAllHotkeys();
+                // hide tray icon before exiting so it is removed from the tray
+                if (notifyIcon1 != null)
+                    notifyIcon1.Visible = false;
+                this.Close();
+            }
+            catch { }
+        }
+
+        private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            // If exit wasn't explicitly requested, cancel closing and hide to tray.
+            if (!_allowExit)
+            {
+                e.Cancel = true;
+                // Pause webviews when hiding (same behavior as boss key)
+                PauseAllWebViews();
+                this.Hide();
+
+                // Delay hiding taskbar icon when ShowInTaskbar is false
+                if (!Properties.Settings.Default.ShowInTaskbar && this.IsHandleCreated)
+                {
+                    this.BeginInvoke(new Action(() =>
+                    {
+                        try
+                        {
+                            if (!this.IsDisposed && this.IsHandleCreated && !this.Visible)
+                                this.ShowInTaskbar = false;
+                        }
+                        catch { }
+                    }));
+                }
+            }
+            else
+            {
+                // real exit: ensure hotkeys are unregistered and notify icon hidden
+                try { UnregisterAllHotkeys(); } catch { }
+                try { if (notifyIcon1 != null) notifyIcon1.Visible = false; } catch { }
+            }
         }
 
         private void 控制器ToolStripMenuItem_Click(object sender, EventArgs e)

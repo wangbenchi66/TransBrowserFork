@@ -203,8 +203,8 @@
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(70, 24);
             this.label3.TabIndex = 6;
-            this.label3.Text = "任务栏显示";
-            this.label3.Visible = false;
+            this.label3.Text = "系统任务栏显示";
+            this.label3.Visible = true;
             // 
             // label4
             // 
@@ -220,6 +220,7 @@
             this.switch2.Name = "switch2";
             this.switch2.Size = new System.Drawing.Size(40, 24);
             this.switch2.TabIndex = 7;
+            this.switch2.Visible = true;
             // 
             // lblShowTabBar
             // 
@@ -344,6 +345,41 @@
             // panel1
             // 
             this.panel1.Controls.Add(this.label5);
+            // custom icon controls
+            this.labelIcon = new AntdUI.Label();
+            this.txtIconPath = new AntdUI.Input();
+            this.btnBrowseIcon = new AntdUI.Button();
+            // 
+            // labelIcon
+            // 
+            this.labelIcon.Location = new System.Drawing.Point(5, 44);
+            this.labelIcon.Name = "labelIcon";
+            this.labelIcon.Size = new System.Drawing.Size(70, 24);
+            this.labelIcon.TabIndex = 18;
+            this.labelIcon.Text = "系统任务栏图标";
+            // 
+            // txtIconPath
+            // 
+            this.txtIconPath.Location = new System.Drawing.Point(80, 44);
+            this.txtIconPath.Name = "txtIconPath";
+            this.txtIconPath.PlaceholderText = "自定义图标路径 (.ico)";
+            this.txtIconPath.Size = new System.Drawing.Size(260, 24);
+            this.txtIconPath.TabIndex = 19;
+            this.txtIconPath.Visible = true;
+            // 
+            // btnBrowseIcon
+            // 
+            this.btnBrowseIcon.Location = new System.Drawing.Point(345, 42);
+            this.btnBrowseIcon.Name = "btnBrowseIcon";
+            this.btnBrowseIcon.Size = new System.Drawing.Size(87, 28);
+            this.btnBrowseIcon.TabIndex = 20;
+            this.btnBrowseIcon.Text = "选择图标";
+            this.btnBrowseIcon.Type = AntdUI.TTypeMini.Primary;
+            this.btnBrowseIcon.Click += new System.EventHandler(this.btnBrowseIcon_Click);
+
+            this.panel1.Controls.Add(this.labelIcon);
+            this.panel1.Controls.Add(this.txtIconPath);
+            this.panel1.Controls.Add(this.btnBrowseIcon);
             this.panel1.Controls.Add(this.button2);
             this.panel1.Controls.Add(this.ua_input);
             this.panel1.Controls.Add(this.label7);
@@ -584,5 +620,8 @@
         private AntdUI.Switch swAntiScreenshot;
         private AntdUI.Label lblWindowShadow;
         private AntdUI.Switch swWindowShadow;
+        private AntdUI.Label labelIcon;
+        private AntdUI.Input txtIconPath;
+        private AntdUI.Button btnBrowseIcon;
     }
 }

@@ -25,10 +25,10 @@ namespace TransBrowser
         {
             get
             {
-                var cp = base.CreateParams;
-                const int CS_DROPSHADOW = 0x00020000;
-                cp.ClassStyle &= ~CS_DROPSHADOW;
-                return cp;
+                // Do not modify class style here. Shadow policy is controlled by
+                // the main window according to user settings so Settings should
+                // retain the default OS drop shadow.
+                return base.CreateParams;
             }
         }
 
@@ -40,16 +40,9 @@ namespace TransBrowser
 
         protected override void OnHandleCreated(EventArgs e)
         {
+            // Do not change DWM non-client rendering policy for the settings window.
+            // The main form is responsible for applying the user's DisableWindowShadow setting.
             base.OnHandleCreated(e);
-            try
-            {
-                if (this.Handle != IntPtr.Zero)
-                {
-                    int policy = DWMNCRP_DISABLED;
-                    DwmSetWindowAttribute(this.Handle, DWMWA_NCRENDERING_POLICY, ref policy, sizeof(int));
-                }
-            }
-            catch { }
         }
 
         private void Setting_Load(object sender, EventArgs e)
@@ -63,6 +56,8 @@ namespace TransBrowser
             this.colorPicker1.Value = Properties.Settings.Default.ThemeBackColor;
             this.autohide_sw.Checked = Properties.Settings.Default.AutoHide;
             this.swShowTabBar.Checked = Properties.Settings.Default.ShowTabBar;
+            // Taskbar display toggle
+            try { this.switch2.Checked = Properties.Settings.Default.ShowInTaskbar; } catch { }
             this.swNoImage.Checked = Properties.Settings.Default.NoImageMode;
             this.swHoverHeader.Checked = Properties.Settings.Default.HoverHeaderMode;
             this.swTransparentBg.Checked = Properties.Settings.Default.TransparentBackground;
@@ -87,6 +82,7 @@ namespace TransBrowser
             this.slider1.ValueChanged += new AntdUI.IntEventHandler(this.slider1_ValueChanged);
             this.btnOpenUrl.Click += new System.EventHandler(this.button1_Click);
             this.colorPicker1.ValueChanged += new AntdUI.ColorEventHandler(this.colorPicker1_ValueChanged);
+            this.switch2.CheckedChanged += new AntdUI.BoolEventHandler(this.switch2_CheckedChanged);
             this.autohide_sw.CheckedChanged += new AntdUI.BoolEventHandler(this.switch4_CheckedChanged);
             this.btnApplyHotkeys.Click += new System.EventHandler(this.btnApplyHotkeys_Click);
             this.swShowTabBar.CheckedChanged += new AntdUI.BoolEventHandler(this.swShowTabBar_CheckedChanged);
@@ -99,6 +95,10 @@ namespace TransBrowser
             this.swAntiScreenshot.CheckedChanged += new AntdUI.BoolEventHandler(this.swAntiScreenshot_CheckedChanged);
             this.swWindowTransparent.CheckedChanged += new AntdUI.BoolEventHandler(this.swWindowTransparent_CheckedChanged);
 
+            // icon controls
+            try { this.txtIconPath.Text = Properties.Settings.Default.CustomIconPath ?? ""; } catch { }
+            try { this.btnBrowseIcon.Click += new EventHandler(this.btnBrowseIcon_Click); } catch { }
+
             // Hotkey textboxes capture key presses
             foreach (TextBox tb in new[] { txtBossKey, txtOpacityUp, txtOpacityDown, txtClickThrough })
             {
@@ -107,9 +107,38 @@ namespace TransBrowser
                 tb.GotFocus += (s, e2) => ((TextBox)s).BackColor = Color.LightYellow;
                 tb.LostFocus += (s, e2) => ((TextBox)s).BackColor = SystemColors.Window;
             }
-
         }
 
+        private void switch2_CheckedChanged(object sender, BoolEventArgs e)
+        {
+            bool show = e.Value;
+            try
+            {
+                Properties.Settings.Default.ShowInTaskbar = show;
+                Properties.Settings.Default.Save();
+                mainForm?.SetShowInTaskBar(show);
+            }
+            catch { }
+        }
+
+        private void btnBrowseIcon_Click(object sender, EventArgs e)
+        {
+            using (var ofd = new OpenFileDialog())
+            {
+                ofd.Filter = "Icon files (*.ico)|*.ico|All files (*.*)|*.*";
+                if (ofd.ShowDialog() == DialogResult.OK)
+                {
+                    try
+                    {
+                        Properties.Settings.Default.CustomIconPath = ofd.FileName;
+                        Properties.Settings.Default.Save();
+                        this.txtIconPath.Text = ofd.FileName;
+                        mainForm?.SetCustomIcon(ofd.FileName);
+                    }
+                    catch { }
+                }
+            }
+        }
         private void swWindowShadow_CheckedChanged(object sender, BoolEventArgs e)
         {
             bool disabled = e.Value; // switch on -> disable shadow
