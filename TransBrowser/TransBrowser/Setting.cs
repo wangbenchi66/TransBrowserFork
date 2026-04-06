@@ -20,6 +20,38 @@ namespace TransBrowser
             InitializeComponent();
         }
 
+        // Remove default OS drop shadow for the settings window as well.
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                var cp = base.CreateParams;
+                const int CS_DROPSHADOW = 0x00020000;
+                cp.ClassStyle &= ~CS_DROPSHADOW;
+                return cp;
+            }
+        }
+
+        [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
+        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
+
+        private const int DWMWA_NCRENDERING_POLICY = 2;
+        private const int DWMNCRP_DISABLED = 1;
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            try
+            {
+                if (this.Handle != IntPtr.Zero)
+                {
+                    int policy = DWMNCRP_DISABLED;
+                    DwmSetWindowAttribute(this.Handle, DWMWA_NCRENDERING_POLICY, ref policy, sizeof(int));
+                }
+            }
+            catch { }
+        }
+
         private void Setting_Load(object sender, EventArgs e)
         { }
 
@@ -39,7 +71,12 @@ namespace TransBrowser
             this.swGrayscale.Checked = Properties.Settings.Default.GrayscaleMode;
             this.swAntiScreenshot.Checked = Properties.Settings.Default.AntiScreenshotMode;
             this.swWindowTransparent.Checked = Properties.Settings.Default.WindowTransparent;
-
+            // window shadow switch
+            try
+            {
+                this.swWindowShadow.Checked = Properties.Settings.Default.DisableWindowShadow;
+            }
+            catch { }
             // Hotkey fields
             this.txtBossKey.Text = Properties.Settings.Default.HotkeyBossKey;
             this.txtOpacityUp.Text = Properties.Settings.Default.HotkeyOpacityUp;
@@ -57,6 +94,8 @@ namespace TransBrowser
             this.swHoverHeader.CheckedChanged += new AntdUI.BoolEventHandler(this.swHoverHeader_CheckedChanged);
             this.swTransparentBg.CheckedChanged += new AntdUI.BoolEventHandler(this.swTransparentBg_CheckedChanged);
             this.swGrayscale.CheckedChanged += new AntdUI.BoolEventHandler(this.swGrayscale_CheckedChanged);
+            // window shadow switch (new)
+            try { this.swWindowShadow.CheckedChanged += new AntdUI.BoolEventHandler(this.swWindowShadow_CheckedChanged); } catch { }
             this.swAntiScreenshot.CheckedChanged += new AntdUI.BoolEventHandler(this.swAntiScreenshot_CheckedChanged);
             this.swWindowTransparent.CheckedChanged += new AntdUI.BoolEventHandler(this.swWindowTransparent_CheckedChanged);
 
@@ -68,6 +107,19 @@ namespace TransBrowser
                 tb.GotFocus += (s, e2) => ((TextBox)s).BackColor = Color.LightYellow;
                 tb.LostFocus += (s, e2) => ((TextBox)s).BackColor = SystemColors.Window;
             }
+
+        }
+
+        private void swWindowShadow_CheckedChanged(object sender, BoolEventArgs e)
+        {
+            bool disabled = e.Value; // switch on -> disable shadow
+            try
+            {
+                Properties.Settings.Default.DisableWindowShadow = disabled;
+                Properties.Settings.Default.Save();
+                mainForm?.SetWindowShadowDisabled(disabled);
+            }
+            catch { }
         }
 
         // ─── Hotkey capture ───────────────────────────────────────────────────

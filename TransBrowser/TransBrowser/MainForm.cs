@@ -326,6 +326,71 @@ namespace TransBrowser
             InitializeWebView();
         }
 
+        // Remove default OS drop shadow by clearing the CS_DROPSHADOW class style.
+        // This prevents the window from drawing the standard shadow on some systems.
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                var cp = base.CreateParams;
+                const int CS_DROPSHADOW = 0x00020000;
+                cp.ClassStyle &= ~CS_DROPSHADOW;
+                return cp;
+            }
+        }
+
+        // Try to disable DWM non-client rendering which can add a shadow on modern Windows.
+        [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
+        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
+
+        private const int DWMWA_NCRENDERING_POLICY = 2;
+        private const int DWMNCRP_DISABLED = 1;
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            try
+            {
+                if (this.Handle != IntPtr.Zero)
+                {
+                    int policy = Properties.Settings.Default.DisableWindowShadow ? DWMNCRP_DISABLED : 0; // 0 = enabled
+                    DwmSetWindowAttribute(this.Handle, DWMWA_NCRENDERING_POLICY, ref policy, sizeof(int));
+                }
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Enable or disable window shadow by setting DWM non-client rendering policy for main and child windows.
+        /// </summary>
+        public void SetWindowShadowDisabled(bool disable)
+        {
+            try
+            {
+                Properties.Settings.Default.DisableWindowShadow = disable;
+                Properties.Settings.Default.Save();
+
+                if (this.IsHandleCreated && this.Handle != IntPtr.Zero)
+                {
+                    int policy = disable ? DWMNCRP_DISABLED : 0;
+                    DwmSetWindowAttribute(this.Handle, DWMWA_NCRENDERING_POLICY, ref policy, sizeof(int));
+                }
+
+                // Apply to Settings window if open
+                if (_settingForm != null && !_settingForm.IsDisposed && _settingForm.IsHandleCreated)
+                {
+                    try
+                    {
+                        int policy = disable ? DWMNCRP_DISABLED : 0;
+                        // Setting has its own DwmSetWindowAttribute import; call via its Handle using Win32
+                        DwmSetWindowAttribute(_settingForm.Handle, DWMWA_NCRENDERING_POLICY, ref policy, sizeof(int));
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+        }
+
         // ─── Form Load ────────────────────────────────────────────────────────
         private void MainForm_Load(object sender, EventArgs e)
         {

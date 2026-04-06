@@ -303,5 +303,17 @@ namespace TransBrowser.Properties {
                 this["AntiScreenshotMode"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool DisableWindowShadow {
+            get {
+                return ((bool)(this["DisableWindowShadow"]));
+            }
+            set {
+                this["DisableWindowShadow"] = value;
+            }
+        }
     }
 }

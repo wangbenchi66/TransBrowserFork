@@ -55,6 +55,8 @@
             this.swGrayscale = new AntdUI.Switch();
             this.lblAntiScreenshot = new AntdUI.Label();
             this.swAntiScreenshot = new AntdUI.Switch();
+            this.lblWindowShadow = new AntdUI.Label();
+            this.swWindowShadow = new AntdUI.Switch();
             this.panel1 = new System.Windows.Forms.Panel();
             this.label5 = new AntdUI.Label();
             this.button2 = new AntdUI.Button();
@@ -79,6 +81,14 @@
             this.panel1.SuspendLayout();
             this.panelHotkeys.SuspendLayout();
             this.SuspendLayout();
+            // 
+            // lblWindowShadow
+            // 
+            this.lblWindowShadow = new AntdUI.Label();
+            // 
+            // swWindowShadow
+            // 
+            this.swWindowShadow = new AntdUI.Switch();
             // 
             // label1
             // 
@@ -137,9 +147,11 @@
             this.panel3.Controls.Add(this.swGrayscale);
             this.panel3.Controls.Add(this.lblAntiScreenshot);
             this.panel3.Controls.Add(this.swAntiScreenshot);
+            this.panel3.Controls.Add(this.lblWindowShadow);
+            this.panel3.Controls.Add(this.swWindowShadow);
             this.panel3.Location = new System.Drawing.Point(3, 3);
             this.panel3.Name = "panel3";
-            this.panel3.Size = new System.Drawing.Size(450, 190);
+            this.panel3.Size = new System.Drawing.Size(450, 220);
             this.panel3.TabIndex = 20;
             // 
             // autohide_sw
@@ -313,6 +325,21 @@
             this.swAntiScreenshot.Name = "swAntiScreenshot";
             this.swAntiScreenshot.Size = new System.Drawing.Size(40, 24);
             this.swAntiScreenshot.TabIndex = 30;
+            // 
+            // lblWindowShadow
+            // 
+            this.lblWindowShadow.Location = new System.Drawing.Point(240, 186);
+            this.lblWindowShadow.Name = "lblWindowShadow";
+            this.lblWindowShadow.Size = new System.Drawing.Size(90, 24);
+            this.lblWindowShadow.TabIndex = 31;
+            this.lblWindowShadow.Text = "窗体阴影";
+            // 
+            // swWindowShadow
+            // 
+            this.swWindowShadow.Location = new System.Drawing.Point(333, 186);
+            this.swWindowShadow.Name = "swWindowShadow";
+            this.swWindowShadow.Size = new System.Drawing.Size(40, 24);
+            this.swWindowShadow.TabIndex = 32;
             // 
             // panel1
             // 
@@ -555,5 +582,7 @@
         private AntdUI.Switch swGrayscale;
         private AntdUI.Label lblAntiScreenshot;
         private AntdUI.Switch swAntiScreenshot;
+        private AntdUI.Label lblWindowShadow;
+        private AntdUI.Switch swWindowShadow;
     }
 }
