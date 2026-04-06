@@ -31,6 +31,8 @@
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Setting));
             this.label1 = new AntdUI.Label();
             this.slider1 = new AntdUI.Slider();
+            this.lblAppOpacity = new AntdUI.Label();
+            this.sliderAppOpacity = new AntdUI.Slider();
             this.flowLayoutPanel1 = new AntdUI.In.FlowLayoutPanel();
             this.panel3 = new System.Windows.Forms.Panel();
             this.autohide_sw = new AntdUI.Switch();
@@ -98,6 +100,24 @@
             this.slider1.TabIndex = 4;
             this.slider1.Text = "slider1";
             // 
+            // lblAppOpacity
+            // 
+            this.lblAppOpacity.Location = new System.Drawing.Point(3, 134);
+            this.lblAppOpacity.Name = "lblAppOpacity";
+            this.lblAppOpacity.Size = new System.Drawing.Size(100, 24);
+            this.lblAppOpacity.TabIndex = 31;
+            this.lblAppOpacity.Text = "软件背景透明度";
+            // 
+            // sliderAppOpacity
+            // 
+            this.sliderAppOpacity.Location = new System.Drawing.Point(106, 134);
+            this.sliderAppOpacity.MinValue = 1;
+            this.sliderAppOpacity.Name = "sliderAppOpacity";
+            this.sliderAppOpacity.ShowValue = true;
+            this.sliderAppOpacity.Size = new System.Drawing.Size(335, 24);
+            this.sliderAppOpacity.TabIndex = 32;
+            this.sliderAppOpacity.Text = "sliderAppOpacity";
+            // 
             // flowLayoutPanel1
             // 
             this.flowLayoutPanel1.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
@@ -117,6 +137,8 @@
             this.panel3.Controls.Add(this.label10);
             this.panel3.Controls.Add(this.label1);
             this.panel3.Controls.Add(this.slider1);
+            this.panel3.Controls.Add(this.lblAppOpacity);
+            this.panel3.Controls.Add(this.sliderAppOpacity);
             this.panel3.Controls.Add(this.switch3);
             this.panel3.Controls.Add(this.label6);
             this.panel3.Controls.Add(this.colorPicker1);
@@ -269,6 +291,7 @@
             this.lblWindowTransparent.Size = new System.Drawing.Size(120, 24);
             this.lblWindowTransparent.TabIndex = 24;
             this.lblWindowTransparent.Text = "软件背景透明";
+            this.lblWindowTransparent.Visible = false;
             // 
             // swTransparentBg
             // 
@@ -283,6 +306,7 @@
             this.swWindowTransparent.Name = "swWindowTransparent";
             this.swWindowTransparent.Size = new System.Drawing.Size(40, 24);
             this.swWindowTransparent.TabIndex = 25;
+            this.swWindowTransparent.Visible = false;
             // 
             // lblGrayscale
             // 
@@ -509,6 +533,8 @@
         #endregion
         private AntdUI.Label label1;
         private AntdUI.Slider slider1;
+        private AntdUI.Label lblAppOpacity;
+        private AntdUI.Slider sliderAppOpacity;
         private AntdUI.Switch switch1;
         private AntdUI.In.FlowLayoutPanel flowLayoutPanel1;
         private AntdUI.Label label3;

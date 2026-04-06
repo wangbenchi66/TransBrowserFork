@@ -529,6 +529,11 @@ namespace TransBrowser
                 Properties.Settings.Default.FormOpacity = 100;
                 Properties.Settings.Default.Save();
             }
+            if (Properties.Settings.Default.AppOpacity <= 0 || Properties.Settings.Default.AppOpacity > 100)
+            {
+                Properties.Settings.Default.AppOpacity = 100;
+                Properties.Settings.Default.Save();
+            }
             // Note: "无窗口模式" (NoTitle) removed. Floating header and related
             // behavior are driven by the HoverHeaderMode setting instead.
             SetShowInTaskBar(Properties.Settings.Default.ShowInTaskbar);
@@ -560,12 +565,6 @@ namespace TransBrowser
 
             // Restore mobile mode if enabled
             SetMobileMold(Properties.Settings.Default.MobileMold);
-
-            // Restore window-level transparency (TransparencyKey / layered window).
-            // This must run at startup so the desktop shows through the WebView2 area
-            // whenever the user previously enabled transparent-background mode.
-            if (Properties.Settings.Default.WindowTransparent)
-                SetWindowBackgroundTransparent(true);
 
             inited = true;
 
@@ -891,8 +890,17 @@ namespace TransBrowser
 
         public void SetTans(double trans)
         {
-            trans = Math.Round(trans / 100.0, 2);
-            this.Opacity = trans;
+            double clamped = Math.Max(1, Math.Min(100, Math.Round(trans)));
+            Properties.Settings.Default.FormOpacity = clamped;
+            ApplyCombinedOpacity();
+        }
+
+        public void ApplyCombinedOpacity()
+        {
+            double formOpacity = Properties.Settings.Default.FormOpacity / 100.0;
+            double appOpacity = Properties.Settings.Default.AppOpacity / 100.0;
+            double final = Math.Max(0.01, Math.Min(1.0, formOpacity * appOpacity));
+            this.Opacity = final;
         }
 
         public void SetDefaultColor(Color color)
@@ -1187,12 +1195,6 @@ namespace TransBrowser
         {
             Properties.Settings.Default.TransparentBackground = enable;
             Properties.Settings.Default.Save();
-
-            // Webpage transparency requires the host window to be transparent too so
-            // that the desktop is visible through the WebView2 area.  Enable the layered
-            // window (TransparencyKey) whenever we turn on transparent-background mode.
-            if (enable)
-                SetWindowBackgroundTransparent(true);
 
             for (int i = 0; i < tabControl1.TabPages.Count - 1; i++)
             {
@@ -1757,7 +1759,6 @@ namespace TransBrowser
                         // save current and set to 100
                         _lastOpacityBeforeReset = current;
                         SetTans(100);
-                        Properties.Settings.Default.FormOpacity = 100;
                         Properties.Settings.Default.Save();
                         if (_settingForm != null && !_settingForm.IsDisposed)
                             _settingForm.SyncOpacity(100);
@@ -1767,7 +1768,6 @@ namespace TransBrowser
                         // restore previous if available
                         double restore = (_lastOpacityBeforeReset > 0) ? _lastOpacityBeforeReset : 100;
                         SetTans(restore);
-                        Properties.Settings.Default.FormOpacity = restore;
                         Properties.Settings.Default.Save();
                         if (_settingForm != null && !_settingForm.IsDisposed)
                             _settingForm.SyncOpacity((int)restore);
@@ -1783,11 +1783,9 @@ namespace TransBrowser
 
         private void AdjustOpacity(int delta)
         {
-            // Use the actual window opacity as source of truth (avoid desync when window-transparent mode was used)
-            double current = Math.Round(this.Opacity * 100.0);
+            double current = Properties.Settings.Default.FormOpacity;
             double newVal = Math.Max(1, Math.Min(100, current + delta));
             SetTans(newVal);
-            Properties.Settings.Default.FormOpacity = newVal;
             Properties.Settings.Default.Save();
             if (_settingForm != null && !_settingForm.IsDisposed)
                 _settingForm.SyncOpacity((int)newVal);
