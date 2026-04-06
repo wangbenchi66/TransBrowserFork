@@ -822,10 +822,7 @@ namespace TransBrowser
 
         private void CloseTab(int index)
         {
-            if (tabControl1.TabPages.Count <= 2) // only one real tab + "+" tab
-                return; // don't close the last real tab
-
-            // 边界检查
+            // 边界检查：确保索引指向一个真实的标签（不包含最后的 "+" 标签）
             if (index < 0 || index >= tabControl1.TabPages.Count - 1)
                 return;
 
@@ -856,9 +853,19 @@ namespace TransBrowser
 
                 wv.Dispose();
             }
+
             tabControl1.TabPages.RemoveAt(index);
 
-            // Ensure we're not sitting on the "+" tab after removal
+            // 如果移除后没有任何真实标签（只剩下 "+" 标签），则创建一个默认的新标签页
+            if (tabControl1.TabPages.Count <= 1)
+            {
+                var newPage = AddNewTab();
+                // AddNewTab 会选中新创建的页，确保选中状态
+                tabControl1.SelectedTab = newPage;
+                return;
+            }
+
+            // 确保当前选中项不是 "+" 标签
             if (tabControl1.SelectedIndex >= tabControl1.TabPages.Count - 1)
             {
                 int newIndex = Math.Max(0, tabControl1.TabPages.Count - 2);
