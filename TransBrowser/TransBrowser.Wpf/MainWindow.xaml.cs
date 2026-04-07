@@ -56,6 +56,11 @@ namespace TransBrowser.Wpf
         private const int HEADER_HOVER_HEIGHT = 28;
         private DispatcherTimer? _headerHideTimer;
         private DispatcherTimer? _headerPollTimer;
+        // Opacity apply timer to debounce updates to WebView2 pages
+        private DispatcherTimer? _opacityApplyTimer;
+        private double _pendingOpacity = 100;
+        // Cache per-WebView applied opacity to avoid redundant script execution
+        private readonly Dictionary<WebView2, double> _webViewAppliedOpacity = new();
 
         // Tray
         private WinForms.NotifyIcon? _trayIcon;
@@ -108,6 +113,14 @@ namespace TransBrowser.Wpf
         {
             InitializeComponent();
             SetupTrayIcon();
+            // Opacity apply timer (debounce frequent updates from slider/hotkeys)
+            _opacityApplyTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(120) };
+            _opacityApplyTimer.Tick += (_, _) =>
+            {
+                _opacityApplyTimer.Stop();
+                double pct = _pendingOpacity;
+                foreach (var wv in AllWebViews()) _ = ApplyOpacityVarToWebViewAsync(wv, pct);
+            };
         }
 
         // ── Loaded ────────────────────────────────────────────────────────────
@@ -223,6 +236,10 @@ namespace TransBrowser.Wpf
             // initialize webview with transparent background so WPF content shows through.
             if (_s.Current.TransparentBackground || _s.Current.FormOpacity < 100)
                 wv.DefaultBackgroundColor = System.Drawing.Color.Transparent;
+            // initialize cache entry with current form opacity
+            try { _webViewAppliedOpacity[wv] = _s.Current.FormOpacity; } catch { }
+            // When control is unloaded/disposed, remove cache entry to avoid memory leak
+            wv.Unloaded += (_, _) => { try { _webViewAppliedOpacity.Remove(wv); } catch { } };
             return wv;
         }
 
@@ -267,7 +284,7 @@ namespace TransBrowser.Wpf
                 await RegisterTransparentBgScript(wv);
 
             // Apply current opacity to web content so it visually matches the window opacity.
-            try { await ApplyOpacityToWebViewAsync(wv, _s.Current.FormOpacity); } catch { }
+            try { await ApplyOpacityVarToWebViewAsync(wv, _s.Current.FormOpacity); } catch { }
 
             if (!string.IsNullOrEmpty(url))
                 wv.CoreWebView2.Navigate(url);
@@ -451,6 +468,17 @@ namespace TransBrowser.Wpf
             try { await wv.CoreWebView2.ExecuteScriptAsync(js); } catch { }
         }
 
+        // Lighter-weight variant used from debounced timer: only set style element rather than script each time.
+        private async Task ApplyOpacityVarToWebViewAsync(WebView2 wv, double pct)
+        {
+            if (wv.CoreWebView2 == null) return;
+            int clamped = (int)Math.Max(1, Math.Min(100, pct));
+            double op = clamped / 100.0;
+            string css = $"html,body{{background:transparent!important;opacity:{op};}}";
+            string js = $"(function(){{var s=document.getElementById('__trans_op'); if(!s){{s=document.createElement('style');s.id='__trans_op'; document.head.appendChild(s);}} s.textContent='{css}';}})()";
+            try { await wv.CoreWebView2.ExecuteScriptAsync(js); } catch { }
+        }
+
         private async Task ApplyNoImageCss(WebView2 wv, bool enable)
         {
             if (wv.CoreWebView2 == null) return;
@@ -502,17 +530,20 @@ namespace TransBrowser.Wpf
             try { RootGrid.Opacity = Math.Max(0.01, Math.Min(1.0, pct / 100.0)); } catch { }
             // Don't change layered window alpha (can cause black rendering of WebView2).
             // Instead: set web content opacity for each WebView2 so the whole window appears translucent.
+            // Debounce applying opacity to avoid flooding WebView2 with script calls.
+            _pendingOpacity = pct;
+            if (_opacityApplyTimer != null)
+            {
+                if (!_opacityApplyTimer.IsEnabled) _opacityApplyTimer.Start();
+            }
+            // Ensure default background updated immediately
             foreach (var wv in AllWebViews())
             {
                 try
                 {
-                    if (pct < 100)
-                        wv.DefaultBackgroundColor = System.Drawing.Color.Transparent;
-                    else
-                        wv.DefaultBackgroundColor = System.Drawing.Color.White;
+                    wv.DefaultBackgroundColor = pct < 100 ? System.Drawing.Color.Transparent : System.Drawing.Color.White;
                 }
                 catch { }
-                _ = ApplyOpacityToWebViewAsync(wv, pct);
             }
 
             _s.Current.FormOpacity = pct;
@@ -827,6 +858,15 @@ namespace TransBrowser.Wpf
             UpdateTopMostButton();
         }
 
+        private void BtnToggleBg_Click(object sender, RoutedEventArgs e)
+        {
+            // Toggle a simple transparent background mode: make RootGrid background transparent
+            bool enable = !_s.Current.TransparentBackground;
+            _s.Current.TransparentBackground = enable;
+            SetTransparentBackground(enable);
+            _s.Save();
+        }
+
         private void BtnMinimize_Click(object sender, RoutedEventArgs e)
         {
             WindowState = WindowState.Minimized;
@@ -1093,7 +1133,8 @@ namespace TransBrowser.Wpf
         private IEnumerable<WebView2> AllWebViews()
         {
             for (int i = 0; i < TabCtrl.Items.Count - 1; i++)
-                if ((TabCtrl.Items[i] as TabItem)?.Content is WebView2 wv) yield return wv;
+                if ((TabCtrl.Items[i] as TabItem)?.Content is WebView2 wv)
+                    yield return wv;
         }
 
         // ── History & custom sites ────────────────────────────────────────────
