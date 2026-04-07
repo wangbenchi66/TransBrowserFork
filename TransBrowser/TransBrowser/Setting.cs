@@ -15,6 +15,16 @@ namespace TransBrowser
             InitializeComponent();
             Init();
         }
+
+        private void swMinimizeNotify_CheckedChanged(object sender, AntdUI.BoolEventArgs e)
+        {
+            try
+            {
+                Properties.Settings.Default.ShowMinimizeNotification = e.Value;
+                Properties.Settings.Default.Save();
+            }
+            catch { }
+        }
         public Setting()
         {
             InitializeComponent();
@@ -48,8 +58,87 @@ namespace TransBrowser
         private void Setting_Load(object sender, EventArgs e)
         { }
 
+        private void Setting_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            try
+            {
+                PersistSettingsFromUI();
+
+                // Apply settings immediately to main form if available
+                try
+                {
+                    if (mainForm != null)
+                    {
+                        try { mainForm.SetShowInTaskBar(Properties.Settings.Default.ShowInTaskbar); } catch { }
+                        try { mainForm.SetTans(Properties.Settings.Default.FormOpacity); } catch { }
+                        try { mainForm.SetTabBarVisible(Properties.Settings.Default.ShowTabBar); } catch { }
+                        try { mainForm.SetNoImageMode(Properties.Settings.Default.NoImageMode); } catch { }
+                        try { mainForm.SetWindowBackgroundTransparent(Properties.Settings.Default.WindowTransparent); } catch { }
+                        try { mainForm.SetAntiScreenshotMode(Properties.Settings.Default.AntiScreenshotMode); } catch { }
+                        try { mainForm.SetWindowShadowDisabled(Properties.Settings.Default.DisableWindowShadow); } catch { }
+                        try { mainForm.SetMobileMold(Properties.Settings.Default.MobileMold); } catch { }
+                        try { mainForm.SetClickThrough(Properties.Settings.Default.ClickThroughMode); } catch { }
+
+                        try
+                        {
+                            string custom = Properties.Settings.Default.CustomIconPath;
+                            if (!string.IsNullOrEmpty(custom) && System.IO.File.Exists(custom))
+                            {
+                                mainForm.SetCustomIcon(custom);
+                            }
+                            else
+                            {
+                                string sel = Properties.Settings.Default.SelectedIconType ?? "Default";
+                                string path = null;
+                                switch (sel)
+                                {
+                                    case "Excel":
+                                        path = System.Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles) + "\\Microsoft Office\\root\\Office16\\EXCEL.EXE";
+                                        break;
+                                    case "Word":
+                                        path = System.Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles) + "\\Microsoft Office\\root\\Office16\\WINWORD.EXE";
+                                        break;
+                                    case "Notepad":
+                                        path = System.IO.Path.Combine(Environment.SystemDirectory, "notepad.exe");
+                                        break;
+                                    case "Chrome":
+                                        path = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Google\\Chrome\\Application\\chrome.exe");
+                                        break;
+                                    default:
+                                        path = null; break;
+                                }
+                                if (!string.IsNullOrEmpty(path) && System.IO.File.Exists(path))
+                                    mainForm.SetCustomIcon(path);
+                                else
+                                    mainForm.SetCustomIcon(null);
+                            }
+                        }
+                        catch { }
+
+                        try { mainForm.ReRegisterConfigurableHotkeys(); } catch { }
+                    }
+                }
+                catch { }
+            }
+            catch { }
+        }
+
         public void Init()
         {
+            // Ensure we have a reference to the running MainForm instance. Sometimes the
+            // designer or callers use the parameterless constructor so mainForm may be null.
+            if (this.mainForm == null)
+            {
+                foreach (Form f in Application.OpenForms)
+                {
+                    if (f is MainForm mf)
+                    {
+                        this.mainForm = mf;
+                        break;
+                    }
+                }
+            }
+
             // 不透明度改为透明度：100%不透明 = 0%透明
             this.slider1.Value = 100 - (int)Properties.Settings.Default.FormOpacity;
             this.inputUrl.Text = Properties.Settings.Default.DefaultUrl;
@@ -90,14 +179,19 @@ namespace TransBrowser
             this.swHoverHeader.CheckedChanged += new AntdUI.BoolEventHandler(this.swHoverHeader_CheckedChanged);
             this.swTransparentBg.CheckedChanged += new AntdUI.BoolEventHandler(this.swTransparentBg_CheckedChanged);
             this.swGrayscale.CheckedChanged += new AntdUI.BoolEventHandler(this.swGrayscale_CheckedChanged);
+            this.swCloseToTray.CheckedChanged += new AntdUI.BoolEventHandler(this.swCloseToTray_CheckedChanged);
             // window shadow switch (new)
             try { this.swWindowShadow.CheckedChanged += new AntdUI.BoolEventHandler(this.swWindowShadow_CheckedChanged); } catch { }
             this.swAntiScreenshot.CheckedChanged += new AntdUI.BoolEventHandler(this.swAntiScreenshot_CheckedChanged);
             this.swWindowTransparent.CheckedChanged += new AntdUI.BoolEventHandler(this.swWindowTransparent_CheckedChanged);
+            this.swMinimizeNotify.CheckedChanged += new AntdUI.BoolEventHandler(this.swMinimizeNotify_CheckedChanged);
 
             // icon controls
             try { this.txtIconPath.Text = Properties.Settings.Default.CustomIconPath ?? ""; } catch { }
             try { this.btnBrowseIcon.Click += new EventHandler(this.btnBrowseIcon_Click); } catch { }
+            try { this.swCloseToTray.Checked = Properties.Settings.Default.CloseToTray; } catch { }
+            try { /* ComboBox already populated in designer; set selected value */ this.cmbPresetIcons.SelectedItem = Properties.Settings.Default.SelectedIconType ?? "Default"; } catch { }
+            try { this.swMinimizeNotify.Checked = Properties.Settings.Default.ShowMinimizeNotification; } catch { }
 
             // Hotkey textboxes capture key presses
             foreach (TextBox tb in new[] { txtBossKey, txtOpacityUp, txtOpacityDown, txtClickThrough })
@@ -107,6 +201,64 @@ namespace TransBrowser
                 tb.GotFocus += (s, e2) => ((TextBox)s).BackColor = Color.LightYellow;
                 tb.LostFocus += (s, e2) => ((TextBox)s).BackColor = SystemColors.Window;
             }
+
+            // Ensure settings are saved when the settings window is closed
+            this.FormClosing += Setting_FormClosing;
+        }
+
+        private void PersistSettingsFromUI()
+        {
+            try
+            {
+                // Opacity: slider stores transparency value (slider.Value), convert to opacity
+                int opacity = 100 - this.slider1.Value;
+                if (opacity < 1) opacity = 1;
+                Properties.Settings.Default.FormOpacity = opacity;
+
+                Properties.Settings.Default.DefaultUrl = this.inputUrl.Text ?? "";
+                Properties.Settings.Default.ThemeBackColor = this.colorPicker1.Value;
+                Properties.Settings.Default.AutoHide = this.autohide_sw.Checked;
+                try { Properties.Settings.Default.ShowInTaskbar = this.switch2.Checked; } catch { }
+                Properties.Settings.Default.ShowTabBar = this.swShowTabBar.Checked;
+                Properties.Settings.Default.NoImageMode = this.swNoImage.Checked;
+                Properties.Settings.Default.HoverHeaderMode = this.swHoverHeader.Checked;
+                Properties.Settings.Default.TransparentBackground = this.swTransparentBg.Checked;
+                Properties.Settings.Default.GrayscaleMode = this.swGrayscale.Checked;
+                Properties.Settings.Default.AntiScreenshotMode = this.swAntiScreenshot.Checked;
+                Properties.Settings.Default.WindowTransparent = this.swWindowTransparent.Checked;
+                try { Properties.Settings.Default.DisableWindowShadow = this.swWindowShadow.Checked; } catch { }
+
+                // Hotkeys
+                try { Properties.Settings.Default.HotkeyBossKey = this.txtBossKey.Text ?? Properties.Settings.Default.HotkeyBossKey; } catch { }
+                try { Properties.Settings.Default.HotkeyOpacityUp = this.txtOpacityUp.Text ?? Properties.Settings.Default.HotkeyOpacityUp; } catch { }
+                try { Properties.Settings.Default.HotkeyOpacityDown = this.txtOpacityDown.Text ?? Properties.Settings.Default.HotkeyOpacityDown; } catch { }
+                try { Properties.Settings.Default.HotkeyClickThrough = this.txtClickThrough.Text ?? Properties.Settings.Default.HotkeyClickThrough; } catch { }
+
+                // Icon settings
+                try { Properties.Settings.Default.CustomIconPath = this.txtIconPath.Text ?? ""; } catch { }
+                try { Properties.Settings.Default.SelectedIconType = this.cmbPresetIcons.SelectedItem?.ToString() ?? Properties.Settings.Default.SelectedIconType; } catch { }
+
+                // Close-to-tray preference
+                try { Properties.Settings.Default.CloseToTray = this.swCloseToTray.Checked; } catch { }
+
+                // If main form present, persist its window state values
+                try
+                {
+                    if (this.mainForm != null)
+                    {
+                        if (this.mainForm.WindowState == FormWindowState.Normal)
+                        {
+                            Properties.Settings.Default.FormPosition = this.mainForm.Location;
+                            Properties.Settings.Default.FormSize = this.mainForm.Size;
+                        }
+                        Properties.Settings.Default.TopMostWindow = this.mainForm.TopMost;
+                    }
+                }
+                catch { }
+
+                Properties.Settings.Default.Save();
+            }
+            catch { }
         }
 
         private void switch2_CheckedChanged(object sender, BoolEventArgs e)
@@ -147,6 +299,82 @@ namespace TransBrowser
                 Properties.Settings.Default.DisableWindowShadow = disabled;
                 Properties.Settings.Default.Save();
                 mainForm?.SetWindowShadowDisabled(disabled);
+            }
+            catch { }
+        }
+
+        private void swCloseToTray_CheckedChanged(object sender, BoolEventArgs e)
+        {
+            bool closeToTray = e.Value;
+            try
+            {
+                Properties.Settings.Default.CloseToTray = closeToTray;
+                Properties.Settings.Default.Save();
+            }
+            catch { }
+        }
+
+        private void btnApplyIconSelection_Click(object sender, EventArgs e)
+        {
+            string sel = "Default";
+            try { sel = this.cmbPresetIcons.SelectedItem?.ToString() ?? "Default"; } catch { }
+            try
+            {
+                Properties.Settings.Default.SelectedIconType = sel;
+                Properties.Settings.Default.Save();
+
+                // Map presets to known executable icons
+                string path = null;
+                switch (sel)
+                {
+                    case "Excel":
+                        path = System.Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles) + "\\Microsoft Office\\root\\Office16\\EXCEL.EXE";
+                        break;
+                    case "Word":
+                        path = System.Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles) + "\\Microsoft Office\\root\\Office16\\WINWORD.EXE";
+                        break;
+                    case "Notepad":
+                        path = System.IO.Path.Combine(Environment.SystemDirectory, "notepad.exe");
+                        break;
+                    case "Chrome":
+                        path = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Google\\Chrome\\Application\\chrome.exe");
+                        break;
+                    default:
+                        path = null; break;
+                }
+
+                if (!string.IsNullOrEmpty(path) && System.IO.File.Exists(path))
+                {
+                    mainForm?.SetCustomIcon(path);
+                    AntdUI.Message.success(this, "已应用伪装图标");
+                }
+                else if (!string.IsNullOrEmpty(Properties.Settings.Default.CustomIconPath))
+                {
+                    // If custom icon set, prefer that
+                    mainForm?.SetCustomIcon(Properties.Settings.Default.CustomIconPath);
+                    AntdUI.Message.success(this, "已应用自定义图标");
+                }
+                else
+                {
+                    // fallback to exe icon
+                    mainForm?.SetCustomIcon(null);
+                    AntdUI.Message.success(this, "已恢复默认图标");
+                }
+            }
+            catch { }
+        }
+
+        private void btnRestoreDefaultIcon_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                Properties.Settings.Default.SelectedIconType = "Default";
+                Properties.Settings.Default.CustomIconPath = "";
+                Properties.Settings.Default.Save();
+                this.txtIconPath.Text = "";
+                this.cmbPresetIcons.SelectedItem = "Default";
+                mainForm?.SetCustomIcon(null);
+                AntdUI.Message.success(this, "已恢复默认图标");
             }
             catch { }
         }

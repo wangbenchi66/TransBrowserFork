@@ -8,6 +8,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using System.IO;
 using System.Windows.Forms;
 using static TransBrowser.Tools.GlobalHotkey;
 
@@ -104,17 +105,54 @@ namespace TransBrowser
         /// </summary>
         public void SetCustomIcon(string path)
         {
+            // Ensure this runs on UI thread
+            if (this.InvokeRequired)
+            {
+                this.BeginInvoke((Action)(() => SetCustomIcon(path)));
+                return;
+            }
+
             try
             {
-                if (!string.IsNullOrEmpty(path) && System.IO.File.Exists(path))
+                if (!string.IsNullOrEmpty(path) && File.Exists(path))
                 {
-                    using (var ic = new Icon(path))
+                    Icon iconToApply = null;
+                    try
                     {
-                        this.Icon = (Icon)ic.Clone();
-                        if (this.notifyIcon1 != null)
-                            this.notifyIcon1.Icon = (Icon)ic.Clone();
+                        var ext = Path.GetExtension(path);
+                        if (!string.IsNullOrEmpty(ext) && ext.Equals(".ico", StringComparison.OrdinalIgnoreCase))
+                        {
+                            using (var ic = new Icon(path))
+                            {
+                                iconToApply = (Icon)ic.Clone();
+                            }
+                        }
+                        else
+                        {
+                            var extracted = Icon.ExtractAssociatedIcon(path);
+                            if (extracted != null)
+                                iconToApply = (Icon)extracted.Clone();
+                        }
                     }
-                    return;
+                    catch { iconToApply = null; }
+
+                    if (iconToApply != null)
+                    {
+                        this.Icon = iconToApply;
+                        if (this.notifyIcon1 != null)
+                        {
+                            try
+                            {
+                                this.notifyIcon1.Icon = (Icon)iconToApply.Clone();
+                                // Force a refresh of the notify icon to ensure the change is visible immediately
+                                this.notifyIcon1.Visible = false;
+                                this.notifyIcon1.Visible = true;
+                            }
+                            catch { }
+                        }
+                        try { this.Refresh(); } catch { }
+                        return;
+                    }
                 }
             }
             catch { }
@@ -125,13 +163,23 @@ namespace TransBrowser
                 var exeIcon = Icon.ExtractAssociatedIcon(System.Windows.Forms.Application.ExecutablePath);
                 if (exeIcon != null)
                 {
-                    this.Icon = exeIcon;
+                    this.Icon = (Icon)exeIcon.Clone();
                     if (this.notifyIcon1 != null)
-                        this.notifyIcon1.Icon = exeIcon;
+                    {
+                        try
+                        {
+                            this.notifyIcon1.Icon = (Icon)exeIcon.Clone();
+                            this.notifyIcon1.Visible = false;
+                            this.notifyIcon1.Visible = true;
+                        }
+                        catch { }
+                    }
+                    try { this.Refresh(); } catch { }
                 }
             }
             catch { }
         }
+
 
         /// <summary>
         /// Makes the window background (non-client area and behind controls) transparent so
@@ -223,6 +271,9 @@ namespace TransBrowser
         private Color _prevFormBackColor;
         private Color _prevTabControlBackColor;
         private Dictionary<System.Windows.Forms.TabPage, Color> _prevTabPageBackColors = new Dictionary<System.Windows.Forms.TabPage, Color>();
+        // Remember previous extended window style when toggling layered transparency
+        private int _savedExStyle = 0;
+        private bool _hadSavedExStyle = false;
 
         // 用于存储 WebView2 的事件处理器映射，避免 Lambda 无法移除的问题
         private Dictionary<CoreWebView2, EventHandler<object>> _titleChangedHandlers
@@ -1330,8 +1381,8 @@ namespace TransBrowser
             // Webpage transparency requires the host window to be transparent too so
             // that the desktop is visible through the WebView2 area.  Enable the layered
             // window (TransparencyKey) whenever we turn on transparent-background mode.
-            if (enable)
-                SetWindowBackgroundTransparent(true);
+            // Ensure window-level transparency is applied/removed according to the new value.
+            SetWindowBackgroundTransparent(enable);
 
             for (int i = 0; i < tabControl1.TabPages.Count - 1; i++)
             {
@@ -1604,25 +1655,17 @@ namespace TransBrowser
             {
                 if (this.WindowState == FormWindowState.Minimized)
                 {
-                    // 最小化时确保在任务栏图标存在的情况下再隐藏
-                    // 这样可以避免任务栏预览冲突
-                    this.Hide();
-
-                    // 如果设置不显示在任务栏，延迟隐藏任务栏图标
-                    if (!Properties.Settings.Default.ShowInTaskbar && this.IsHandleCreated)
+                    // Normal minimize behaviour: keep the window minimized and visible in taskbar.
+                    // Optionally show a notification balloon and play a sound if the user enabled it.
+                    try
                     {
-                        this.BeginInvoke(new Action(() =>
+                        if (Properties.Settings.Default.ShowMinimizeNotification && notifyIcon1 != null)
                         {
-                            try
-                            {
-                                if (!this.IsDisposed && this.IsHandleCreated && !this.Visible)
-                                    this.ShowInTaskbar = false;
-                            }
-                            catch { }
-                        }));
+                            notifyIcon1.ShowBalloonTip(1000, "TransBrowser", "已最小化（按 Alt+Q 可快速隐藏/恢复）", ToolTipIcon.Info);
+                            try { System.Media.SystemSounds.Asterisk.Play(); } catch { }
+                        }
                     }
-
-                    notifyIcon1.ShowBalloonTip(1000, "TransBrowser", "已最小化到托盘，双击图标恢复", ToolTipIcon.Info);
+                    catch { }
                 }
                 else if (this.WindowState == FormWindowState.Normal)
                 {
@@ -1684,6 +1727,19 @@ namespace TransBrowser
             // Perform a graceful exit: allow closing and then close the main window.
             try
             {
+                // Persist window bounds and important settings before exit
+                try
+                {
+                    if (this.WindowState == FormWindowState.Normal)
+                    {
+                        Properties.Settings.Default.FormPosition = this.Location;
+                        Properties.Settings.Default.FormSize = this.Size;
+                    }
+                    Properties.Settings.Default.FormOpacity = Math.Round(this.Opacity * 100.0);
+                    Properties.Settings.Default.Save();
+                }
+                catch { }
+
                 _allowExit = true;
                 UnregisterAllHotkeys();
                 // hide tray icon before exiting so it is removed from the tray
@@ -1696,31 +1752,42 @@ namespace TransBrowser
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
-            // If exit wasn't explicitly requested, cancel closing and hide to tray.
+            // If exit wasn't explicitly requested, decide behaviour based on user setting
             if (!_allowExit)
             {
-                e.Cancel = true;
-                // Pause webviews when hiding (same behavior as boss key)
-                PauseAllWebViews();
-                this.Hide();
-
-                // Delay hiding taskbar icon when ShowInTaskbar is false
-                if (!Properties.Settings.Default.ShowInTaskbar && this.IsHandleCreated)
+                if (Properties.Settings.Default.CloseToTray)
                 {
-                    this.BeginInvoke(new Action(() =>
+                    // User prefers close -> minimize to tray
+                    e.Cancel = true;
+                    // Pause webviews when hiding (same behavior as boss key)
+                    PauseAllWebViews();
+                    this.Hide();
+
+                    // Delay hiding taskbar icon when ShowInTaskbar is false
+                    if (!Properties.Settings.Default.ShowInTaskbar && this.IsHandleCreated)
                     {
-                        try
+                        this.BeginInvoke(new Action(() =>
                         {
-                            if (!this.IsDisposed && this.IsHandleCreated && !this.Visible)
-                                this.ShowInTaskbar = false;
-                        }
-                        catch { }
-                    }));
+                            try
+                            {
+                                if (!this.IsDisposed && this.IsHandleCreated && !this.Visible)
+                                    this.ShowInTaskbar = false;
+                            }
+                            catch { }
+                        }));
+                    }
+                }
+                else
+                {
+                    // User prefers close -> exit: perform cleanup and allow close to proceed
+                    try { UnregisterAllHotkeys(); } catch { }
+                    try { if (notifyIcon1 != null) notifyIcon1.Visible = false; } catch { }
+                    // do not set e.Cancel -> allow close
                 }
             }
             else
             {
-                // real exit: ensure hotkeys are unregistered and notify icon hidden
+                // real exit requested by ExitApp(): ensure hotkeys are unregistered and notify icon hidden
                 try { UnregisterAllHotkeys(); } catch { }
                 try { if (notifyIcon1 != null) notifyIcon1.Visible = false; } catch { }
             }
@@ -1881,13 +1948,12 @@ namespace TransBrowser
                 case HotkeyId.BossKey:
                     if (this.Visible && this.WindowState != FormWindowState.Minimized)
                     {
-                        // 修改5：隐藏时暂停所有网页并静音
+                        // Boss key: hide window and ensure it does not show in taskbar.
                         PauseAllWebViews();
-                        // 先隐藏窗口，再处理任务栏图标，避免闪烁
                         this.Hide();
 
-                        // 延迟隐藏任务栏图标，避免窗口句柄错误
-                        if (!Properties.Settings.Default.ShowInTaskbar && this.IsHandleCreated)
+                        // Always hide taskbar entry when boss key hides the window.
+                        if (this.IsHandleCreated)
                         {
                             this.BeginInvoke(new Action(() =>
                             {
@@ -2154,7 +2220,9 @@ namespace TransBrowser
 
         private void btnClose_Click(object sender, EventArgs e)
         {
-            this.Close();
+            // Use the same graceful exit path as the tray/menu exit so the app
+            // truly terminates instead of minimizing to tray.
+            ExitApp();
         }
 
         private void UpdateTopMostButton()

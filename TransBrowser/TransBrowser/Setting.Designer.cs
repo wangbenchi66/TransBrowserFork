@@ -57,8 +57,18 @@
             this.swAntiScreenshot = new AntdUI.Switch();
             this.lblWindowShadow = new AntdUI.Label();
             this.swWindowShadow = new AntdUI.Switch();
+            this.lblMinimizeNotify = new AntdUI.Label();
+            this.swMinimizeNotify = new AntdUI.Switch();
+            this.lblCloseToTray = new AntdUI.Label();
+            this.swCloseToTray = new AntdUI.Switch();
+            this.cmbPresetIcons = new System.Windows.Forms.ComboBox();
+            this.btnApplyIconSelection = new AntdUI.Button();
+            this.btnRestoreDefaultIcon = new AntdUI.Button();
             this.panel1 = new System.Windows.Forms.Panel();
             this.label5 = new AntdUI.Label();
+            this.labelIcon = new AntdUI.Label();
+            this.txtIconPath = new AntdUI.Input();
+            this.btnBrowseIcon = new AntdUI.Button();
             this.button2 = new AntdUI.Button();
             this.ua_input = new AntdUI.Input();
             this.label7 = new AntdUI.Label();
@@ -82,29 +92,21 @@
             this.panelHotkeys.SuspendLayout();
             this.SuspendLayout();
             // 
-            // lblWindowShadow
-            // 
-            this.lblWindowShadow = new AntdUI.Label();
-            // 
-            // swWindowShadow
-            // 
-            this.swWindowShadow = new AntdUI.Switch();
-            // 
             // label1
             // 
             this.label1.Location = new System.Drawing.Point(3, 4);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(70, 24);
+            this.label1.Size = new System.Drawing.Size(110, 24);
             this.label1.TabIndex = 3;
             this.label1.Text = "透明度";
             // 
             // slider1
             // 
-            this.slider1.Location = new System.Drawing.Point(76, 4);
+            this.slider1.Location = new System.Drawing.Point(120, 4);
             this.slider1.MinValue = 1;
             this.slider1.Name = "slider1";
             this.slider1.ShowValue = true;
-            this.slider1.Size = new System.Drawing.Size(365, 24);
+            this.slider1.Size = new System.Drawing.Size(320, 24);
             this.slider1.TabIndex = 4;
             this.slider1.Text = "slider1";
             // 
@@ -118,7 +120,7 @@
             this.flowLayoutPanel1.Controls.Add(this.panelHotkeys);
             this.flowLayoutPanel1.Location = new System.Drawing.Point(12, 29);
             this.flowLayoutPanel1.Name = "flowLayoutPanel1";
-            this.flowLayoutPanel1.Size = new System.Drawing.Size(456, 340);
+            this.flowLayoutPanel1.Size = new System.Drawing.Size(456, 545);
             this.flowLayoutPanel1.TabIndex = 6;
             // 
             // panel3
@@ -149,48 +151,49 @@
             this.panel3.Controls.Add(this.swAntiScreenshot);
             this.panel3.Controls.Add(this.lblWindowShadow);
             this.panel3.Controls.Add(this.swWindowShadow);
+            this.panel3.Controls.Add(this.lblMinimizeNotify);
+            this.panel3.Controls.Add(this.swMinimizeNotify);
+            this.panel3.Controls.Add(this.lblCloseToTray);
+            this.panel3.Controls.Add(this.swCloseToTray);
             this.panel3.Location = new System.Drawing.Point(3, 3);
             this.panel3.Name = "panel3";
-            this.panel3.Size = new System.Drawing.Size(450, 220);
+            this.panel3.Size = new System.Drawing.Size(450, 280);
             this.panel3.TabIndex = 20;
             // 
             // autohide_sw
             // 
-            this.autohide_sw.Location = new System.Drawing.Point(76, 56);
+            this.autohide_sw.Location = new System.Drawing.Point(120, 64);
             this.autohide_sw.Name = "autohide_sw";
             this.autohide_sw.Size = new System.Drawing.Size(40, 24);
             this.autohide_sw.TabIndex = 16;
             // 
             // label10
             // 
-            this.label10.Location = new System.Drawing.Point(3, 56);
+            this.label10.Location = new System.Drawing.Point(3, 64);
             this.label10.Name = "label10";
-            this.label10.Size = new System.Drawing.Size(70, 24);
+            this.label10.Size = new System.Drawing.Size(110, 24);
             this.label10.TabIndex = 15;
             this.label10.Text = "失焦隐藏";
             // 
             // switch3
             // 
-            this.switch3.Location = new System.Drawing.Point(402, 30);
+            this.switch3.Location = new System.Drawing.Point(360, 64);
             this.switch3.Name = "switch3";
             this.switch3.Size = new System.Drawing.Size(40, 22);
             this.switch3.TabIndex = 14;
-            this.switch3.Text = "";
-            this.switch3.Visible = true;
             this.switch3.CheckedChanged += new AntdUI.BoolEventHandler(this.switch3_CheckedChanged);
             // 
             // label6
             // 
-            this.label6.Location = new System.Drawing.Point(338, 30);
+            this.label6.Location = new System.Drawing.Point(260, 64);
             this.label6.Name = "label6";
             this.label6.Size = new System.Drawing.Size(58, 22);
             this.label6.TabIndex = 13;
             this.label6.Text = "手机模式";
-            this.label6.Visible = true;
             // 
             // colorPicker1
             // 
-            this.colorPicker1.Location = new System.Drawing.Point(215, 30);
+            this.colorPicker1.Location = new System.Drawing.Point(360, 34);
             this.colorPicker1.Name = "colorPicker1";
             this.colorPicker1.Size = new System.Drawing.Size(50, 24);
             this.colorPicker1.TabIndex = 9;
@@ -199,16 +202,15 @@
             // 
             // label3
             // 
-            this.label3.Location = new System.Drawing.Point(3, 30);
+            this.label3.Location = new System.Drawing.Point(3, 34);
             this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(70, 24);
+            this.label3.Size = new System.Drawing.Size(110, 24);
             this.label3.TabIndex = 6;
             this.label3.Text = "系统任务栏显示";
-            this.label3.Visible = true;
             // 
             // label4
             // 
-            this.label4.Location = new System.Drawing.Point(122, 30);
+            this.label4.Location = new System.Drawing.Point(260, 34);
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(90, 24);
             this.label4.TabIndex = 8;
@@ -216,15 +218,14 @@
             // 
             // switch2
             // 
-            this.switch2.Location = new System.Drawing.Point(76, 30);
+            this.switch2.Location = new System.Drawing.Point(120, 34);
             this.switch2.Name = "switch2";
             this.switch2.Size = new System.Drawing.Size(40, 24);
             this.switch2.TabIndex = 7;
-            this.switch2.Visible = true;
             // 
             // lblShowTabBar
             // 
-            this.lblShowTabBar.Location = new System.Drawing.Point(3, 82);
+            this.lblShowTabBar.Location = new System.Drawing.Point(3, 94);
             this.lblShowTabBar.Name = "lblShowTabBar";
             this.lblShowTabBar.Size = new System.Drawing.Size(84, 24);
             this.lblShowTabBar.TabIndex = 17;
@@ -232,14 +233,14 @@
             // 
             // swShowTabBar
             // 
-            this.swShowTabBar.Location = new System.Drawing.Point(90, 82);
+            this.swShowTabBar.Location = new System.Drawing.Point(120, 94);
             this.swShowTabBar.Name = "swShowTabBar";
             this.swShowTabBar.Size = new System.Drawing.Size(40, 24);
             this.swShowTabBar.TabIndex = 18;
             // 
             // lblHoverHeader
             // 
-            this.lblHoverHeader.Location = new System.Drawing.Point(240, 82);
+            this.lblHoverHeader.Location = new System.Drawing.Point(260, 94);
             this.lblHoverHeader.Name = "lblHoverHeader";
             this.lblHoverHeader.Size = new System.Drawing.Size(90, 24);
             this.lblHoverHeader.TabIndex = 21;
@@ -247,14 +248,14 @@
             // 
             // swHoverHeader
             // 
-            this.swHoverHeader.Location = new System.Drawing.Point(333, 82);
+            this.swHoverHeader.Location = new System.Drawing.Point(360, 94);
             this.swHoverHeader.Name = "swHoverHeader";
             this.swHoverHeader.Size = new System.Drawing.Size(40, 24);
             this.swHoverHeader.TabIndex = 22;
             // 
             // lblNoImage
             // 
-            this.lblNoImage.Location = new System.Drawing.Point(3, 108);
+            this.lblNoImage.Location = new System.Drawing.Point(3, 124);
             this.lblNoImage.Name = "lblNoImage";
             this.lblNoImage.Size = new System.Drawing.Size(84, 24);
             this.lblNoImage.TabIndex = 19;
@@ -262,44 +263,44 @@
             // 
             // swNoImage
             // 
-            this.swNoImage.Location = new System.Drawing.Point(90, 108);
+            this.swNoImage.Location = new System.Drawing.Point(120, 124);
             this.swNoImage.Name = "swNoImage";
             this.swNoImage.Size = new System.Drawing.Size(40, 24);
             this.swNoImage.TabIndex = 20;
             // 
             // lblTransparentBg
             // 
-            this.lblTransparentBg.Location = new System.Drawing.Point(240, 108);
+            this.lblTransparentBg.Location = new System.Drawing.Point(260, 124);
             this.lblTransparentBg.Name = "lblTransparentBg";
             this.lblTransparentBg.Size = new System.Drawing.Size(90, 24);
             this.lblTransparentBg.TabIndex = 23;
             this.lblTransparentBg.Text = "网页背景透明";
             // 
+            // swTransparentBg
+            // 
+            this.swTransparentBg.Location = new System.Drawing.Point(360, 124);
+            this.swTransparentBg.Name = "swTransparentBg";
+            this.swTransparentBg.Size = new System.Drawing.Size(40, 24);
+            this.swTransparentBg.TabIndex = 24;
+            // 
             // lblWindowTransparent
             // 
-            this.lblWindowTransparent.Location = new System.Drawing.Point(3, 134);
+            this.lblWindowTransparent.Location = new System.Drawing.Point(3, 154);
             this.lblWindowTransparent.Name = "lblWindowTransparent";
             this.lblWindowTransparent.Size = new System.Drawing.Size(120, 24);
             this.lblWindowTransparent.TabIndex = 24;
             this.lblWindowTransparent.Text = "软件背景透明";
             // 
-            // swTransparentBg
-            // 
-            this.swTransparentBg.Location = new System.Drawing.Point(333, 108);
-            this.swTransparentBg.Name = "swTransparentBg";
-            this.swTransparentBg.Size = new System.Drawing.Size(40, 24);
-            this.swTransparentBg.TabIndex = 24;
-            // 
             // swWindowTransparent
             // 
-            this.swWindowTransparent.Location = new System.Drawing.Point(130, 134);
+            this.swWindowTransparent.Location = new System.Drawing.Point(120, 154);
             this.swWindowTransparent.Name = "swWindowTransparent";
             this.swWindowTransparent.Size = new System.Drawing.Size(40, 24);
             this.swWindowTransparent.TabIndex = 25;
             // 
             // lblGrayscale
             // 
-            this.lblGrayscale.Location = new System.Drawing.Point(3, 160);
+            this.lblGrayscale.Location = new System.Drawing.Point(260, 154);
             this.lblGrayscale.Name = "lblGrayscale";
             this.lblGrayscale.Size = new System.Drawing.Size(84, 24);
             this.lblGrayscale.TabIndex = 25;
@@ -307,14 +308,14 @@
             // 
             // swGrayscale
             // 
-            this.swGrayscale.Location = new System.Drawing.Point(90, 160);
+            this.swGrayscale.Location = new System.Drawing.Point(360, 154);
             this.swGrayscale.Name = "swGrayscale";
             this.swGrayscale.Size = new System.Drawing.Size(40, 24);
             this.swGrayscale.TabIndex = 26;
             // 
             // lblAntiScreenshot
             // 
-            this.lblAntiScreenshot.Location = new System.Drawing.Point(240, 160);
+            this.lblAntiScreenshot.Location = new System.Drawing.Point(3, 184);
             this.lblAntiScreenshot.Name = "lblAntiScreenshot";
             this.lblAntiScreenshot.Size = new System.Drawing.Size(90, 24);
             this.lblAntiScreenshot.TabIndex = 29;
@@ -322,61 +323,92 @@
             // 
             // swAntiScreenshot
             // 
-            this.swAntiScreenshot.Location = new System.Drawing.Point(333, 160);
+            this.swAntiScreenshot.Location = new System.Drawing.Point(120, 184);
             this.swAntiScreenshot.Name = "swAntiScreenshot";
             this.swAntiScreenshot.Size = new System.Drawing.Size(40, 24);
             this.swAntiScreenshot.TabIndex = 30;
             // 
             // lblWindowShadow
             // 
-            this.lblWindowShadow.Location = new System.Drawing.Point(240, 186);
+            this.lblWindowShadow.Location = new System.Drawing.Point(260, 184);
             this.lblWindowShadow.Name = "lblWindowShadow";
             this.lblWindowShadow.Size = new System.Drawing.Size(90, 24);
             this.lblWindowShadow.TabIndex = 31;
-            this.lblWindowShadow.Text = "窗体阴影";
+            this.lblWindowShadow.Text = "禁用窗体阴影";
             // 
             // swWindowShadow
             // 
-            this.swWindowShadow.Location = new System.Drawing.Point(333, 186);
+            this.swWindowShadow.Location = new System.Drawing.Point(360, 184);
             this.swWindowShadow.Name = "swWindowShadow";
             this.swWindowShadow.Size = new System.Drawing.Size(40, 24);
             this.swWindowShadow.TabIndex = 32;
             // 
+            // lblMinimizeNotify
+            // 
+            this.lblMinimizeNotify.Location = new System.Drawing.Point(3, 214);
+            this.lblMinimizeNotify.Name = "lblMinimizeNotify";
+            this.lblMinimizeNotify.Size = new System.Drawing.Size(200, 24);
+            this.lblMinimizeNotify.TabIndex = 33;
+            this.lblMinimizeNotify.Text = "最小化时显示提示/声音";
+            // 
+            // swMinimizeNotify
+            // 
+            this.swMinimizeNotify.Location = new System.Drawing.Point(220, 214);
+            this.swMinimizeNotify.Name = "swMinimizeNotify";
+            this.swMinimizeNotify.Size = new System.Drawing.Size(40, 24);
+            this.swMinimizeNotify.TabIndex = 34;
+            // 
+            // lblCloseToTray
+            // 
+            this.lblCloseToTray.Location = new System.Drawing.Point(3, 244);
+            this.lblCloseToTray.Name = "lblCloseToTray";
+            this.lblCloseToTray.Size = new System.Drawing.Size(120, 24);
+            this.lblCloseToTray.TabIndex = 33;
+            this.lblCloseToTray.Text = "关闭时最小化到托盘";
+            // 
+            // swCloseToTray
+            // 
+            this.swCloseToTray.Location = new System.Drawing.Point(120, 244);
+            this.swCloseToTray.Name = "swCloseToTray";
+            this.swCloseToTray.Size = new System.Drawing.Size(40, 24);
+            this.swCloseToTray.TabIndex = 34;
+            // 
+            // cmbPresetIcons
+            // 
+            this.cmbPresetIcons.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cmbPresetIcons.Items.AddRange(new object[] {
+            "Default",
+            "Excel",
+            "Notepad",
+            "Chrome",
+            "Word"});
+            this.cmbPresetIcons.Location = new System.Drawing.Point(198, 69);
+            this.cmbPresetIcons.Name = "cmbPresetIcons";
+            this.cmbPresetIcons.Size = new System.Drawing.Size(80, 20);
+            this.cmbPresetIcons.TabIndex = 21;
+            // 
+            // btnApplyIconSelection
+            // 
+            this.btnApplyIconSelection.Location = new System.Drawing.Point(282, 69);
+            this.btnApplyIconSelection.Name = "btnApplyIconSelection";
+            this.btnApplyIconSelection.Size = new System.Drawing.Size(80, 24);
+            this.btnApplyIconSelection.TabIndex = 22;
+            this.btnApplyIconSelection.Text = "应用图标";
+            this.btnApplyIconSelection.Type = AntdUI.TTypeMini.Primary;
+            this.btnApplyIconSelection.Click += new System.EventHandler(this.btnApplyIconSelection_Click);
+            // 
+            // btnRestoreDefaultIcon
+            // 
+            this.btnRestoreDefaultIcon.Location = new System.Drawing.Point(360, 69);
+            this.btnRestoreDefaultIcon.Name = "btnRestoreDefaultIcon";
+            this.btnRestoreDefaultIcon.Size = new System.Drawing.Size(80, 24);
+            this.btnRestoreDefaultIcon.TabIndex = 23;
+            this.btnRestoreDefaultIcon.Text = "恢复默认";
+            this.btnRestoreDefaultIcon.Click += new System.EventHandler(this.btnRestoreDefaultIcon_Click);
+            // 
             // panel1
             // 
             this.panel1.Controls.Add(this.label5);
-            // custom icon controls
-            this.labelIcon = new AntdUI.Label();
-            this.txtIconPath = new AntdUI.Input();
-            this.btnBrowseIcon = new AntdUI.Button();
-            // 
-            // labelIcon
-            // 
-            this.labelIcon.Location = new System.Drawing.Point(5, 44);
-            this.labelIcon.Name = "labelIcon";
-            this.labelIcon.Size = new System.Drawing.Size(70, 24);
-            this.labelIcon.TabIndex = 18;
-            this.labelIcon.Text = "系统任务栏图标";
-            // 
-            // txtIconPath
-            // 
-            this.txtIconPath.Location = new System.Drawing.Point(80, 44);
-            this.txtIconPath.Name = "txtIconPath";
-            this.txtIconPath.PlaceholderText = "自定义图标路径 (.ico)";
-            this.txtIconPath.Size = new System.Drawing.Size(260, 24);
-            this.txtIconPath.TabIndex = 19;
-            this.txtIconPath.Visible = true;
-            // 
-            // btnBrowseIcon
-            // 
-            this.btnBrowseIcon.Location = new System.Drawing.Point(345, 42);
-            this.btnBrowseIcon.Name = "btnBrowseIcon";
-            this.btnBrowseIcon.Size = new System.Drawing.Size(87, 28);
-            this.btnBrowseIcon.TabIndex = 20;
-            this.btnBrowseIcon.Text = "选择图标";
-            this.btnBrowseIcon.Type = AntdUI.TTypeMini.Primary;
-            this.btnBrowseIcon.Click += new System.EventHandler(this.btnBrowseIcon_Click);
-
             this.panel1.Controls.Add(this.labelIcon);
             this.panel1.Controls.Add(this.txtIconPath);
             this.panel1.Controls.Add(this.btnBrowseIcon);
@@ -385,9 +417,12 @@
             this.panel1.Controls.Add(this.label7);
             this.panel1.Controls.Add(this.btnOpenUrl);
             this.panel1.Controls.Add(this.inputUrl);
-            this.panel1.Location = new System.Drawing.Point(3, 171);
+            this.panel1.Controls.Add(this.btnApplyIconSelection);
+            this.panel1.Controls.Add(this.btnRestoreDefaultIcon);
+            this.panel1.Controls.Add(this.cmbPresetIcons);
+            this.panel1.Location = new System.Drawing.Point(3, 289);
             this.panel1.Name = "panel1";
-            this.panel1.Size = new System.Drawing.Size(450, 42);
+            this.panel1.Size = new System.Drawing.Size(450, 96);
             this.panel1.TabIndex = 18;
             // 
             // label5
@@ -397,6 +432,32 @@
             this.label5.Size = new System.Drawing.Size(32, 34);
             this.label5.TabIndex = 11;
             this.label5.Text = "网址";
+            // 
+            // labelIcon
+            // 
+            this.labelIcon.Location = new System.Drawing.Point(5, 44);
+            this.labelIcon.Name = "labelIcon";
+            this.labelIcon.Size = new System.Drawing.Size(98, 24);
+            this.labelIcon.TabIndex = 18;
+            this.labelIcon.Text = "系统任务栏图标";
+            // 
+            // txtIconPath
+            // 
+            this.txtIconPath.Location = new System.Drawing.Point(109, 44);
+            this.txtIconPath.Name = "txtIconPath";
+            this.txtIconPath.PlaceholderText = "自定义图标路径 (.ico)";
+            this.txtIconPath.Size = new System.Drawing.Size(232, 24);
+            this.txtIconPath.TabIndex = 19;
+            // 
+            // btnBrowseIcon
+            // 
+            this.btnBrowseIcon.Location = new System.Drawing.Point(360, 44);
+            this.btnBrowseIcon.Name = "btnBrowseIcon";
+            this.btnBrowseIcon.Size = new System.Drawing.Size(87, 28);
+            this.btnBrowseIcon.TabIndex = 20;
+            this.btnBrowseIcon.Text = "选择图标";
+            this.btnBrowseIcon.Type = AntdUI.TTypeMini.Primary;
+            this.btnBrowseIcon.Click += new System.EventHandler(this.btnBrowseIcon_Click);
             // 
             // button2
             // 
@@ -456,7 +517,7 @@
             this.panelHotkeys.Controls.Add(this.lblClickThrough);
             this.panelHotkeys.Controls.Add(this.txtClickThrough);
             this.panelHotkeys.Controls.Add(this.btnApplyHotkeys);
-            this.panelHotkeys.Location = new System.Drawing.Point(3, 219);
+            this.panelHotkeys.Location = new System.Drawing.Point(3, 391);
             this.panelHotkeys.Name = "panelHotkeys";
             this.panelHotkeys.Size = new System.Drawing.Size(450, 108);
             this.panelHotkeys.TabIndex = 21;
@@ -553,7 +614,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(480, 380);
+            this.ClientSize = new System.Drawing.Size(480, 545);
             this.Controls.Add(this.pageHeader1);
             this.Controls.Add(this.flowLayoutPanel1);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
@@ -620,8 +681,15 @@
         private AntdUI.Switch swAntiScreenshot;
         private AntdUI.Label lblWindowShadow;
         private AntdUI.Switch swWindowShadow;
+        private AntdUI.Label lblCloseToTray;
+        private AntdUI.Switch swCloseToTray;
         private AntdUI.Label labelIcon;
         private AntdUI.Input txtIconPath;
         private AntdUI.Button btnBrowseIcon;
+        private System.Windows.Forms.ComboBox cmbPresetIcons;
+        private AntdUI.Button btnApplyIconSelection;
+        private AntdUI.Button btnRestoreDefaultIcon;
+        private AntdUI.Label lblMinimizeNotify;
+        private AntdUI.Switch swMinimizeNotify;
     }
 }

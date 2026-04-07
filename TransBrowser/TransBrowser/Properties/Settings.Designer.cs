@@ -327,5 +327,41 @@ namespace TransBrowser.Properties {
                 this["CustomIconPath"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool CloseToTray {
+            get {
+                return ((bool)(this["CloseToTray"]));
+            }
+            set {
+                this["CloseToTray"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool ShowMinimizeNotification {
+            get {
+                return ((bool)(this["ShowMinimizeNotification"]));
+            }
+            set {
+                this["ShowMinimizeNotification"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Default")]
+        public string SelectedIconType {
+            get {
+                return ((string)(this["SelectedIconType"]));
+            }
+            set {
+                this["SelectedIconType"] = value;
+            }
+        }
     }
 }
