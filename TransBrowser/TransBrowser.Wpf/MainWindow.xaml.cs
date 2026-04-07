@@ -24,14 +24,18 @@ namespace TransBrowser.Wpf
         // ── P/Invoke ──────────────────────────────────────────────────────────
         [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr hWnd, int nIndex);
         [DllImport("user32.dll")] static extern int SetWindowLong(IntPtr hWnd, int nIndex, int val);
+        [DllImport("user32.dll", SetLastError = true)] static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint crKey, byte bAlpha, uint dwFlags);
         [DllImport("user32.dll")] static extern bool SetWindowDisplayAffinity(IntPtr hWnd, uint affinity);
         [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int val, int size);
 
         const int GWL_EXSTYLE = -20;
         const int WS_EX_TRANSPARENT = 0x20;
         const int WS_EX_LAYERED = 0x80000;
+        const uint LWA_ALPHA = 0x2;
         const uint WDA_NONE = 0;
         const uint WDA_EXCLUDEFROMCAPTURE = 0x11;
+        // NOTE: Do not use SetWindowCompositionAttribute/AccentPolicy here.
+        // Accent policy overlays a gradient/tint over the window and can turn the content black.
         const int DWMWA_NCRENDERING_POLICY = 2;
         const int DWMNCRP_DISABLED = 1;
         const int WM_HOTKEY = 0x0312;
@@ -171,7 +175,9 @@ namespace TransBrowser.Wpf
             var sz = _s.GetFormSize();
             Width = sz.Width; Height = sz.Height;
 
-            Opacity = s.FormOpacity / 100.0;
+            // Do not set Window.Opacity (turns window into layered HWND which breaks WebView2 rendering).
+            // Use RootGrid.Opacity to make WPF content translucent while keeping WebView2 handled separately.
+            try { RootGrid.Opacity = s.FormOpacity / 100.0; } catch { }
 
             Topmost = s.TopMostWindow;
             UpdateTopMostButton();
@@ -213,7 +219,9 @@ namespace TransBrowser.Wpf
         private WebView2 CreateWebView2()
         {
             var wv = new WebView2 { DefaultBackgroundColor = System.Drawing.Color.White };
-            if (_s.Current.TransparentBackground)
+            // If overall window opacity is not fully opaque or transparent-background setting is on,
+            // initialize webview with transparent background so WPF content shows through.
+            if (_s.Current.TransparentBackground || _s.Current.FormOpacity < 100)
                 wv.DefaultBackgroundColor = System.Drawing.Color.Transparent;
             return wv;
         }
@@ -257,6 +265,9 @@ namespace TransBrowser.Wpf
 
             if (_s.Current.TransparentBackground)
                 await RegisterTransparentBgScript(wv);
+
+            // Apply current opacity to web content so it visually matches the window opacity.
+            try { await ApplyOpacityToWebViewAsync(wv, _s.Current.FormOpacity); } catch { }
 
             if (!string.IsNullOrEmpty(url))
                 wv.CoreWebView2.Navigate(url);
@@ -428,6 +439,18 @@ namespace TransBrowser.Wpf
                 await wv.CoreWebView2.ExecuteScriptAsync("(function(){var s=document.getElementById('__trans_bg');if(s)s.remove();})()");
         }
 
+        private async Task ApplyOpacityToWebViewAsync(WebView2 wv, double pct)
+        {
+            if (wv.CoreWebView2 == null) return;
+            // pct: 1..100
+            int clamped = (int)Math.Max(1, Math.Min(100, pct));
+            double op = clamped / 100.0;
+            // Set opacity and ensure background is transparent so underlying WPF shows through
+            string js =
+                $"(function(){{var d=document.documentElement,s=document.body; if(d){{d.style.opacity='{op}'; d.style.background='transparent';}} if(s){{s.style.opacity='{op}'; s.style.background='transparent';}} }})()";
+            try { await wv.CoreWebView2.ExecuteScriptAsync(js); } catch { }
+        }
+
         private async Task ApplyNoImageCss(WebView2 wv, bool enable)
         {
             if (wv.CoreWebView2 == null) return;
@@ -475,7 +498,23 @@ namespace TransBrowser.Wpf
 
         public void SetOpacity(double pct)
         {
-            Opacity = Math.Max(0.01, Math.Min(1.0, pct / 100.0));
+            // Apply opacity to WPF content container instead of the Window to avoid WS_EX_LAYERED
+            try { RootGrid.Opacity = Math.Max(0.01, Math.Min(1.0, pct / 100.0)); } catch { }
+            // Don't change layered window alpha (can cause black rendering of WebView2).
+            // Instead: set web content opacity for each WebView2 so the whole window appears translucent.
+            foreach (var wv in AllWebViews())
+            {
+                try
+                {
+                    if (pct < 100)
+                        wv.DefaultBackgroundColor = System.Drawing.Color.Transparent;
+                    else
+                        wv.DefaultBackgroundColor = System.Drawing.Color.White;
+                }
+                catch { }
+                _ = ApplyOpacityToWebViewAsync(wv, pct);
+            }
+
             _s.Current.FormOpacity = pct;
             _s.Save();
         }
@@ -937,7 +976,8 @@ namespace TransBrowser.Wpf
                 _s.SetFormPosition(Left, Top);
                 _s.SetFormSize(ActualWidth, ActualHeight);
             }
-            _s.Current.FormOpacity = Opacity * 100.0;
+            // Store the logical form opacity from RootGrid (not Window.Opacity)
+            try { _s.Current.FormOpacity = RootGrid.Opacity * 100.0; } catch { _s.Current.FormOpacity = 100; }
             _s.Save();
             _allowExit = true;
             Close();
@@ -1029,7 +1069,7 @@ namespace TransBrowser.Wpf
 
         private void AdjustOpacity(int delta)
         {
-            double cur = Opacity * 100.0;
+            double cur = (RootGrid?.Opacity ?? 1.0) * 100.0;
             double nv = Math.Max(1, Math.Min(100, cur + delta));
             SetOpacity(nv);
             SyncOpacity((int)nv);
