@@ -1,0 +1,42 @@
+<Window x:Class="TransBrowser.Wpf.ControlPanelWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="控制面板" Width="480" Height="360"
+        WindowStyle="SingleBorderWindow"
+        ResizeMode="CanResize"
+        Closing="Window_Closing">
+
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Navigation buttons -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+            <Button Content="← 后退" Width="70" Margin="0,0,4,0"
+                    Style="{StaticResource FlatButtonStyle}" Click="BtnBack_Click"/>
+            <Button Content="→ 前进" Width="70"
+                    Style="{StaticResource FlatButtonStyle}" Click="BtnForward_Click"/>
+            <CheckBox x:Name="ChkAutoRun" Content="导航后自动执行" VerticalAlignment="Center" Margin="12,0,0,0"/>
+        </StackPanel>
+
+        <!-- JS editor -->
+        <TextBox Grid.Row="1" x:Name="TxtJsCode"
+                 AcceptsReturn="True" AcceptsTab="True"
+                 VerticalScrollBarVisibility="Auto"
+                 HorizontalScrollBarVisibility="Auto"
+                 FontFamily="Consolas" FontSize="12"
+                 TextWrapping="NoWrap"
+                 Padding="4"/>
+
+        <!-- Action buttons -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+            <Button Content="从文件加载" Margin="0,0,6,0"
+                    Style="{StaticResource FlatButtonStyle}" Click="BtnLoadFile_Click"/>
+            <Button Content="执行 JS" Width="80"
+                    Style="{StaticResource FlatButtonStyle}" Click="BtnRunJs_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>
