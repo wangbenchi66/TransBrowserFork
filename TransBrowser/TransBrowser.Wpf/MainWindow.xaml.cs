@@ -534,7 +534,8 @@ namespace TransBrowser.Wpf
             _s.Current.WindowTransparent = enable;
             if (enable)
             {
-                AllowsTransparency = false; // Can't change after show; use WS_EX_LAYERED approach
+                // AllowsTransparency cannot be changed after the window is shown.
+                // Use WS_EX_LAYERED/WS_EX_TRANSPARENT via P/Invoke for transparency.
                 Background = System.Windows.Media.Brushes.Transparent;
             }
             else
@@ -1087,13 +1088,13 @@ namespace TransBrowser.Wpf
                 if (p.Length >= 3 && DateTime.TryParse(p[2], out DateTime dt))
                     list.Add(new HistoryItem { Title = p[0], Url = p[1], VisitTime = dt });
             }
-            return list.OrderByDescending(h => h.VisitTime).Take(50).ToList();
+            return list.OrderByDescending(h => h.VisitTime).Take(MaxHistoryItems).ToList();
         }
 
         private void SaveHistory(List<HistoryItem> history)
         {
             var sb = new StringBuilder();
-            foreach (var h in history.Take(50))
+            foreach (var h in history.Take(MaxHistoryItems))
                 sb.Append(h.Title.Replace('\t', ' ')).Append('\t').Append(h.Url).Append('\t').Append(h.VisitTime.ToString("o")).Append('\n');
             _s.Current.BrowsingHistory = sb.ToString();
             _s.Save();
@@ -1129,6 +1130,8 @@ namespace TransBrowser.Wpf
             return html.Replace("##CUSTOM_DATA##", customJson).Replace("##HISTORY_DATA##", historyJson);
         }
 
+        private const int MaxHistoryItems = 50;
+
         private static string BuildSitesJson(List<CustomSite> sites)
         {
             var sb = new StringBuilder("[");
@@ -1154,8 +1157,16 @@ namespace TransBrowser.Wpf
         private static string JsEscape(string s)
         {
             if (s == null) return "";
-            return s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("/", "\\/")
-                    .Replace("\r", "\\r").Replace("\n", "\\n").Replace("\t", "\\t");
+            return s.Replace("\\", "\\\\")
+                    .Replace("\"", "\\\"")
+                    .Replace("'", "\\'")
+                    .Replace("`", "\\`")
+                    .Replace("/", "\\/")
+                    .Replace("\r", "\\r")
+                    .Replace("\n", "\\n")
+                    .Replace("\t", "\\t")
+                    .Replace("\u2028", "\\u2028")
+                    .Replace("\u2029", "\\u2029");
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────
