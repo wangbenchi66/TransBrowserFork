@@ -100,8 +100,49 @@ function syncWebviewTransparency() {
   webview.executeJavaScript(buildTransparencyScript(settings.pageTransparentMode)).catch(() => {});
 }
 
+const noImageCss = `
+img, picture, video {
+  visibility: hidden !important;
+}
+`;
+
+function buildNoImageScript(enabled) {
+  return `(() => {
+    const styleId = 'glass-no-image-style';
+    const cssText = ${JSON.stringify(noImageCss)};
+    let styleNode = document.getElementById(styleId);
+
+    if (${enabled ? 'true' : 'false'}) {
+      if (!styleNode) {
+        styleNode = document.createElement('style');
+        styleNode.id = styleId;
+        document.documentElement.appendChild(styleNode);
+      }
+
+      styleNode.textContent = cssText;
+      return true;
+    }
+
+    if (styleNode) {
+      styleNode.remove();
+    }
+
+    return true;
+  })();`;
+}
+
+function syncWebviewNoImage() {
+  const webview = webviewRef.value;
+  if (!webview || activeTab.value.kind === 'dashboard') {
+    return;
+  }
+
+  webview.executeJavaScript(buildNoImageScript(settings.noImageMode)).catch(() => {});
+}
+
 function handleWebviewDomReady() {
   syncWebviewTransparency();
+  syncWebviewNoImage();
 }
 
 watch(
@@ -112,10 +153,18 @@ watch(
 );
 
 watch(
+  () => settings.noImageMode,
+  () => {
+    syncWebviewNoImage();
+  }
+);
+
+watch(
   () => activeTabId.value,
   async () => {
     await nextTick();
     syncWebviewTransparency();
+    syncWebviewNoImage();
   }
 );
 </script>

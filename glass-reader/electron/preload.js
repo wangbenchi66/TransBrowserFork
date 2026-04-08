@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 contextBridge.exposeInMainWorld('desktop', {
     platform: process.platform,
     minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
+    maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
     closeWindow: () => ipcRenderer.invoke('window:close'),
     openSettingsWindow: () => ipcRenderer.invoke('window:open-settings'),
     getSettings: () => ipcRenderer.invoke('settings:get'),

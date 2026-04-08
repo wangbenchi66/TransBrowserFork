@@ -281,8 +281,8 @@ function createWindow() {
     const win = new BrowserWindow({
         width: 1420,
         height: 860,
-        minWidth: 1180,
-        minHeight: 720,
+        minWidth: 520,
+        minHeight: 380,
         frame: false,
         transparent: false,
         hasShadow: false,
@@ -336,6 +336,17 @@ ipcMain.handle('window:minimize', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (win && !win.isDestroyed()) {
         win.minimize()
+    }
+})
+
+ipcMain.handle('window:maximize', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win && !win.isDestroyed()) {
+        if (win.isMaximized()) {
+            win.unmaximize()
+        } else {
+            win.maximize()
+        }
     }
 })
 

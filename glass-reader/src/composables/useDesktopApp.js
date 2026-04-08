@@ -296,6 +296,17 @@ function handleMinimize() {
     })
 }
 
+function handleMaximize() {
+    if (!desktopApi?.maximizeWindow) {
+        statusMessage.value = '当前环境不支持最大化窗口'
+        return
+    }
+
+    desktopApi.maximizeWindow().catch(() => {
+        statusMessage.value = '最大化失败，请重试'
+    })
+}
+
 function handleClose() {
     if (!desktopApi?.closeWindow) {
         statusMessage.value = '当前环境不支持关闭窗口'
@@ -373,6 +384,7 @@ export function useDesktopApp() {
         useFavoriteSite,
         openRecentVisit,
         handleMinimize,
+        handleMaximize,
         handleClose,
         openSettingsWindow,
         initializeDesktopApp,
