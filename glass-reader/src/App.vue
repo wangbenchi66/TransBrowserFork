@@ -304,34 +304,76 @@ onBeforeUnmount(() => {
             <div class="shortcut-grid settings-grid-compact">
               <label>
                 <span>自动滚动速度</span>
-                <input
-                  :value="settings.autoScrollSpeed"
-                  class="slider"
-                  type="range"
-                  min="5"
-                  max="80"
-                  @input="patchSetting('autoScrollSpeed', Number($event.target.value))" />
+                <div>
+                  <input
+                    v-if="settings.autoScrollEnabled"
+                    :value="settings.autoScrollSpeed"
+                    class="slider"
+                    type="range"
+                    min="5"
+                    max="80"
+                    @input="patchSetting('autoScrollSpeed', Number($event.target.value))" />
+                  <div
+                    v-else
+                    class="muted-note">
+                    请先启用自动滚动以调整速度
+                  </div>
+                </div>
               </label>
               <label>
                 <span>本地文字字号</span>
-                <input
-                  :value="settings.readerFontScale"
-                  class="slider"
-                  type="range"
-                  min="80"
-                  max="160"
-                  @input="patchSetting('readerFontScale', Number($event.target.value))" />
+                <div>
+                  <input
+                    v-if="settings.forceReaderFont"
+                    :value="settings.readerFontScale"
+                    class="slider"
+                    type="range"
+                    min="80"
+                    max="160"
+                    @input="patchSetting('readerFontScale', Number($event.target.value))" />
+                  <div
+                    v-else
+                    class="muted-note">
+                    启用“强制阅读器字号”以调整
+                  </div>
+                </div>
               </label>
             </div>
 
             <div class="color-row settings-row-gap">
               <span>本地文字颜色</span>
-              <input
-                :value="settings.readerTextColor"
-                class="color-input"
-                type="color"
-                @input="patchSetting('readerTextColor', $event.target.value)" />
+              <div>
+                <input
+                  v-if="settings.forceReaderTextColor"
+                  :value="settings.readerTextColor"
+                  class="color-input"
+                  type="color"
+                  @input="patchSetting('readerTextColor', $event.target.value)" />
+                <div
+                  v-else
+                  class="muted-note">
+                  启用“强制修改文字颜色”以选择颜色
+                </div>
+              </div>
             </div>
+
+            <button
+              class="toggle-row settings-row-gap"
+              @click="toggleSetting('forceReaderTextColor')">
+              <span>强制修改文字颜色</span>
+              <span
+                class="switch"
+                :class="{ on: settings.forceReaderTextColor }"></span>
+            </button>
+
+            <button
+              class="toggle-row settings-row-gap"
+              @click="toggleSetting('forceReaderFont')">
+              <span>强制阅读器字号</span>
+              <span
+                class="switch"
+                :class="{ on: settings.forceReaderFont }"></span>
+            </button>
 
             <button
               class="toggle-row settings-row-gap"

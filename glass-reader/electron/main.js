@@ -34,6 +34,12 @@ const defaultSettings = {
     autoScrollSpeed: 22,
     readerTextColor: '#283247',
     readerFontScale: 100,
+    // 是否在网页中强制使用阅读器字号
+    forceReaderFont: false,
+    // 工具栏停靠底部（true）或悬浮在页面上（false）
+    toolbarDocked: true,
+    // 强制修改网页文字颜色
+    forceReaderTextColor: false,
     statusBarColor: '#f5f5f7',
     showScrollbars: true,
     defaultUrl: '',
@@ -84,6 +90,9 @@ function normalizeSettings(partial = {}) {
         hoverHeaderMode: Boolean(partial.hoverHeaderMode ?? defaultSettings.hoverHeaderMode),
         pageTransparentMode: Boolean(partial.pageTransparentMode ?? defaultSettings.pageTransparentMode),
         forcePageTransparent: Boolean(partial.forcePageTransparent ?? defaultSettings.forcePageTransparent),
+        forceReaderFont: Boolean(partial.forceReaderFont ?? defaultSettings.forceReaderFont),
+        toolbarDocked: Boolean(partial.toolbarDocked ?? defaultSettings.toolbarDocked),
+        forceReaderTextColor: Boolean(partial.forceReaderTextColor ?? defaultSettings.forceReaderTextColor),
         showScrollbars: Boolean(partial.showScrollbars ?? defaultSettings.showScrollbars),
         grayscaleMode: Boolean(partial.grayscaleMode ?? defaultSettings.grayscaleMode),
         clickThroughMode: Boolean(partial.clickThroughMode ?? defaultSettings.clickThroughMode),
@@ -463,7 +472,7 @@ function createWindow() {
     console.log('[main] creating BrowserWindow. preloadPath=', preloadPath, 'exists=', fs.existsSync(preloadPath))
 
     const win = new BrowserWindow({
-        width: 420,
+        width: 820,
         height: 860,
         minWidth: 80,
         minHeight: 80,

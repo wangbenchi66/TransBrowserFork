@@ -50,6 +50,16 @@ const defaultSettings = {
     autoScrollSpeed: 22,
     readerTextColor: '#283247',
     readerFontScale: 100,
+    // 强制将网页文字颜色替换为 readerTextColor（工具栏/设置可切换）
+    forceReaderTextColor: false,
+    // 是否在网页中强制使用阅读器字号
+    forceReaderFont: false,
+    // 工具栏停靠底部（true）或悬浮在页面上（false）
+    toolbarDocked: true,
+    // 工具栏是否固定（固定=true 始终显示；false=移入显示/移出隐藏）
+    toolbarPinned: false,
+    // 工具栏是否显示（隐藏时悬浮显示）
+    toolbarVisible: true,
     statusBarColor: '#f5f5f7',
     showScrollbars: true,
     defaultUrl: '',
@@ -83,6 +93,8 @@ const leftToggleKeys = [
     { key: 'showTabBar', label: '显示标签栏' },
     // 将设置中的“软件背景透明”替换为标题栏的“透明”按钮功能
     { key: 'fullWindowTransparent', label: '软件背景透明' },
+    { key: 'toolbarVisible', label: '显示工具栏' },
+    { key: 'toolbarDocked', label: '工具栏停靠底部' },
     { key: 'antiScreenshotMode', label: '防截屏模式' },
 ]
 
@@ -196,7 +208,12 @@ const immediateSyncKeys = new Set([
     'autoScrollEnabled',
     'autoScrollSpeed',
     'readerTextColor',
+    'forceReaderTextColor',
+    'forceReaderFont',
     'readerFontScale',
+    'toolbarDocked',
+    'toolbarPinned',
+    'toolbarVisible',
     'forcePageTransparent',
     'showScrollbars',
     'fullWindowTransparent',
