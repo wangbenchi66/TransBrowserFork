@@ -3,12 +3,28 @@ import { computed, reactive, ref } from 'vue'
 const desktopApi = typeof window !== 'undefined' ? window.desktop : null
 
 const recommendedSites = ref([
-    { name: '微信读书', tag: 'WR', tone: 'green', category: '阅读', hint: '小说与出版书', url: 'https://weread.qq.com' },
-    { name: '番茄小说', tag: 'FQ', tone: 'orange', category: '阅读', hint: '网文阅读', url: 'https://fanqienovel.com' },
-    { name: 'Bilibili', tag: 'BL', tone: 'pink', category: '娱乐', hint: '视频与直播', url: 'https://www.bilibili.com' },
-    { name: '抖音', tag: 'DY', tone: 'ink', category: '娱乐', hint: '短视频', url: 'https://www.douyin.com' },
-    { name: '小红书', tag: 'XH', tone: 'rose', category: '娱乐', hint: '生活方式', url: 'https://www.xiaohongshu.com' },
+    { id: 1, name: '微信读书', url: 'https://weread.qq.com', system: true },
+    { id: 2, name: '番茄小说', url: 'https://fanqienovel.com', system: true },
+    { id: 3, name: 'Bilibili', url: 'https://www.bilibili.com', system: true },
+    { id: 4, name: '抖音', url: 'https://www.douyin.com', system: true },
+    { id: 5, name: '小红书', url: 'https://www.xiaohongshu.com', system: true },
 ])
+
+const RECOMMENDED_STORAGE_KEY = 'glass_reader_recommended_sites'
+
+// 尝试从 localStorage 或者持久化设置中恢复推荐站点
+try {
+    const raw = localStorage.getItem(RECOMMENDED_STORAGE_KEY)
+    if (raw) {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed) && parsed.length) {
+            // 保证每项都有 id
+            recommendedSites.value = parsed.map((it, idx) => ({ id: it.id ?? (Date.now() + idx), ...it }))
+        }
+    }
+} catch (e) {
+    // ignore
+}
 const localDocuments = ref([])
 
 // 初始最近访问保持空，使用真实浏览行为填充
@@ -101,7 +117,7 @@ const filteredRecommendedSites = computed(() => {
         return recommendedSites.value
     }
 
-    return recommendedSites.value.filter((site) => [site.name, site.category, site.hint, site.url].join(' ').toLowerCase().includes(keyword))
+    return recommendedSites.value.filter((site) => [site.name, site.url].join(' ').toLowerCase().includes(keyword))
 })
 
 const dashboardMetrics = computed(() => ([
@@ -207,9 +223,7 @@ function getTitleFromUrl(url) {
     }
 }
 
-function getSiteTag(name) {
-    return name.replace(/\s+/g, '').slice(0, 2).toUpperCase() || 'ST'
-}
+/** getSiteTag removed — recommendedSites now only store `name` and `url`. */
 
 function displayInputUrlForUI(url) {
     return url === 'about:blank' ? '' : url
@@ -426,7 +440,7 @@ function closeTab(tabId) {
 
 function useRecommendedSite(site) {
     urlInput.value = site.url
-    createPageTab(site.url, { title: site.name, subtitle: `${site.category} · ${site.hint}` })
+    createPageTab(site.url, { title: site.name, subtitle: getTitleFromUrl(site.url) })
 }
 
 function openRecentVisit(item) {
@@ -521,6 +535,87 @@ function removeLocalDocument(documentId) {
     }
 }
 
+function persistRecommendedSites() {
+    try {
+        localStorage.setItem(RECOMMENDED_STORAGE_KEY, JSON.stringify(recommendedSites.value))
+    } catch (e) {
+        // ignore
+    }
+
+    if (desktopApi?.updateSettings) {
+        try {
+            desktopApi.updateSettings({ recommendedSites: recommendedSites.value }).catch(() => { })
+        } catch (e) { }
+    }
+}
+
+function addRecommendedSite(site) {
+    const normalizedUrl = normalizeUrl((site.url || '').trim())
+    const name = (site.name || '').trim() || getTitleFromUrl(normalizedUrl)
+
+    // 重复检测（按 URL 或 名称）
+    const exists = recommendedSites.value.some((s) => {
+        try {
+            return s.url === normalizedUrl || (s.name && s.name.toLowerCase() === name.toLowerCase())
+        } catch {
+            return false
+        }
+    })
+
+    if (exists) {
+        statusMessage.value = '推荐站点已存在'
+        return null
+    }
+
+    const next = {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        name,
+        url: normalizedUrl,
+        system: false,
+    }
+
+    // 将自定义站点插入到 system 站点之后，保持系统推荐靠前
+    const sysCount = recommendedSites.value.filter((s) => s.system).length
+    recommendedSites.value.splice(sysCount, 0, next)
+    persistRecommendedSites()
+    statusMessage.value = `已添加推荐站点：${name}`
+    return next
+}
+
+function editRecommendedSite(id, site) {
+    const idx = recommendedSites.value.findIndex((s) => s.id === id)
+    if (idx === -1) return
+
+    // 不允许编辑标记为 system 的内置站点
+    if (recommendedSites.value[idx].system) {
+        statusMessage.value = '系统站点不可编辑'
+        return
+    }
+
+    const existing = recommendedSites.value[idx]
+    const normalizedUrl = normalizeUrl(site.url ?? existing.url)
+    const name = site.name ?? existing.name
+
+    recommendedSites.value[idx] = {
+        ...existing,
+        name,
+        url: normalizedUrl,
+    }
+
+    persistRecommendedSites()
+}
+
+function removeRecommendedSite(id) {
+    const idx = recommendedSites.value.findIndex((s) => s.id === id)
+    if (idx === -1) return
+    // 不允许删除标记为 system 的内置站点
+    if (recommendedSites.value[idx].system) {
+        return
+    }
+    recommendedSites.value.splice(idx, 1)
+    persistRecommendedSites()
+}
+
 function handleMinimize() {
     if (!desktopApi?.minimizeWindow) {
         statusMessage.value = '当前环境不支持最小化窗口'
@@ -578,6 +673,9 @@ function initializeDesktopApp() {
         desktopApi.getSettings().then((nextSettings) => {
             Object.assign(settings, nextSettings)
             urlInput.value = displayInputUrlForUI(settings.defaultUrl ?? '')
+            if (Array.isArray(nextSettings.recommendedSites) && nextSettings.recommendedSites.length) {
+                recommendedSites.value = nextSettings.recommendedSites.map((it, idx) => ({ id: it.id ?? (Date.now() + idx), ...it }))
+            }
         })
     }
 
@@ -598,6 +696,7 @@ function disposeDesktopApp() {
 export function useDesktopApp() {
     return {
         filteredRecommendedSites,
+        recommendedSites,
         settings,
         urlInput,
         searchKeyword,
@@ -622,6 +721,9 @@ export function useDesktopApp() {
         openRecentVisit,
         uploadLocalFiles,
         openLocalDocument,
+        addRecommendedSite,
+        editRecommendedSite,
+        removeRecommendedSite,
         handleMinimize,
         handleMaximize,
         handleClose,
