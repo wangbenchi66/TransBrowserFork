@@ -225,6 +225,8 @@ async function handleFileChange(event) {
 }
 
 watch(() => settings.pageTransparentMode, syncReaderEffects);
+// 监听强制网页透明开关，确保其变更能立即同步到 webview
+watch(() => settings.forcePageTransparent, syncReaderEffects);
 watch(() => settings.noImageMode, syncReaderEffects);
 watch(() => settings.autoScrollEnabled, syncReaderEffects);
 watch(() => settings.autoScrollSpeed, syncReaderEffects);
