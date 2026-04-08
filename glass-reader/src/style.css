@@ -92,6 +92,7 @@ input {
   font: inherit;
 }
 
+
 .window-shell {
   position: relative;
   width: 100%;
@@ -101,12 +102,10 @@ input {
   flex-direction: column;
   gap: 10px;
   color: var(--text);
+  -webkit-app-region: drag;
 }
 
 /* 使整个窗口主体默认可拖动，具体交互元素通过 no-drag 覆盖为可交互 */
-.window-shell {
-  -webkit-app-region: drag;
-}
 
 /* 交互元素与主要面板禁止拖动（保持可点击/可选中文本） */
 .no-drag,
@@ -948,7 +947,7 @@ iframe {
   min-height: 0;
   flex: 1;
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr) 260px;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
 
@@ -1306,7 +1305,7 @@ iframe {
 
 @media (max-width: 1280px) {
   .workspace-shell {
-    grid-template-columns: 280px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .control-rail {
@@ -1363,7 +1362,9 @@ iframe {
 
 .mode-mobile .page-frame,
 .mode-mobile .nav-row {
-  max-width: 460px;
+  /* 在移动模拟模式下不要限制容器宽度；保持单栏铺满 */
+  max-width: none;
+  width: 100%;
 }
 
 .mode-hover-header .tabbar {
