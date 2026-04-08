@@ -823,6 +823,15 @@ input {
   opacity: 1;
 }
 
+.mode-hover-header .topbar {
+  opacity: 0.28;
+  transition: opacity 0.2s ease;
+}
+
+.mode-hover-header .topbar:hover {
+  opacity: 1;
+}
+
 .hide-tabs .workspace {
   grid-template-columns: minmax(0, 1fr) 420px;
 }

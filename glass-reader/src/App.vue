@@ -4,7 +4,7 @@ import { useDesktopApp } from './composables/useDesktopApp';
 import MainPage from './pages/MainPage.vue';
 import SettingsPage from './pages/SettingsPage.vue';
 
-const { settings, statusMessage, shellClasses, themeVars, handleMinimize, handleClose, patchSetting, initializeDesktopApp, disposeDesktopApp } = useDesktopApp();
+const { settings, statusMessage, shellClasses, themeVars, handleMinimize, handleMaximize, handleClose, patchSetting, initializeDesktopApp, disposeDesktopApp } = useDesktopApp();
 const desktopApi = typeof window !== 'undefined' ? window.desktop : null;
 
 const isSettingsOpen = ref(false);
@@ -80,6 +80,12 @@ onBeforeUnmount(() => {
           aria-label="最小化"
           @click="handleMinimize">
           -
+        </button>
+        <button
+          class="control-btn"
+          aria-label="最大化"
+          @click="handleMaximize">
+          □
         </button>
         <button
           class="control-btn close"
