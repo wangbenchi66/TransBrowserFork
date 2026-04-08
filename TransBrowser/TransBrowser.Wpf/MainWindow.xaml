@@ -1,0 +1,159 @@
+<Window x:Class="TransBrowser.Wpf.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        Title="TransBrowser"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="CanResizeWithGrip"
+        Width="590" Height="410"
+        MinWidth="200" MinHeight="150"
+        StateChanged="Window_StateChanged"
+        LocationChanged="Window_LocationChanged"
+        SizeChanged="Window_SizeChanged"
+        Closing="Window_Closing"
+        Deactivated="Window_Deactivated"
+        MouseMove="Window_MouseMove">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="0" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0"/>
+    </WindowChrome.WindowChrome>
+
+    <!-- Two-column layout: left shows desktop (transparent), right is the app panel -->
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="420" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Left transparent area (shows desktop) -->
+        <Grid Grid.Column="0" Background="Transparent">
+            <!-- Sample overlay text to preview transparency effect -->
+            <TextBlock Text="文字" TextAlignment="Center"
+                       VerticalAlignment="Center" HorizontalAlignment="Center"
+                       FontSize="18" Foreground="#CC000000" FontWeight="SemiBold"
+                       TextWrapping="Wrap" Width="260">
+                <TextBlock.Effect>
+                    <DropShadowEffect Color="#80000000" BlurRadius="6" ShadowDepth="2" Opacity="0.6"/>
+                </TextBlock.Effect>
+            </TextBlock>
+        </Grid>
+
+        <!-- Right content panel -->
+        <Border x:Name="MainBorder" Grid.Column="1" Background="White" CornerRadius="8" Margin="8">
+            <Border.Effect>
+                <DropShadowEffect Color="#80000000" BlurRadius="12" ShadowDepth="0" Opacity="0.4"/>
+            </Border.Effect>
+
+            <Grid x:Name="RootGrid">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Title bar -->
+                <Grid x:Name="TitleBar" Grid.Row="0" Height="23"
+                      MouseLeftButtonDown="TitleBar_MouseLeftButtonDown"
+                      Background="#F9F9F9">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock x:Name="TitleText" Grid.Column="0"
+                               Text="TransBrowser" FontSize="12"
+                               VerticalAlignment="Center" Margin="8,0,0,0"
+                               Foreground="#333"/>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Stretch">
+                        <Button x:Name="BtnTopMost" Content="📌" Width="26" Height="23"
+                                Background="Transparent" BorderThickness="0"
+                                FontFamily="Segoe UI Emoji" FontSize="11"
+                                Cursor="Hand" Click="BtnTopMost_Click"
+                                WindowChrome.IsHitTestVisibleInChrome="True"
+                                ToolTip="置顶"/>
+                        <Button x:Name="BtnMinimize" Content="—" Width="26" Height="23"
+                                Background="Transparent" BorderThickness="0"
+                                FontFamily="Microsoft YaHei UI" FontSize="13" FontWeight="Bold"
+                                Foreground="Gray" Cursor="Hand" Click="BtnMinimize_Click"
+                                WindowChrome.IsHitTestVisibleInChrome="True"
+                                ToolTip="最小化"/>
+                        <Button x:Name="BtnToggleBg" Content="◧" Width="26" Height="23"
+                                Background="Transparent" BorderThickness="0"
+                                FontFamily="Segoe UI Symbol" FontSize="12"
+                                Foreground="Gray" Cursor="Hand" Click="BtnToggleBg_Click"
+                                WindowChrome.IsHitTestVisibleInChrome="True"
+                                ToolTip="背景透明切换"/>
+                        <Button x:Name="BtnClose" Content="×" Width="26" Height="23"
+                                Background="Transparent" BorderThickness="0"
+                                FontFamily="Microsoft YaHei UI" FontSize="16" FontWeight="Bold"
+                                Foreground="Gray" Cursor="Hand" Click="BtnClose_Click"
+                                MouseEnter="BtnClose_MouseEnter" MouseLeave="BtnClose_MouseLeave"
+                                WindowChrome.IsHitTestVisibleInChrome="True"
+                                ToolTip="关闭"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Tab control -->
+                <TabControl x:Name="TabCtrl" Grid.Row="1"
+                            Padding="0" BorderThickness="0"
+                            Background="Transparent"
+                            SelectionChanged="TabCtrl_SelectionChanged"
+                            MouseDown="TabCtrl_MouseDown">
+                    <TabControl.Template>
+                        <ControlTemplate TargetType="TabControl">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <TabPanel x:Name="HeaderPanel" Grid.Row="0" Background="#F2F2F2" IsItemsHost="True"/>
+                                <Border Grid.Row="1" Background="White" BorderThickness="0">
+                                    <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent"/>
+                                </Border>
+                            </Grid>
+                        </ControlTemplate>
+                    </TabControl.Template>
+
+                    <TabControl.ItemContainerStyle>
+                        <Style TargetType="TabItem">
+                            <Setter Property="Height" Value="22"/>
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="TabItem">
+                                        <Grid x:Name="TabRoot" MinWidth="80" MaxWidth="180">
+                                            <Border x:Name="TabBorder" Background="#F2F2F2" BorderBrush="#DADADA" BorderThickness="0,0,1,0" Margin="0,2,0,0">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="20"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{Binding Header, RelativeSource={RelativeSource TemplatedParent}}" FontSize="11" Foreground="#5A5A5A" VerticalAlignment="Center" Margin="8,0,0,0" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"/>
+                                                    <Button x:Name="CloseBtn" Grid.Column="1" Content="×" Width="16" Height="16" FontSize="12" FontWeight="Bold" Foreground="#999" Background="Transparent" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center" HorizontalAlignment="Center" Click="TabCloseButton_Click" Visibility="Collapsed"/>
+                                                </Grid>
+                                            </Border>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="TabBorder" Property="Background" Value="White"/>
+                                                <Setter TargetName="TabBorder" Property="Margin" Value="0,0,0,0"/>
+                                            </Trigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="CloseBtn" Property="Visibility" Value="Visible"/>
+                                            </Trigger>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="CloseBtn" Property="Visibility" Value="Visible"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </TabControl.ItemContainerStyle>
+                </TabControl>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
