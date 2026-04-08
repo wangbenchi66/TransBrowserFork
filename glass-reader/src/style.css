@@ -47,6 +47,29 @@ input {
   color: var(--text);
 }
 
+/* 使整个窗口主体默认可拖动，具体交互元素通过 no-drag 覆盖为可交互 */
+.window-shell {
+  -webkit-app-region: drag;
+}
+
+/* 交互元素与主要面板禁止拖动（保持可点击/可选中文本） */
+.no-drag,
+.no-drag *,
+button,
+input,
+textarea,
+select,
+a,
+.panel,
+.page-frame,
+.workspace,
+.webview-wrap,
+.webview-frame,
+webview,
+iframe {
+  -webkit-app-region: no-drag;
+}
+
 .window-shell::before {
   content: '';
   position: absolute;
