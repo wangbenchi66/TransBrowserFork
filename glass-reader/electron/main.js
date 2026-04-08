@@ -298,15 +298,12 @@ function applyWindowSettings(win) {
     win.setContentProtection(currentSettings.antiScreenshotMode)
     win.setIgnoreMouseEvents(currentSettings.clickThroughMode, currentSettings.clickThroughMode ? { forward: true } : undefined)
     try {
-        // 如果启用了全窗透明，由页面 CSS 控制背景透明度，避免设置整个窗口不透明度（会影响控件可见性）
-        if (!currentSettings.fullWindowTransparent) {
-            const opacity = clamp(1 - currentSettings.transparency / 100, 0.12, 1)
-            console.log(`[applyWindowSettings] transparency=${currentSettings.transparency} -> opacity=${opacity}`)
-            win.setOpacity(opacity)
-        } else {
-            // 确保控件保持可见
-            win.setOpacity(1)
-        }
+        // 透明度处理：无论是否启用“软件背景透明”，都将根据透明度滑块计算窗口整体不透明度。
+        // 区别在于：启用“软件背景透明”时，页面背景由前端 CSS 控制（shell/surface 设为透明），
+        // 而透明度滑块会影响整个窗口（主进程通过 setOpacity），实现用户期望的“整体透明度”效果。
+        const opacity = clamp(1 - currentSettings.transparency / 100, 0.12, 1)
+        console.log(`[applyWindowSettings] transparency=${currentSettings.transparency} fullWindowTransparent=${currentSettings.fullWindowTransparent} -> opacity=${opacity}`)
+        win.setOpacity(opacity)
     } catch (e) {
         console.warn('[applyWindowSettings] setOpacity failed:', e)
     }

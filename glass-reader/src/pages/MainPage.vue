@@ -6,6 +6,7 @@ import recommendedPage from './RecommendedPage.vue';
 const { settings, activeTab, activeTabId, tabs, addNewTab, selectTab, closeTab } = useDesktopApp();
 
 const webviewRef = ref(null);
+const webviewReady = ref(false);
 const localReaderRef = ref(null);
 let localScrollTimer = null;
 
@@ -119,7 +120,13 @@ function runWebviewJS(script) {
     return;
   }
 
-  webview.executeJavaScript(script).catch(() => {});
+  if (!webviewReady.value) return;
+
+  try {
+    webview.executeJavaScript(script).catch(() => {});
+  } catch (e) {
+    // ignore synchronous errors when webview not ready
+  }
 }
 
 // 存储通过 insertCSS 注入后返回的 key，便于后续移除和替换
@@ -131,8 +138,10 @@ async function runWebviewCss(styleId, css) {
   if (!webview || activeTab.value.kind === 'dashboard' || activeTab.value.kind === 'local-text') {
     return;
   }
-
   try {
+    // 如果 webview 未准备好，跳过所有对 webview API 的调用，避免在 dom-ready 前触发错误
+    if (!webviewReady.value) return;
+
     // 如果之前注入过，尝试移除旧样式
     const prevKey = insertedCssKeys[styleId];
     if (prevKey && typeof webview.removeInsertedCSS === 'function') {
@@ -226,6 +235,7 @@ function syncReaderEffects() {
 }
 
 function handleWebviewDomReady() {
+  webviewReady.value = true;
   syncReaderEffects();
 }
 
@@ -239,6 +249,8 @@ watch(() => settings.autoScrollSpeed, syncReaderEffects);
 watch(
   () => activeTabId.value,
   async () => {
+    // 切换 tab 时重置 ready 状态，等待新的 webview dom-ready
+    webviewReady.value = false;
     await nextTick();
     syncReaderEffects();
   }
