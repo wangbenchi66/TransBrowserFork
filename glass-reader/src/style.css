@@ -152,6 +152,12 @@ iframe {
   background: rgba(47, 120, 255, 0.08);
 }
 
+.control-btn.pin-toggle.active {
+  color: var(--primary);
+  border-color: rgba(47, 120, 255, 0.34);
+  background: rgba(47, 120, 255, 0.08);
+}
+
 .brand-block {
   display: flex;
   flex-direction: column;
@@ -221,6 +227,14 @@ iframe {
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, var(--surface-alpha, 0.75));
   color: var(--text);
+}
+
+.control-btn svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+  vertical-align: middle;
+  fill: currentColor;
 }
 
 .control-btn.close:hover {

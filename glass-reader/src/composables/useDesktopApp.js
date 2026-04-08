@@ -50,7 +50,6 @@ const defaultSettings = {
     grayscaleMode: false,
     clickThroughMode: false,
     closeToTray: false,
-    disableWindowShadow: false,
     alwaysOnTop: false,
     autoScrollEnabled: false,
     autoScrollSpeed: 22,
@@ -88,7 +87,8 @@ const leftToggleKeys = [
     { key: 'closeToTray', label: '关闭时最小化到托盘' },
     { key: 'autoHide', label: '鼠标移出隐藏' },
     { key: 'showTabBar', label: '显示标签栏' },
-    { key: 'transparentBackground', label: '软件背景透明' },
+    // 将设置中的“软件背景透明”替换为标题栏的“透明”按钮功能
+    { key: 'fullWindowTransparent', label: '全窗透明' },
     { key: 'antiScreenshotMode', label: '防截屏模式' },
 ]
 
@@ -101,12 +101,11 @@ const rightToggleKeys = [
     { key: 'grayscaleMode', label: '灰度模式' },
     { key: 'noImageMode', label: '无图模式' },
     { key: 'clickThroughMode', label: '鼠标穿透' },
-    { key: 'disableWindowShadow', label: '禁用窗体阴影' },
 ]
 
 const controlToggleKeys = [
     { key: 'pageTransparentMode', label: '网页透明' },
-    { key: 'transparentBackground', label: '窗口透明' },
+    { key: 'fullWindowTransparent', label: '全窗透明' },
     { key: 'noImageMode', label: '隐藏图片' },
     { key: 'autoHide', label: '移出隐藏' },
     { key: 'alwaysOnTop', label: '窗口置顶' },
@@ -179,7 +178,7 @@ let syncTimer = null
 let removeSettingsListener = null
 let initialized = false
 // 当 fullWindowTransparent 启用时，我们可能会临时打开 pageTransparentMode
-let _prevPageTransparent = null
+
 
 const immediateSyncKeys = new Set([
     'transparency',
@@ -196,13 +195,13 @@ const immediateSyncKeys = new Set([
     'pageTransparentMode',
     'grayscaleMode',
     'clickThroughMode',
-    'disableWindowShadow',
     'statusBarColor',
     'autoScrollEnabled',
     'autoScrollSpeed',
     'readerTextColor',
     'readerFontScale',
     'forcePageTransparent',
+    'fullWindowTransparent',
     // 全局快捷键需要立即同步并在主进程重新注册
     'bossKey',
     'decreaseTransparencyShortcut',

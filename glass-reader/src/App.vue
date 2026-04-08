@@ -220,21 +220,30 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div class="nav-switch no-drag">
-        <button
-          class="nav-btn"
-          :class="{ active: settings.fullWindowTransparent }"
-          @click="patchSetting('fullWindowTransparent', !settings.fullWindowTransparent)">
-          透明
-        </button>
-        <button
-          class="nav-btn active"
-          @click="openSettingsModal">
-          设置
-        </button>
-      </div>
+      <div class="nav-switch no-drag"></div>
 
       <div class="window-controls no-drag">
+        <button
+          class="control-btn settings-gear"
+          aria-label="设置"
+          @click="openSettingsModal">
+          ⚙
+        </button>
+        <button
+          class="control-btn pin-toggle"
+          :class="{ active: settings.alwaysOnTop }"
+          aria-label="窗口置顶"
+          @click="togglePin">
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            focusable="false"
+            xmlns="http://www.w3.org/2000/svg">
+            <path
+              fill="currentColor"
+              d="M14.59 2.58a2 2 0 0 0-2.83 0L6.1 8.24a1 1 0 0 0-.23.33L4 13l4.43 1.95c.12.05.24.08.37.08.24 0 .47-.09.65-.27l5.66-5.66a2 2 0 0 0 0-2.83l-4.52-4.49zM2 20h7v2H2z" />
+          </svg>
+        </button>
         <button
           class="control-btn"
           aria-label="最小化"
@@ -296,13 +305,6 @@ onBeforeUnmount(() => {
               min="0"
               max="85"
               @input="handleTransparencyInput($event)" />
-            <div style="margin-top: 8px">
-              <button
-                class="primary-btn"
-                @click="testSetTransparency">
-                测试透明50%
-              </button>
-            </div>
           </section>
 
           <section class="settings-block section-panel">
@@ -384,21 +386,6 @@ onBeforeUnmount(() => {
                 <span
                   class="switch"
                   :class="{ on: settings[item.key] }"></span>
-              </button>
-            </div>
-          </section>
-
-          <section class="settings-block section-panel">
-            <label class="field-label">默认网址</label>
-            <div class="inline-field">
-              <input
-                :value="settings.defaultUrl"
-                class="text-field"
-                @input="patchSetting('defaultUrl', $event.target.value)" />
-              <button
-                class="primary-btn"
-                @click="openDefaultUrl">
-                打开
               </button>
             </div>
           </section>
