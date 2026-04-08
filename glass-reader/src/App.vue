@@ -234,15 +234,7 @@ onBeforeUnmount(() => {
           :class="{ active: settings.alwaysOnTop }"
           aria-label="窗口置顶"
           @click="togglePin">
-          <svg
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-            focusable="false"
-            xmlns="http://www.w3.org/2000/svg">
-            <path
-              fill="currentColor"
-              d="M14.59 2.58a2 2 0 0 0-2.83 0L6.1 8.24a1 1 0 0 0-.23.33L4 13l4.43 1.95c.12.05.24.08.37.08.24 0 .47-.09.65-.27l5.66-5.66a2 2 0 0 0 0-2.83l-4.52-4.49zM2 20h7v2H2z" />
-          </svg>
+          置
         </button>
         <button
           class="control-btn"
