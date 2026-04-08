@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, Tray } from 'electron'
+import { app, BrowserWindow, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, screen, Tray } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -11,6 +11,8 @@ const isDevServerRun = process.env.npm_lifecycle_event === 'dev' || process.env.
 let mainWindow = null
 let tray = null
 let isQuitting = false
+let autoHideMonitor = null
+let lastVisibleBounds = null
 const defaultSettings = {
     transparency: 0,//透明度
     showInTaskbar: true,
@@ -27,12 +29,17 @@ const defaultSettings = {
     closeToTray: false,
     disableWindowShadow: false,
     alwaysOnTop: false,
+    autoScrollEnabled: false,
+    autoScrollSpeed: 22,
+    readerTextColor: '#283247',
+    readerFontScale: 100,
     statusBarColor: '#f5f5f7',
     defaultUrl: 'about:blank',
     bossKey: 'Alt+Q',
     decreaseTransparencyShortcut: 'Alt+Up',
     increaseTransparencyShortcut: 'Alt+Down',
     clickThroughShortcut: 'Ctrl+Alt+T',
+    fullWindowTransparent: false,
 }
 let currentSettings = { ...defaultSettings }
 
@@ -52,6 +59,14 @@ function normalizeColor(color) {
     return /^#[0-9a-fA-F]{6}$/.test(color) ? color : defaultSettings.statusBarColor
 }
 
+function normalizeReaderColor(color) {
+    if (typeof color !== 'string') {
+        return defaultSettings.readerTextColor
+    }
+
+    return /^#[0-9a-fA-F]{6}$/.test(color) ? color : defaultSettings.readerTextColor
+}
+
 function normalizeSettings(partial = {}) {
     return {
         ...defaultSettings,
@@ -68,9 +83,14 @@ function normalizeSettings(partial = {}) {
         pageTransparentMode: Boolean(partial.pageTransparentMode ?? defaultSettings.pageTransparentMode),
         grayscaleMode: Boolean(partial.grayscaleMode ?? defaultSettings.grayscaleMode),
         clickThroughMode: Boolean(partial.clickThroughMode ?? defaultSettings.clickThroughMode),
+        fullWindowTransparent: Boolean(partial.fullWindowTransparent ?? defaultSettings.fullWindowTransparent),
         closeToTray: Boolean(partial.closeToTray ?? defaultSettings.closeToTray),
         disableWindowShadow: Boolean(partial.disableWindowShadow ?? defaultSettings.disableWindowShadow),
         alwaysOnTop: Boolean(partial.alwaysOnTop ?? defaultSettings.alwaysOnTop),
+        autoScrollEnabled: Boolean(partial.autoScrollEnabled ?? defaultSettings.autoScrollEnabled),
+        autoScrollSpeed: clamp(Number(partial.autoScrollSpeed ?? defaultSettings.autoScrollSpeed), 5, 80),
+        readerTextColor: normalizeReaderColor(partial.readerTextColor ?? defaultSettings.readerTextColor),
+        readerFontScale: clamp(Number(partial.readerFontScale ?? defaultSettings.readerFontScale), 80, 160),
         statusBarColor: normalizeColor(partial.statusBarColor ?? defaultSettings.statusBarColor),
         defaultUrl: String(partial.defaultUrl ?? defaultSettings.defaultUrl),
         bossKey: String(partial.bossKey ?? defaultSettings.bossKey),
@@ -82,12 +102,77 @@ function normalizeSettings(partial = {}) {
 
 function loadSettings() {
     try {
+        // 读取持久化设置，但仅保留快捷键相关项，其他全部使用默认值。
+        // 这样每次启动时除了快捷键外其他设置都回到默认。
         const raw = fs.readFileSync(getSettingsFilePath(), 'utf-8')
-        currentSettings = normalizeSettings(JSON.parse(raw))
+        const parsed = JSON.parse(raw || '{}')
+
+        const preservedShortcuts = {
+            bossKey: parsed.bossKey ?? defaultSettings.bossKey,
+            decreaseTransparencyShortcut: parsed.decreaseTransparencyShortcut ?? defaultSettings.decreaseTransparencyShortcut,
+            increaseTransparencyShortcut: parsed.increaseTransparencyShortcut ?? defaultSettings.increaseTransparencyShortcut,
+            clickThroughShortcut: parsed.clickThroughShortcut ?? defaultSettings.clickThroughShortcut,
+        }
+
+        currentSettings = normalizeSettings({
+            ...defaultSettings,
+            ...preservedShortcuts,
+        })
     } catch {
         currentSettings = { ...defaultSettings }
     }
 }
+
+ipcMain.handle('settings:set-transparency', (_, percent) => {
+    console.log('[ipc] settings:set-transparency received percent=', percent)
+    const next = normalizeSettings({ ...currentSettings, transparency: Number(percent || 0) })
+    currentSettings = next
+
+    try {
+        saveSettings()
+    } catch (e) {
+        console.warn('[settings] save failed when set-transparency:', e)
+    }
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        applyWindowSettings(mainWindow)
+    }
+
+    broadcastSettings()
+    return currentSettings
+})
+
+// 接收来自 renderer 的调试日志，并在主进程终端打印，便于排查滑块事件
+ipcMain.on('renderer:log', (event, msg) => {
+    try {
+        console.log('[renderer->main]', msg)
+    } catch (e) {
+        console.warn('[renderer->main] log failed', e)
+    }
+})
+
+// 收到 preload 的就绪信号，帮助确认 preload 是否被注入
+ipcMain.on('preload:loaded', (event, info) => {
+    try {
+        console.log('[preload] loaded in webContents id=', event.sender.id, 'info=', info)
+    } catch (e) {
+        console.warn('[preload] log failed', e)
+    }
+})
+
+// 允许 renderer 临时设置窗口是否忽略鼠标事件（不改变持久设置）
+ipcMain.handle('ui:set-ignore-mouse-events', (_, ignore) => {
+    try {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.setIgnoreMouseEvents(Boolean(ignore), Boolean(ignore) ? { forward: true } : undefined)
+            console.log('[main] setIgnoreMouseEvents applied=', Boolean(ignore))
+        }
+    } catch (e) {
+        console.warn('[main] setIgnoreMouseEvents failed', e)
+    }
+
+    return { applied: true }
+})
 
 function saveSettings() {
     try {
@@ -103,6 +188,93 @@ function broadcastSettings() {
     }
 }
 
+function rememberWindowBounds() {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+        return
+    }
+
+    lastVisibleBounds = mainWindow.getBounds()
+}
+
+function isPointInsideBounds(point, bounds, margin = 0) {
+    return point.x >= bounds.x - margin
+        && point.x <= bounds.x + bounds.width + margin
+        && point.y >= bounds.y - margin
+        && point.y <= bounds.y + bounds.height + margin
+}
+
+function hideMainWindow() {
+    if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.isVisible()) {
+        return
+    }
+
+    rememberWindowBounds()
+    mainWindow.hide()
+    refreshTrayMenu()
+}
+
+function showMainWindow(focus = true) {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+        return
+    }
+
+    if (mainWindow.isMinimized()) {
+        mainWindow.restore()
+    }
+
+    if (!mainWindow.isVisible()) {
+        if (!focus && typeof mainWindow.showInactive === 'function') {
+            mainWindow.showInactive()
+        } else {
+            mainWindow.show()
+        }
+    }
+
+    if (focus) {
+        mainWindow.focus()
+    }
+
+    refreshTrayMenu()
+}
+
+function stopAutoHideMonitor() {
+    if (autoHideMonitor) {
+        clearInterval(autoHideMonitor)
+        autoHideMonitor = null
+    }
+}
+
+function refreshAutoHideMonitor() {
+    stopAutoHideMonitor()
+
+    if (!currentSettings.autoHide) {
+        return
+    }
+
+    autoHideMonitor = setInterval(() => {
+        if (!mainWindow || mainWindow.isDestroyed()) {
+            return
+        }
+
+        const cursorPoint = screen.getCursorScreenPoint()
+        const trackedBounds = lastVisibleBounds ?? mainWindow.getBounds()
+
+        if (mainWindow.isVisible()) {
+            rememberWindowBounds()
+
+            if (!isPointInsideBounds(cursorPoint, trackedBounds, 12)) {
+                hideMainWindow()
+            }
+
+            return
+        }
+
+        if (isPointInsideBounds(cursorPoint, trackedBounds, 6)) {
+            showMainWindow(false)
+        }
+    }, 180)
+}
+
 function openSettingsPanel() {
     if (!mainWindow || mainWindow.isDestroyed()) {
         createWindow()
@@ -112,11 +284,7 @@ function openSettingsPanel() {
         return
     }
 
-    if (!mainWindow.isVisible()) {
-        mainWindow.show()
-    }
-
-    mainWindow.focus()
+    showMainWindow(true)
     mainWindow.webContents.send('ui:open-settings')
 }
 
@@ -125,7 +293,19 @@ function applyWindowSettings(win) {
     win.setAlwaysOnTop(currentSettings.alwaysOnTop, 'screen-saver')
     win.setContentProtection(currentSettings.antiScreenshotMode)
     win.setIgnoreMouseEvents(currentSettings.clickThroughMode, currentSettings.clickThroughMode ? { forward: true } : undefined)
-    win.setOpacity(clamp(1 - currentSettings.transparency / 200, 0.58, 1))
+    try {
+        // 如果启用了全窗透明，由页面 CSS 控制背景透明度，避免设置整个窗口不透明度（会影响控件可见性）
+        if (!currentSettings.fullWindowTransparent) {
+            const opacity = clamp(1 - currentSettings.transparency / 100, 0.12, 1)
+            console.log(`[applyWindowSettings] transparency=${currentSettings.transparency} -> opacity=${opacity}`)
+            win.setOpacity(opacity)
+        } else {
+            // 确保控件保持可见
+            win.setOpacity(1)
+        }
+    } catch (e) {
+        console.warn('[applyWindowSettings] setOpacity failed:', e)
+    }
 
     if (typeof win.setHasShadow === 'function') {
         win.setHasShadow(!currentSettings.disableWindowShadow)
@@ -142,12 +322,11 @@ function toggleMainWindow() {
     }
 
     if (mainWindow.isVisible()) {
-        mainWindow.hide()
+        hideMainWindow()
         return
     }
 
-    mainWindow.show()
-    mainWindow.focus()
+    showMainWindow(true)
 }
 
 function getWindowUrl(hash = '/') {
@@ -230,6 +409,7 @@ function updateTransparency(nextTransparency) {
     }
 
     broadcastSettings()
+    refreshAutoHideMonitor()
 }
 
 function registerGlobalShortcuts() {
@@ -278,22 +458,27 @@ function applyWindowsAcrylic(win, enabled) {
 }
 
 function createWindow() {
+    const preloadPath = path.join(__dirname, 'preload.cjs')
+    console.log('[main] creating BrowserWindow. preloadPath=', preloadPath, 'exists=', fs.existsSync(preloadPath))
+
     const win = new BrowserWindow({
         width: 1420,
         height: 860,
         minWidth: 520,
         minHeight: 380,
         frame: false,
-        transparent: false,
+        // 创建为透明窗口，页面透明区域将透出桌面（CSS 控制具体显示效果）
+        transparent: true,
         hasShadow: false,
-        backgroundColor: '#f5f5f7',
+        backgroundColor: '#00000000',
         titleBarStyle: 'hidden',
         webPreferences: {
-            preload: path.join(__dirname, 'preload.js'),
+            preload: path.join(__dirname, 'preload.cjs'),
             contextIsolation: true,
             nodeIntegration: false,
             webviewTag: true,
-            sandbox: true,
+            // 临时禁用 sandbox 以确保 preload 的 contextBridge 能正常注入（用于调试）
+            sandbox: false,
             enableRemoteModule: false,
             devTools: true,
         },
@@ -301,15 +486,31 @@ function createWindow() {
 
     mainWindow = win
 
+    console.log('[main] created BrowserWindow id=', win.id, 'webContentsId=', win.webContents.id)
+
     nativeTheme.themeSource = 'system'
     applyWindowSettings(win)
 
     win.loadURL(getWindowUrl('/'))
 
+    rememberWindowBounds()
+
+    win.on('move', () => {
+        rememberWindowBounds()
+    })
+
+    win.on('resize', () => {
+        rememberWindowBounds()
+    })
+
+    win.on('show', () => {
+        rememberWindowBounds()
+        refreshTrayMenu()
+    })
+
     win.on('blur', () => {
-        if (currentSettings.autoHide && !currentSettings.alwaysOnTop) {
-            win.hide()
-            refreshTrayMenu()
+        if (currentSettings.autoHide) {
+            hideMainWindow()
         }
     })
 
@@ -357,6 +558,11 @@ ipcMain.handle('window:close', (event) => {
     }
 })
 
+ipcMain.handle('window:quit', () => {
+    isQuitting = true
+    app.quit()
+})
+
 ipcMain.handle('window:open-settings', () => {
     openSettingsPanel()
 })
@@ -364,6 +570,7 @@ ipcMain.handle('window:open-settings', () => {
 ipcMain.handle('settings:get', () => currentSettings)
 
 ipcMain.handle('settings:update', (_, partial) => {
+    console.log('[ipc] settings:update', { partial })
     currentSettings = normalizeSettings({
         ...currentSettings,
         ...partial,
@@ -371,6 +578,7 @@ ipcMain.handle('settings:update', (_, partial) => {
 
     saveSettings()
     registerGlobalShortcuts()
+    refreshAutoHideMonitor()
 
     if (mainWindow && !mainWindow.isDestroyed()) {
         applyWindowSettings(mainWindow)
@@ -386,6 +594,7 @@ app.whenReady().then(() => {
     createWindow()
     createTray()
     registerGlobalShortcuts()
+    refreshAutoHideMonitor()
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
@@ -402,5 +611,6 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', () => {
     isQuitting = true
+    stopAutoHideMonitor()
     globalShortcut.unregisterAll()
 })
