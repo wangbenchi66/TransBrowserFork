@@ -60,6 +60,8 @@ const defaultSettings = {
     toolbarPinned: false,
     // 工具栏是否显示（隐藏时悬浮显示）
     toolbarVisible: true,
+    // 工具栏被用户关闭后不再通过移入显示（需在设置中手动恢复）
+    toolbarDisabled: false,
     statusBarColor: '#f5f5f7',
     showScrollbars: true,
     defaultUrl: '',
@@ -214,6 +216,7 @@ const immediateSyncKeys = new Set([
     'toolbarDocked',
     'toolbarPinned',
     'toolbarVisible',
+    'toolbarDisabled',
     'forcePageTransparent',
     'showScrollbars',
     'fullWindowTransparent',
@@ -440,6 +443,16 @@ function selectTab(tabId) {
     if (currentTab) {
         urlInput.value = displayInputUrlForUI(currentTab.url)
     }
+}
+
+// 更新指定 tab 的元数据（标题 / 副标题 / url）
+function updateTabMetadata(tabId, meta = {}) {
+    const idx = tabs.value.findIndex((t) => t.id === tabId)
+    if (idx === -1) return
+    const tab = tabs.value[idx]
+    if (meta.title !== undefined && meta.title !== null) tab.title = String(meta.title)
+    if (meta.subtitle !== undefined && meta.subtitle !== null) tab.subtitle = String(meta.subtitle)
+    if (meta.url !== undefined && meta.url !== null) tab.url = String(meta.url)
 }
 
 function closeTab(tabId) {
@@ -755,5 +768,6 @@ export function useDesktopApp() {
         handleClose,
         initializeDesktopApp,
         disposeDesktopApp,
+        updateTabMetadata,
     }
 }

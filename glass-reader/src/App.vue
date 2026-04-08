@@ -398,6 +398,14 @@ onBeforeUnmount(() => {
                   class="switch"
                   :class="{ on: settings[item.key] }"></span>
               </button>
+              <button
+                class="toggle-row"
+                @click="toggleSetting('toolbarDisabled')">
+                <span>禁用工具栏（不再移入显示）</span>
+                <span
+                  class="switch"
+                  :class="{ on: settings.toolbarDisabled }"></span>
+              </button>
             </div>
 
             <div class="toggle-column">

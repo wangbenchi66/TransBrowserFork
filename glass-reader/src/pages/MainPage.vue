@@ -1,10 +1,10 @@
 <script setup>
+import { Close, Hide, View } from '@element-plus/icons-vue';
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { View, Hide } from '@element-plus/icons-vue';
 import { useDesktopApp } from '../composables/useDesktopApp';
 import recommendedPage from './RecommendedPage.vue';
 
-const { settings, activeTab, activeTabId, tabs, addNewTab, selectTab, closeTab, patchSetting } = useDesktopApp();
+const { settings, activeTab, activeTabId, tabs, addNewTab, selectTab, closeTab, patchSetting, updateTabMetadata } = useDesktopApp();
 
 const webviewRef = ref(null);
 const webviewReady = ref(false);
@@ -33,18 +33,19 @@ html::before,
 html::after,
 body::before,
 body::after {
-  background: transparent !important;
+  min-width: 180px;
+  z-index: 1300;
 }
 `;
 
 // 更强力的透明样式（保留图片/视频/canvas/svg）
 const transparentPageCssAggressive = `
-html,
-body,
-#app,
+.hover-pop .mini-range {
+  width: 140px;
+}
 #root,
 #__next,
-#__nuxt {
+  top: -34px;
   background: transparent !important;
   background-color: transparent !important;
 }
@@ -53,6 +54,7 @@ html::before,
 html::after,
 body::before,
 body::after {
+  z-index: 1400;
   background: transparent !important;
 }
 
@@ -145,6 +147,14 @@ function computeLeftFromInput(key, value, min = 0, max = 100) {
   return computeLeftPct(value, min, max);
 }
 
+// 格式化标签标题：保证单行显示，超过指定字符数时截断并添加省略号
+function formatTabTitle(title) {
+  const s = (title ?? '').toString().trim();
+  const limit = 10; // 超过 10 个字符则截断
+  if (!s) return '';
+  return s.length <= limit ? s : s.slice(0, limit) + '…';
+}
+
 function showPop(key, value, min = 0, max = 100) {
   popActiveKey.value = key;
   popValue.value = Number(value || 0);
@@ -198,6 +208,15 @@ function toggleToolbarPinned() {
   }
 }
 
+function disableToolbar() {
+  // 永久关闭工具栏的显示（直到用户在设置中重新启用）
+  try {
+    patchSetting('toolbarDisabled', true);
+    patchSetting('toolbarVisible', false);
+    patchSetting('toolbarPinned', false);
+  } catch (e) {}
+}
+
 // 原始的 JS 注入方法（用于自动滚动等需要执行脚本的场景）
 function runWebviewJS(script) {
   const webview = webviewRef.value;
@@ -212,6 +231,124 @@ function runWebviewJS(script) {
   } catch (e) {
     // ignore synchronous errors when webview not ready
   }
+}
+
+// 拦截 webview 尝试打开新窗口的事件，强制在当前 webview 中打开链接
+function onWebviewNewWindow(e) {
+  try {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+  } catch (err) {}
+
+  const url = (e && (e.url || (e.detail && e.detail.url))) || '';
+  if (!url) return;
+
+  const w = webviewRef.value;
+  try {
+    // 优先使用 loadURL（若可用），否则回退到设置 src
+    if (w && typeof w.loadURL === 'function') {
+      w.loadURL(url);
+    } else if (w) {
+      w.src = url;
+    }
+  } catch (err) {
+    // ignore
+  }
+}
+
+// 有时页面会触发 will-navigate，确保在当前 webview 内部导航
+function onWebviewWillNavigate(e) {
+  // 这里不阻止导航，但可用于插入日志或同步 tab url
+}
+
+// 注入到 webview 内部，强制移除或拦截所有 target="_blank" 行为，确保在当前页面打开链接
+function forceDisableBlankTargets() {
+  const script = `(() => {
+    try {
+      // 覆盖 window.open，避免通过脚本打开新窗口
+      window.open = function(url) {
+        if (!url) return null;
+        try { location.assign(url); } catch(e) {}
+        return null;
+      };
+
+      // 捕获点击，优先处理 target="_blank" 的锚点
+      document.addEventListener('click', function(evt) {
+        try {
+          const el = evt.target && evt.target.closest && evt.target.closest('a');
+          if (!el) return;
+          const href = el.getAttribute && (el.getAttribute('href') || el.href);
+          if (!href) return;
+          const targ = (el.getAttribute && el.getAttribute('target') || el.target || '').toLowerCase();
+          if (targ === '_blank') {
+            evt.preventDefault();
+            try { el.removeAttribute('target'); } catch(e) {}
+            try { location.assign(href); } catch(e) {}
+          }
+        } catch(e) {}
+      }, true);
+
+      // 初始移除已有的 target="_blank"
+      try {
+        document.querySelectorAll && document.querySelectorAll('a[target="_blank"]').forEach(a => { try { a.removeAttribute('target'); } catch(e) {} });
+      } catch(e) {}
+
+      // 监听动态插入或修改的元素，移除 target 属性
+      try {
+        const mo = new MutationObserver(function(muts) {
+          try {
+            muts.forEach(m => {
+              if (m.addedNodes && m.addedNodes.length) {
+                m.addedNodes.forEach(n => {
+                  if (n && n.nodeType === 1) {
+                    try {
+                      if (n.tagName === 'A' && (n.target || '').toLowerCase() === '_blank') n.removeAttribute('target');
+                      const inner = n.querySelectorAll && n.querySelectorAll('a[target="_blank"]');
+                      inner && inner.forEach(a => { try { a.removeAttribute('target'); } catch(e) {} });
+                    } catch(e) {}
+                  }
+                });
+              }
+              if (m.type === 'attributes' && m.target && m.target.tagName === 'A' && m.attributeName === 'target') {
+                try { if ((m.target.getAttribute('target') || '').toLowerCase() === '_blank') m.target.removeAttribute('target'); } catch(e) {}
+              }
+            });
+          } catch(e) {}
+        });
+        mo.observe(document.documentElement || document, { childList: true, subtree: true, attributes: true, attributeFilter: ['target'] });
+      } catch(e) {}
+    } catch(e) {}
+    return true;
+  })();`;
+
+  runWebviewJS(script);
+}
+
+// 从当前 webview 读取页面元数据并更新对应 tab（标题 / 副标题）
+async function updateTabFromWebview() {
+  const w = webviewRef.value;
+  const tabId = activeTabId.value;
+  if (!w || !webviewReady.value) return;
+  try {
+    if (typeof w.executeJavaScript !== 'function') return;
+    const script = `(function(){try{return {title:document.title||'',desc:(document.querySelector('meta[name="description"]')&&document.querySelector('meta[name="description"]').getAttribute('content'))||''}}catch(e){return {title:'',desc:''}}})();`;
+    const res = await w.executeJavaScript(script);
+    if (!res) return;
+    try {
+      updateTabMetadata(tabId, { title: res.title || undefined, subtitle: res.desc || undefined });
+    } catch (e) {}
+  } catch (e) {}
+}
+
+function onPageTitleUpdated(e) {
+  try {
+    updateTabFromWebview();
+  } catch (e) {}
+}
+
+function onDidNavigate(e) {
+  try {
+    updateTabFromWebview();
+  } catch (e) {}
 }
 
 // 简单的 webview 导航与缩放辅助
@@ -483,6 +620,36 @@ function handleWebviewDomReady() {
         .catch(() => {});
     }
   } catch (e) {}
+  // 注册拦截新窗口事件，防止在外部打开新窗口
+  try {
+    if (w && typeof w.addEventListener === 'function') {
+      try {
+        w.removeEventListener('new-window', onWebviewNewWindow);
+      } catch (e) {}
+      try {
+        w.removeEventListener('will-navigate', onWebviewWillNavigate);
+      } catch (e) {}
+      try {
+        w.removeEventListener('page-title-updated', onPageTitleUpdated);
+      } catch (e) {}
+      try {
+        w.removeEventListener('did-navigate', onDidNavigate);
+      } catch (e) {}
+      try {
+        w.removeEventListener('did-navigate-in-page', onDidNavigate);
+      } catch (e) {}
+      w.addEventListener('new-window', onWebviewNewWindow);
+      w.addEventListener('will-navigate', onWebviewWillNavigate);
+      w.addEventListener('page-title-updated', onPageTitleUpdated);
+      w.addEventListener('did-navigate', onDidNavigate);
+      w.addEventListener('did-navigate-in-page', onDidNavigate);
+    }
+  } catch (e) {}
+
+  // 注入脚本，强制移除 target="_blank" 并拦截 window.open
+  try {
+    forceDisableBlankTargets();
+  } catch (e) {}
 }
 
 watch(() => settings.pageTransparentMode, syncReaderEffects);
@@ -553,7 +720,7 @@ onMounted(() => {
           class="tab-chip"
           :class="{ active: tab.id === activeTabId }"
           @click="selectTab(tab.id)">
-          <span>{{ tab.title }}</span>
+          <span class="tab-title">{{ formatTabTitle(tab.title) }}</span>
           <span
             class="close-mark"
             @click.stop="closeTab(tab.id)">
@@ -623,56 +790,204 @@ onMounted(() => {
             <!-- 底部工具栏（网页模式下显示） -->
             <div
               v-if="activeTab.kind !== 'dashboard' && activeTab.kind !== 'local-text'"
-              :class="['bottom-toolbar-container', settings.toolbarDocked ? 'docked' : 'overlay']">
+              :class="['bottom-toolbar-container', settings.toolbarDocked ? 'docked' : 'overlay', settings.toolbarDisabled ? 'no-hover' : '']">
+              <div
+                v-if="!settings.toolbarPinned && !settings.toolbarVisible && !settings.toolbarDisabled"
+                class="toolbar-handle"
+                @click="patchSetting('toolbarVisible', true)"></div>
 
-              <div v-if="!settings.toolbarPinned && !settings.toolbarVisible" class="toolbar-handle" @click="patchSetting('toolbarVisible', true)"></div>
-
-              <div class="bottom-toolbar" :class="{ hidden: !settings.toolbarVisible }">
+              <div
+                class="bottom-toolbar"
+                :class="{ hidden: !settings.toolbarVisible }">
                 <div class="toolbar-left">
-                  <button class="icon-btn" @click="webviewBack" title="后退">◀</button>
-                  <button class="icon-btn" @click="webviewForward" title="前进">▶</button>
-                  <button class="icon-btn" @click="webviewReload" title="刷新">⟳</button>
+                  <button
+                    class="icon-btn icon-only"
+                    @click="webviewBack"
+                    title="后退">
+                    ◀
+                  </button>
+                  <button
+                    class="icon-btn icon-only"
+                    @click="webviewForward"
+                    title="前进">
+                    ▶
+                  </button>
+                  <button
+                    class="icon-btn icon-only"
+                    @click="webviewReload"
+                    title="刷新">
+                    ⟳
+                  </button>
                 </div>
 
                 <div class="toolbar-center">
-                  <div class="toggle-with-pop" @mouseenter="() => showPop('color', settings.readerTextColor, 0, 1)" @mouseleave="hidePopIfNotDragging">
-                    <button class="icon-btn" :class="{ on: settings.forceReaderTextColor }" @click="patchSetting('forceReaderTextColor', !settings.forceReaderTextColor)" title="强制文字色">字</button>
-                    <div class="hover-pop" :class="{ visible: popActiveKey === 'color' || draggingKey === 'color' }">
-                      <input class="mini-color" type="color" :value="settings.readerTextColor" @input="onReaderColorInput" />
+                  <div
+                    class="toggle-with-pop"
+                    @mouseenter="() => showPop('color', settings.readerTextColor, 0, 1)"
+                    @mouseleave="hidePopIfNotDragging">
+                    <button
+                      class="icon-btn icon-only"
+                      :class="{ on: settings.forceReaderTextColor }"
+                      @click="patchSetting('forceReaderTextColor', !settings.forceReaderTextColor)"
+                      title="强制文字色">
+                      字
+                    </button>
+                    <div
+                      class="hover-pop"
+                      :class="{ visible: popActiveKey === 'color' || draggingKey === 'color' }">
+                      <input
+                        class="mini-color"
+                        type="color"
+                        :value="settings.readerTextColor"
+                        @input="onReaderColorInput" />
                     </div>
                   </div>
 
-                  <div class="toggle-with-pop" @mouseenter="() => showPop('font', settings.readerFontScale, 80, 160)" @mouseleave="hidePopIfNotDragging">
-                    <button class="icon-btn" :class="{ on: settings.forceReaderFont }" @click="patchSetting('forceReaderFont', !settings.forceReaderFont)" title="强制字号">大</button>
-                    <div class="hover-pop" :class="{ visible: popActiveKey === 'font' || draggingKey === 'font' }">
-                      <input ref="fontRangeRef" class="mini-range" type="range" min="80" max="160" :value="settings.readerFontScale" @input="onFontScaleInput" @pointerdown="() => onRangePointerDown('font')" />
-                      <div class="range-default">默认 100%</div>
-                      <div class="range-anchor" title="回到默认" @click="setFontDefault" :style="{ left: computeLeftFromInput('font', 100, 80, 160) }"></div>
-                      <div v-if="draggingKey === 'font'" class="pop-value" :style="{ left: popLeft }">{{ popValue }}%</div>
+                  <div
+                    class="toggle-with-pop"
+                    @mouseenter="() => showPop('font', settings.readerFontScale, 80, 160)"
+                    @mouseleave="hidePopIfNotDragging">
+                    <button
+                      class="icon-btn icon-only"
+                      :class="{ on: settings.forceReaderFont }"
+                      @click="patchSetting('forceReaderFont', !settings.forceReaderFont)"
+                      title="强制字号">
+                      大
+                    </button>
+                    <div
+                      class="hover-pop"
+                      :class="{ visible: popActiveKey === 'font' || draggingKey === 'font' }">
+                      <div class="range-row">
+                        <input
+                          ref="fontRangeRef"
+                          class="mini-range"
+                          type="range"
+                          min="80"
+                          max="160"
+                          :value="settings.readerFontScale"
+                          @input="onFontScaleInput"
+                          @pointerdown="() => onRangePointerDown('font')" />
+                        <div
+                          class="range-anchor"
+                          title="回到默认"
+                          @click="setFontDefault"
+                          :style="{ left: computeLeftFromInput('font', 100, 80, 160) }"></div>
+                        <button
+                          class="mini-reset-icon"
+                          title="重置到默认"
+                          @click="setFontDefault">
+                          ⟲
+                        </button>
+                        <div class="range-default">默认 100%</div>
+                      </div>
+                      <div
+                        v-if="draggingKey === 'font'"
+                        class="pop-value"
+                        :style="{ left: popLeft }">
+                        {{ popValue }}%
+                      </div>
                     </div>
                   </div>
 
-                  <button class="icon-btn" :class="{ on: settings.noImageMode }" @click="patchSetting('noImageMode', !settings.noImageMode)" title="显示/隐藏图片">🖼</button>
-                  <button class="icon-btn" :class="{ on: settings.showScrollbars }" @click="patchSetting('showScrollbars', !settings.showScrollbars)" title="显示/隐藏滚动条">≡</button>
+                  <button
+                    class="icon-btn icon-only"
+                    :class="{ on: settings.noImageMode }"
+                    @click="patchSetting('noImageMode', !settings.noImageMode)"
+                    title="显示/隐藏图片">
+                    🖼
+                  </button>
+                  <button
+                    class="icon-btn icon-only"
+                    :class="{ on: settings.showScrollbars }"
+                    @click="patchSetting('showScrollbars', !settings.showScrollbars)"
+                    title="显示/隐藏滚动条">
+                    ≡
+                  </button>
 
-                  <div class="toggle-with-pop" @mouseenter="() => showPop('auto', settings.autoScrollSpeed, 5, 80)" @mouseleave="hidePopIfNotDragging">
-                    <button class="icon-btn" :class="{ on: settings.autoScrollEnabled }" @click="patchSetting('autoScrollEnabled', !settings.autoScrollEnabled)" title="自动滚动">⇵</button>
-                    <div class="hover-pop" :class="{ visible: popActiveKey === 'auto' || draggingKey === 'auto' }">
-                      <input ref="autoRangeRef" class="mini-range" type="range" min="5" max="80" :value="settings.autoScrollSpeed" @input="onAutoScrollSpeedInput" @pointerdown="() => onRangePointerDown('auto')" />
-                      <div class="range-default">默认 22</div>
-                      <div class="range-anchor" title="回到默认" @click="setAutoDefault" :style="{ left: computeLeftFromInput('auto', 22, 5, 80) }"></div>
-                      <div v-if="draggingKey === 'auto'" class="pop-value" :style="{ left: popLeft }">{{ popValue }}</div>
+                  <div
+                    class="toggle-with-pop"
+                    @mouseenter="() => showPop('auto', settings.autoScrollSpeed, 5, 80)"
+                    @mouseleave="hidePopIfNotDragging">
+                    <button
+                      class="icon-btn icon-only"
+                      :class="{ on: settings.autoScrollEnabled }"
+                      @click="patchSetting('autoScrollEnabled', !settings.autoScrollEnabled)"
+                      title="自动滚动">
+                      ⇳
+                    </button>
+
+                    <div
+                      class="hover-pop"
+                      :class="{ visible: popActiveKey === 'auto' || draggingKey === 'auto' }">
+                      <div class="range-row">
+                        <input
+                          ref="autoRangeRef"
+                          class="mini-range"
+                          type="range"
+                          min="5"
+                          max="80"
+                          :value="settings.autoScrollSpeed"
+                          @input="onAutoScrollSpeedInput"
+                          @pointerdown="() => onRangePointerDown('auto')" />
+                        <div
+                          class="range-anchor"
+                          title="回到默认"
+                          @click="setAutoDefault"
+                          :style="{ left: computeLeftFromInput('auto', 22, 5, 80) }"></div>
+                        <button
+                          class="mini-reset-icon"
+                          title="重置到默认"
+                          @click="setAutoDefault">
+                          ⟲
+                        </button>
+                        <div class="range-default">默认 22</div>
+                      </div>
+                      <div
+                        v-if="draggingKey === 'auto'"
+                        class="pop-value"
+                        :style="{ left: popLeft }">
+                        {{ popValue }}
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 <div class="toolbar-right">
-                  <button class="icon-btn" @click="zoomOut" title="缩小">-</button>
+                  <button
+                    class="icon-btn icon-only"
+                    @click="zoomOut"
+                    title="缩小">
+                    -
+                  </button>
                   <span class="zoom-label">{{ Math.round(siteZoom * 100) }}%</span>
-                  <button class="icon-btn" @click="zoomIn" title="放大">+</button>
-                  <button class="icon-btn" @click="resetZoom" title="重置">1x</button>
-                  <button class="icon-btn hide-toolbar-btn" @click="toggleToolbarPinned" :title="settings.toolbarPinned ? '切换到移入显示/移出隐藏' : '切换到始终显示'">
-                    <component :is="settings.toolbarPinned ? View : Hide" style="width:18px;height:18px;" />
+                  <button
+                    class="icon-btn icon-only"
+                    @click="zoomIn"
+                    title="放大">
+                    +
+                  </button>
+                  <button
+                    class="icon-btn icon-only"
+                    @click="resetZoom"
+                    title="重置">
+                    1x
+                  </button>
+                  <button
+                    class="icon-btn hide-toolbar-btn icon-only"
+                    @click="toggleToolbarPinned"
+                    :title="settings.toolbarPinned ? '切换到移入显示/移出隐藏' : '切换到始终显示'">
+                    <component
+                      :is="settings.toolbarPinned ? View : Hide"
+                      style="width: 18px; height: 18px" />
+                  </button>
+
+                  <button
+                    class="icon-btn close-toolbar-btn icon-only"
+                    @click="disableToolbar"
+                    title="关闭工具栏（不再移入显示）">
+                    <component
+                      :is="Close"
+                      style="width: 14px; height: 14px; display: block" />
                   </button>
                 </div>
               </div>
@@ -734,9 +1049,9 @@ onMounted(() => {
 
 /* visual shell for the toolbar itself */
 .bottom-toolbar {
-  background: rgba(255,255,255,0.92);
+  background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(8px);
-  box-shadow: 0 6px 18px rgba(16,23,32,0.08);
+  box-shadow: 0 6px 18px rgba(16, 23, 32, 0.08);
 }
 
 /* 当隐藏时移动到视图外，但容器保留小手柄触发悬浮显示 */
@@ -752,27 +1067,80 @@ onMounted(() => {
   left: 50%;
   transform: translateX(-50%);
   bottom: 6px;
-  width: 40px;
-  height: 6px;
-  border-radius: 6px;
-  background: rgba(0,0,0,0.08);
+  width: 56px;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.03));
+  border: 1px solid rgba(0, 0, 0, 0.06);
   cursor: pointer;
-  z-index: 1200;
+  z-index: 1300;
+  box-shadow: 0 6px 18px rgba(16, 23, 32, 0.06);
+  transition:
+    transform 150ms ease,
+    opacity 150ms;
 }
-.bottom-toolbar-container:hover .bottom-toolbar.hidden { transform: translateY(0); opacity: 1; pointer-events: auto; }
+.toolbar-handle:hover {
+  transform: translateX(-50%) translateY(-3px);
+  opacity: 0.98;
+}
+.bottom-toolbar-container:hover .bottom-toolbar.hidden {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* 当工具栏被用户关闭时，禁止通过移入显示 */
+.bottom-toolbar-container.no-hover:hover .bottom-toolbar.hidden {
+  transform: translateY(calc(100% + 8px));
+  opacity: 0;
+  pointer-events: none;
+}
+
+.close-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(224, 72, 66, 0.06);
+  background: rgba(255, 255, 255, 0.92);
+  color: #e04842;
+  box-shadow: 0 2px 6px rgba(16, 23, 32, 0.04);
+  transition:
+    background 150ms ease,
+    transform 120ms ease;
+}
+.close-toolbar-btn:hover {
+  background: rgba(224, 72, 66, 0.06);
+  transform: translateY(-2px);
+}
 
 .icon-btn {
   border: 0;
   background: transparent;
   padding: 6px 8px;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
+  transition:
+    background 120ms ease,
+    transform 120ms ease;
 }
 
 .icon-btn.on {
   background: rgba(64, 158, 255, 0.1);
   color: #409eff;
+}
+.icon-btn:hover {
+  background: rgba(16, 23, 32, 0.04);
+  transform: translateY(-1px);
+}
+.hide-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .zoom-label {
   min-width: 48px;
@@ -810,6 +1178,79 @@ onMounted(() => {
   height: 6px;
   background: rgba(0, 0, 0, 0.06);
   border-radius: 6px;
+}
+
+/* Tabs: 保证标签只显示一行，超过 10 个字符截断显示省略号 */
+.tabs {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.tab-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tab-chip .tab-title {
+  display: inline-block;
+  max-width: 10ch; /* 近似 10 个字符宽度 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.range-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.range-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mini-reset-icon {
+  border: 0;
+  background: transparent;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #444;
+}
+.mini-reset-icon:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.close-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(224, 72, 66, 0.06);
+  background: rgba(255, 255, 255, 0.92);
+  color: #e04842;
+  box-shadow: 0 2px 6px rgba(16, 23, 32, 0.04);
+  transition:
+    background 150ms ease,
+    transform 120ms ease;
+}
+.close-toolbar-btn:hover {
+  background: rgba(224, 72, 66, 0.06);
+  transform: translateY(-2px);
 }
 .mini-range::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -931,9 +1372,44 @@ onMounted(() => {
   margin-left: 8px;
   padding: 6px 10px;
   border-radius: 6px;
-  background: rgba(0,0,0,0.04);
-  color: rgba(0,0,0,0.75);
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(0, 0, 0, 0.75);
   font-weight: 600;
 }
-.hide-toolbar-btn:hover { background: rgba(0,0,0,0.08); }
+.hide-toolbar-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* 纯图标样式（工具栏内使用） */
+.bottom-toolbar .icon-only {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  box-shadow: none;
+  transition:
+    background 120ms ease,
+    transform 120ms ease,
+    color 120ms ease;
+}
+.bottom-toolbar .icon-only:hover {
+  background: rgba(16, 23, 32, 0.04);
+  transform: translateY(-1px);
+}
+.bottom-toolbar .icon-only.on {
+  color: #409eff;
+  background: rgba(64, 158, 255, 0.06);
+}
+.bottom-toolbar .close-toolbar-btn.icon-only {
+  color: #e04842;
+}
+.bottom-toolbar .close-toolbar-btn.icon-only:hover {
+  background: rgba(224, 72, 66, 0.08);
+  color: #c0392b;
+}
 </style>
