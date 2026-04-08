@@ -24,6 +24,70 @@ const desktopApi = typeof window !== 'undefined' ? window.desktop : null;
 
 const isSettingsOpen = ref(false);
 let removeOpenSettingsListener = null;
+const editingShortcut = ref(null);
+const capturedAccel = ref('');
+
+function formatAcceleratorFromEvent(e) {
+  // 返回例如: Ctrl+Alt+T
+  const isModifierOnly = (k) => ['Control', 'Shift', 'Alt', 'Meta'].includes(k);
+  if (isModifierOnly(e.key)) {
+    return null;
+  }
+
+  const parts = [];
+  if (e.ctrlKey) parts.push('Ctrl');
+  if (e.altKey) parts.push('Alt');
+  if (e.shiftKey) parts.push('Shift');
+  if (e.metaKey) parts.push('Meta');
+
+  const map = {
+    ' ': 'Space',
+    Escape: 'Esc',
+    ArrowUp: 'Up',
+    ArrowDown: 'Down',
+    ArrowLeft: 'Left',
+    ArrowRight: 'Right'
+  };
+
+  let keyName = map[e.key] || e.key;
+  if (keyName.length === 1) keyName = keyName.toUpperCase();
+  // 对于 FunctionKeys F1..F12 保持原样
+  parts.push(keyName);
+  return parts.join('+');
+}
+
+function _onCaptureKeydown(e) {
+  e.preventDefault();
+  const acc = formatAcceleratorFromEvent(e);
+  if (!acc) return;
+  capturedAccel.value = acc;
+}
+
+function startEditShortcut(key) {
+  editingShortcut.value = key;
+  capturedAccel.value = settings[key] || '';
+  window.addEventListener('keydown', _onCaptureKeydown);
+}
+
+function confirmShortcut(key) {
+  window.removeEventListener('keydown', _onCaptureKeydown);
+  editingShortcut.value = null;
+  if (capturedAccel.value) {
+    patchSetting(key, capturedAccel.value);
+    if (desktopApi?.log) {
+      try {
+        desktopApi.log(`[renderer] shortcut set ${key} -> ${capturedAccel.value}`);
+      } catch (e) {}
+    }
+  }
+  capturedAccel.value = '';
+}
+
+function cancelShortcut() {
+  window.removeEventListener('keydown', _onCaptureKeydown);
+  editingShortcut.value = null;
+  capturedAccel.value = '';
+}
 
 function openSettingsModal() {
   // 当打开设置时，临时确保窗口可接收鼠标事件，避免被鼠标穿透挡住设置交互
@@ -54,6 +118,10 @@ function closeSettingsModal() {
 
 function handleKeydown(event) {
   if (event.key === 'Escape' && isSettingsOpen.value) {
+    if (editingShortcut.value) {
+      cancelShortcut();
+      return;
+    }
     closeSettingsModal();
   }
 }
@@ -127,6 +195,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   disposeDesktopApp();
   window.removeEventListener('keydown', handleKeydown);
+  window.removeEventListener('keydown', _onCaptureKeydown);
   removeOpenSettingsListener?.();
   removeOpenSettingsListener = null;
 });
@@ -339,31 +408,86 @@ onBeforeUnmount(() => {
             <div class="shortcut-grid">
               <label>
                 <span>老板键</span>
-                <input
-                  class="text-field"
-                  :value="settings.bossKey"
-                  readonly />
+                <div style="display: flex; gap: 8px; align-items: center">
+                  <input
+                    class="text-field"
+                    :value="editingShortcut === 'bossKey' ? capturedAccel || '按下组合键...' : settings.bossKey"
+                    readonly />
+                  <button
+                    class="secondary-btn"
+                    @click="editingShortcut === 'bossKey' ? confirmShortcut('bossKey') : startEditShortcut('bossKey')">
+                    {{ editingShortcut === 'bossKey' ? '保存' : '编辑' }}
+                  </button>
+                  <button
+                    v-if="editingShortcut === 'bossKey'"
+                    class="secondary-btn"
+                    @click="cancelShortcut">
+                    取消
+                  </button>
+                </div>
               </label>
+
               <label>
                 <span>降低透明</span>
-                <input
-                  class="text-field"
-                  :value="settings.decreaseTransparencyShortcut"
-                  readonly />
+                <div style="display: flex; gap: 8px; align-items: center">
+                  <input
+                    class="text-field"
+                    :value="editingShortcut === 'decreaseTransparencyShortcut' ? capturedAccel || '按下组合键...' : settings.decreaseTransparencyShortcut"
+                    readonly />
+                  <button
+                    class="secondary-btn"
+                    @click="editingShortcut === 'decreaseTransparencyShortcut' ? confirmShortcut('decreaseTransparencyShortcut') : startEditShortcut('decreaseTransparencyShortcut')">
+                    {{ editingShortcut === 'decreaseTransparencyShortcut' ? '保存' : '编辑' }}
+                  </button>
+                  <button
+                    v-if="editingShortcut === 'decreaseTransparencyShortcut'"
+                    class="secondary-btn"
+                    @click="cancelShortcut">
+                    取消
+                  </button>
+                </div>
               </label>
+
               <label>
                 <span>提高透明</span>
-                <input
-                  class="text-field"
-                  :value="settings.increaseTransparencyShortcut"
-                  readonly />
+                <div style="display: flex; gap: 8px; align-items: center">
+                  <input
+                    class="text-field"
+                    :value="editingShortcut === 'increaseTransparencyShortcut' ? capturedAccel || '按下组合键...' : settings.increaseTransparencyShortcut"
+                    readonly />
+                  <button
+                    class="secondary-btn"
+                    @click="editingShortcut === 'increaseTransparencyShortcut' ? confirmShortcut('increaseTransparencyShortcut') : startEditShortcut('increaseTransparencyShortcut')">
+                    {{ editingShortcut === 'increaseTransparencyShortcut' ? '保存' : '编辑' }}
+                  </button>
+                  <button
+                    v-if="editingShortcut === 'increaseTransparencyShortcut'"
+                    class="secondary-btn"
+                    @click="cancelShortcut">
+                    取消
+                  </button>
+                </div>
               </label>
+
               <label>
                 <span>鼠标穿透</span>
-                <input
-                  class="text-field"
-                  :value="settings.clickThroughShortcut"
-                  readonly />
+                <div style="display: flex; gap: 8px; align-items: center">
+                  <input
+                    class="text-field"
+                    :value="editingShortcut === 'clickThroughShortcut' ? capturedAccel || '按下组合键...' : settings.clickThroughShortcut"
+                    readonly />
+                  <button
+                    class="secondary-btn"
+                    @click="editingShortcut === 'clickThroughShortcut' ? confirmShortcut('clickThroughShortcut') : startEditShortcut('clickThroughShortcut')">
+                    {{ editingShortcut === 'clickThroughShortcut' ? '保存' : '编辑' }}
+                  </button>
+                  <button
+                    v-if="editingShortcut === 'clickThroughShortcut'"
+                    class="secondary-btn"
+                    @click="cancelShortcut">
+                    取消
+                  </button>
+                </div>
               </label>
             </div>
           </section>

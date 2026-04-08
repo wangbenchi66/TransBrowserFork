@@ -203,6 +203,11 @@ const immediateSyncKeys = new Set([
     'readerTextColor',
     'readerFontScale',
     'forcePageTransparent',
+    // 全局快捷键需要立即同步并在主进程重新注册
+    'bossKey',
+    'decreaseTransparencyShortcut',
+    'increaseTransparencyShortcut',
+    'clickThroughShortcut',
 ])
 
 function normalizeUrl(rawUrl) {
