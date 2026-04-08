@@ -187,8 +187,8 @@ async function runWebviewCss(styleId, css) {
 }
 
 function syncWebviewTransparency() {
-  const enabled = settings.pageTransparentMode || settings.forcePageTransparent;
-  const css = settings.forcePageTransparent ? transparentPageCssAggressive : transparentPageCss;
+  const enabled = settings.pageTransparentMode || settings.forcePageTransparent || settings.fullWindowTransparent;
+  const css = (settings.forcePageTransparent || settings.fullWindowTransparent) ? transparentPageCssAggressive : transparentPageCss;
   runWebviewCss('glass-transparent-style', enabled ? css : '');
 }
 

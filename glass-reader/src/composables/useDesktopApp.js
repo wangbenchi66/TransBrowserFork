@@ -91,7 +91,7 @@ const rightToggleKeys = [
     { key: 'mobileMode', label: '手机模式' },
     { key: 'hoverHeaderMode', label: '标题栏悬停' },
     { key: 'pageTransparentMode', label: '网页背景透明' },
-    { key: 'forcePageTransparent', label: '强制网页透明' },
+    { key: 'forcePageTransparent', label: '强制网页背景透明' },
     { key: 'showScrollbars', label: '显示滚动条' },
     { key: 'grayscaleMode', label: '灰度模式' },
     { key: 'noImageMode', label: '无图模式' },
@@ -144,29 +144,22 @@ const themeVars = computed(() => {
         ? Math.max(0.08, 0.92 - settings.transparency / 95)
         : Math.max(0.75, 0.97 - settings.transparency / 140)
 
-    // 计算页面透明度：在启用“软件背景透明”时，页面内容的透明度
-    // 不应随全局透明度滑块变化，否则滑块会同时影响背景和页面。
-    // 此时我们让滑块控制窗口整体的不透明度（在主进程通过 setOpacity 应用）。
-    let pageAlpha;
-    if (settings.fullWindowTransparent) {
-        // 固定页面内容的默认可见度，仅受 pageTransparentMode 影响
-        pageAlpha = settings.pageTransparentMode ? Math.max(0.04, 0.94) : Math.max(0.72, 0.96);
-    } else {
-        pageAlpha = settings.pageTransparentMode
-            ? Math.max(0.04, 0.94 - settings.transparency / 88)
-            : Math.max(0.72, 0.96 - settings.transparency / 145);
-    }
-
+    // 计算页面透明度：当启用“软件背景透明”时，页面背景（page）设为完全透明，
+    // 透明度滑块仍然控制窗口整体不透明度（主进程通过 setOpacity 应用）。
     if (settings.fullWindowTransparent) {
         return {
             '--header-tint': settings.statusBarColor,
             '--shell-alpha': '0',
             '--surface-alpha': '0',
-            '--page-alpha': String(pageAlpha),
+            '--page-alpha': '0',
             '--reader-text-color': settings.readerTextColor,
             '--reader-font-scale': `${settings.readerFontScale}%`,
         }
     }
+
+    const pageAlpha = settings.pageTransparentMode
+        ? Math.max(0.04, 0.94 - settings.transparency / 88)
+        : Math.max(0.72, 0.96 - settings.transparency / 145);
 
     return {
         '--header-tint': settings.statusBarColor,
