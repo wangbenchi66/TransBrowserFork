@@ -36,7 +36,7 @@ const defaultSettings = {
     readerFontScale: 100,
     statusBarColor: '#f5f5f7',
     showScrollbars: true,
-    defaultUrl: 'about:blank',
+    defaultUrl: '',
     bossKey: 'Alt+Q',
     decreaseTransparencyShortcut: 'Alt+Up',
     increaseTransparencyShortcut: 'Alt+Down',

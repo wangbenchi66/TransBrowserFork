@@ -57,7 +57,7 @@ const defaultSettings = {
     readerFontScale: 100,
     statusBarColor: '#f5f5f7',
     showScrollbars: true,
-    defaultUrl: 'about:blank',
+    defaultUrl: '',
     bossKey: 'Alt+Q',
     decreaseTransparencyShortcut: 'Alt+Up',
     increaseTransparencyShortcut: 'Alt+Down',
@@ -241,6 +241,10 @@ function getSiteTag(name) {
     return name.replace(/\s+/g, '').slice(0, 2).toUpperCase() || 'ST'
 }
 
+function displayInputUrlForUI(url) {
+    return url === 'about:blank' ? '' : url
+}
+
 function syncSettingsNow() {
     if (!desktopApi?.updateSettings) {
         return Promise.resolve()
@@ -417,14 +421,14 @@ function addNewTab() {
         subtitle: '新标签页',
         kind: 'dashboard',
     })
-    urlInput.value = 'about:blank'
+    urlInput.value = ''
 }
 
 function selectTab(tabId) {
     activeTabId.value = tabId
     const currentTab = tabs.value.find((tab) => tab.id === tabId)
     if (currentTab) {
-        urlInput.value = currentTab.url
+        urlInput.value = displayInputUrlForUI(currentTab.url)
     }
 }
 
@@ -437,14 +441,14 @@ function closeTab(tabId) {
     if (tabs.value.length === 1) {
         tabs.value = [{ id: 1, title: '工作台', url: 'about:blank', subtitle: '新标签页', kind: 'dashboard' }]
         activeTabId.value = 1
-        urlInput.value = 'about:blank'
+        urlInput.value = ''
         return
     }
 
     tabs.value = tabs.value.filter((tab) => tab.id !== tabId)
     if (activeTabId.value === tabId) {
         activeTabId.value = tabs.value[0].id
-        urlInput.value = tabs.value[0].url
+        urlInput.value = displayInputUrlForUI(tabs.value[0].url)
     }
 }
 
@@ -471,8 +475,7 @@ function openRecentVisit(item) {
             return
         }
     }
-
-    urlInput.value = item.url
+    urlInput.value = displayInputUrlForUI(item.url)
     createPageTab(item.url, { title: item.title })
 }
 
@@ -638,7 +641,7 @@ function initializeDesktopApp() {
     if (desktopApi?.getSettings) {
         desktopApi.getSettings().then((nextSettings) => {
             Object.assign(settings, nextSettings)
-            urlInput.value = settings.defaultUrl
+            urlInput.value = displayInputUrlForUI(settings.defaultUrl ?? '')
         })
     }
 

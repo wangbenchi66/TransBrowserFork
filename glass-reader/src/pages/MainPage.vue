@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { useDesktopApp } from '../composables/useDesktopApp';
+import recommendedPage from './RecommendedPage.vue';
 
 const {
   settings,
@@ -38,7 +39,6 @@ const {
 
 const webviewRef = ref(null);
 const localReaderRef = ref(null);
-const fileInputRef = ref(null);
 let localScrollTimer = null;
 
 const transparentPageCss = `
@@ -275,15 +275,6 @@ function handleWebviewDomReady() {
   syncReaderEffects();
 }
 
-function triggerFileSelect() {
-  fileInputRef.value?.click();
-}
-
-async function handleFileChange(event) {
-  await uploadLocalFiles(event.target.files);
-  event.target.value = '';
-}
-
 watch(() => settings.pageTransparentMode, syncReaderEffects);
 // 监听强制网页透明开关，确保其变更能立即同步到 webview
 watch(() => settings.forcePageTransparent, syncReaderEffects);
@@ -333,145 +324,9 @@ onBeforeUnmount(() => {
     </section>
 
     <section class="browser-stage">
-      <div class="nav-row panel no-drag">
-        <input
-          v-model="urlInput"
-          class="url-input"
-          placeholder="输入网址，回车打开任意网站..."
-          @keydown.enter="handleOpenUrl" />
-        <button
-          class="open-btn"
-          @click="handleOpenUrl">
-          打开
-        </button>
-        <button
-          class="secondary-btn"
-          @click="triggerFileSelect">
-          导入文件
-        </button>
-        <input
-          ref="fileInputRef"
-          class="hidden-input"
-          type="file"
-          multiple
-          @change="handleFileChange" />
-      </div>
-
       <div class="workspace-shell">
-        <aside class="workspace-sidebar panel no-drag">
-          <section class="workspace-block hero-block">
-            <span class="hero-label">工作台</span>
-            <h1>透明网页、本地文档、常用站点一体化</h1>
-            <p>参考墨鱼阅读的核心思路，整理成左侧入口库、中间阅读区、右侧控制台的桌面工作流。</p>
-
-            <div class="metric-grid">
-              <article
-                v-for="metric in dashboardMetrics"
-                :key="metric.label"
-                class="metric-card">
-                <strong>{{ metric.value }}</strong>
-                <span>{{ metric.label }}</span>
-              </article>
-            </div>
-          </section>
-
-          <section class="workspace-block">
-            <div class="block-head">
-              <strong>推荐站点</strong>
-              <input
-                v-model="siteSearchKeyword"
-                class="mini-input"
-                placeholder="搜索站点" />
-            </div>
-
-            <div class="recommend-grid">
-              <button
-                v-for="site in recommendedPreview"
-                :key="site.name"
-                class="recommend-card"
-                @click="useRecommendedSite(site)">
-                <span
-                  class="site-mark"
-                  :class="site.tone">
-                  {{ site.tag }}
-                </span>
-                <div>
-                  <strong>{{ site.name }}</strong>
-                  <small>{{ site.category }} · {{ site.hint }}</small>
-                </div>
-              </button>
-            </div>
-          </section>
-
-          <section class="workspace-block">
-            <div class="block-head">
-              <strong>我的站点</strong>
-              <span>{{ favoriteSites.length }}/12</span>
-            </div>
-
-            <div class="favorite-form">
-              <input
-                v-model="customSiteName"
-                class="mini-input"
-                placeholder="站点名称" />
-              <input
-                v-model="customSiteUrl"
-                class="mini-input"
-                placeholder="https://example.com" />
-              <button
-                class="secondary-btn compact"
-                @click="addFavoriteSite">
-                添加
-              </button>
-            </div>
-
-            <div class="chip-list">
-              <button
-                v-for="site in favoriteSites"
-                :key="site.id"
-                class="site-chip"
-                @click="useFavoriteSite(site)">
-                <span>{{ site.name }}</span>
-                <em @click.stop="removeFavoriteSite(site.id)">x</em>
-              </button>
-            </div>
-          </section>
-
-          <section class="workspace-block">
-            <div class="block-head">
-              <strong>本地文档</strong>
-              <button
-                class="text-link"
-                @click="triggerFileSelect">
-                上传
-              </button>
-            </div>
-
-            <div
-              v-if="localDocuments.length"
-              class="doc-list">
-              <button
-                v-for="doc in localDocuments"
-                :key="doc.id"
-                class="doc-item"
-                @click="openLocalDocument(doc)">
-                <div>
-                  <strong>{{ doc.fileName }}</strong>
-                  <small>{{ doc.type === 'local-text' ? '文本阅读' : '浏览器内核打开' }}</small>
-                </div>
-                <em @click.stop="removeLocalDocument(doc.id)">x</em>
-              </button>
-            </div>
-            <div
-              v-else
-              class="empty-hint">
-              支持导入 txt、md、json 等文本文件，其他文件将尝试用浏览器内核打开。
-            </div>
-          </section>
-        </aside>
-
         <section class="reader-stage">
-          <div class="reader-toolbar panel no-drag">
+          <!-- <div class="reader-toolbar panel no-drag">
             <div>
               <strong>{{ activeTab.title }}</strong>
               <span>{{ activeTab.subtitle }}</span>
@@ -481,58 +336,13 @@ onBeforeUnmount(() => {
               <span class="reader-badge">透明度 {{ settings.transparency }}%</span>
               <span class="reader-badge">自动滚动 {{ settings.autoScrollEnabled ? '开启' : '关闭' }}</span>
             </div>
-          </div>
+          </div> -->
 
           <div
             class="page-frame panel no-drag"
             :class="{ 'is-webview': activeTab.kind !== 'dashboard' }">
             <template v-if="activeTab.kind === 'dashboard'">
-              <div class="dashboard-grid">
-                <section class="dashboard-panel spotlight-panel">
-                  <div class="page-head">
-                    <h1>开始</h1>
-                    <p>打开任意网站，或者导入本地文档，把阅读入口都集中到一个桌面壳里。</p>
-                  </div>
-
-                  <div class="card-grid">
-                    <button
-                      v-for="site in quickLinks"
-                      :key="site.name"
-                      class="site-card"
-                      @click="useQuickLink(site)">
-                      <span
-                        class="site-mark"
-                        :class="site.tone">
-                        {{ site.tag }}
-                      </span>
-                      <strong>{{ site.name }}</strong>
-                      <small>{{ site.desc }}</small>
-                      <em class="site-url">{{ site.url }}</em>
-                    </button>
-                  </div>
-                </section>
-
-                <section class="dashboard-panel history-panel">
-                  <div class="block-head">
-                    <strong>最近访问</strong>
-                    <input
-                      v-model="searchKeyword"
-                      class="mini-input"
-                      placeholder="搜标题或网址" />
-                  </div>
-
-                  <div class="history-list compact">
-                    <button
-                      v-for="item in filteredRecentVisits"
-                      :key="`${item.type}-${item.url}`"
-                      class="history-item"
-                      @click="openRecentVisit(item)">
-                      <strong>{{ item.title }}</strong>
-                      <span>{{ item.url }}</span>
-                    </button>
-                  </div>
-                </section>
-              </div>
+              <recommended-page />
             </template>
 
             <template v-else-if="activeTab.kind === 'local-text'">
@@ -549,10 +359,10 @@ onBeforeUnmount(() => {
 
             <template v-else>
               <div class="webview-wrap">
-                <div class="webview-meta">
+                <!-- <div class="webview-meta">
                   <strong>{{ activeTab.title }}</strong>
                   <span>{{ activeTab.url }}</span>
-                </div>
+                </div> -->
                 <webview
                   :key="activeTab.id"
                   ref="webviewRef"
@@ -566,8 +376,6 @@ onBeforeUnmount(() => {
             </template>
           </div>
         </section>
-
-        <!-- 右侧控制栏已移除：透明与滚动、最近访问等功能保留在设置中 -->
       </div>
     </section>
   </section>

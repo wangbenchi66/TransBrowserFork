@@ -1,15 +1,62 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useDesktopApp } from '../composables/useDesktopApp';
 
-const { quickLinks, filteredRecommendedSites, filteredRecentVisits, useQuickLink, useRecommendedSite, openRecentVisit, siteSearchKeyword, searchKeyword, dashboardMetrics } = useDesktopApp();
+const {
+  quickLinks,
+  filteredRecommendedSites,
+  filteredRecentVisits,
+  useQuickLink,
+  useRecommendedSite,
+  openRecentVisit,
+  siteSearchKeyword,
+  searchKeyword,
+  dashboardMetrics,
+  urlInput,
+  handleOpenUrl,
+  uploadLocalFiles
+} = useDesktopApp();
 
 const recommendedPreview = computed(() => filteredRecommendedSites.value.slice(0, 8));
 const quickPreview = computed(() => quickLinks.value?.slice(0, 6) ?? []);
+
+const fileInputRef = ref(null);
+
+function triggerFileSelect() {
+  fileInputRef.value?.click();
+}
+
+async function handleFileChange(event) {
+  await uploadLocalFiles(event.target.files);
+  event.target.value = '';
+}
 </script>
 
 <template>
   <div class="recommended-page">
+    <div class="nav-row panel no-drag">
+      <input
+        v-model="urlInput"
+        class="url-input"
+        placeholder="输入网址，回车打开任意网站..."
+        @keydown.enter="handleOpenUrl" />
+      <button
+        class="open-btn"
+        @click="handleOpenUrl">
+        打开
+      </button>
+      <button
+        class="secondary-btn"
+        @click="triggerFileSelect">
+        导入文件
+      </button>
+      <input
+        ref="fileInputRef"
+        class="hidden-input"
+        type="file"
+        multiple
+        @change="handleFileChange" />
+    </div>
     <section class="metrics">
       <div class="metric-grid">
         <article
@@ -167,5 +214,29 @@ const quickPreview = computed(() => quickLinks.value?.slice(0, 6) ?? []);
   padding: 6px 8px;
   border-radius: 6px;
   border: 1px solid #ddd;
+}
+
+.nav-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.url-input {
+  flex: 1;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+}
+.open-btn,
+.secondary-btn {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  background: #f5f5f5;
+  cursor: pointer;
+}
+.hidden-input {
+  display: none;
 }
 </style>

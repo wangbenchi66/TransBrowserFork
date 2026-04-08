@@ -176,7 +176,7 @@ async function testSetTransparency() {
 }
 
 function openDefaultUrl() {
-  urlInput.value = settings.defaultUrl;
+  urlInput.value = settings.defaultUrl === 'about:blank' ? '' : settings.defaultUrl;
   handleOpenUrl();
 }
 
