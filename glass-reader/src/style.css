@@ -10,7 +10,63 @@
   --primary-soft: rgba(47, 120, 255, 0.14);
   --danger: #eb5454;
   --shadow: 0 18px 50px rgba(132, 145, 170, 0.18);
+  /* 滚动条变量 */
+  --scrollbar-width: 6px;
+  --scrollbar-thumb: rgba(60, 68, 80, 0.12);
+  --scrollbar-thumb-hover: rgba(60, 68, 80, 0.22);
+  --scrollbar-track: transparent;
+  --scrollbar-thumb-radius: 6px;
+  --scrollbar-thumb-shadow: 0 6px 12px rgba(60,68,80,0.04);
   font-family: 'Microsoft YaHei UI', 'PingFang SC', sans-serif;
+}
+/* 项目内统一滚动条样式（仅影响应用自身元素）
+   现代风格：细条、圆角、悬停强调、轻微阴影；默认微弱，鼠标移入时变明显 */
+.window-shell {
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+.window-shell ::-webkit-scrollbar {
+  width: var(--scrollbar-width);
+  height: var(--scrollbar-width);
+  background: transparent;
+}
+
+.window-shell ::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: var(--scrollbar-thumb-radius);
+}
+
+.window-shell ::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: var(--scrollbar-thumb-radius);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  box-shadow: var(--scrollbar-thumb-shadow);
+  transition: background 180ms ease, box-shadow 180ms ease, opacity 180ms ease;
+  opacity: 0.6;
+}
+
+/* 悬停/交互时强调显示 */
+.window-shell:hover ::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb-hover);
+  box-shadow: 0 6px 14px rgba(60,68,80,0.06);
+  opacity: 1;
+}
+
+/* 当需要隐藏滚动条时（不影响滚动行为） */
+.window-shell.hide-scrollbars,
+.window-shell.hide-scrollbars * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+.window-shell.hide-scrollbars ::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+.window-shell.hide-scrollbars ::-webkit-scrollbar-thumb {
+  background: transparent;
 }
 
 * {
@@ -342,6 +398,45 @@ iframe {
   flex-direction: column;
   overflow: hidden;
   background: var(--surface);
+}
+
+/* 浮动样式：将设置面板变为较小的悬浮窗口（非模态） */
+.settings-modal-layer.settings-floating {
+  justify-content: flex-start;
+  align-items: flex-start;
+  padding: 12px;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  /* 确保浮动模式可以接收鼠标/滚动事件并允许滚动 */
+  pointer-events: auto;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.settings-modal-layer.settings-floating .settings-modal {
+  width: min(420px, 92%);
+  margin: 12px 20px 0 auto;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, calc(var(--surface-alpha, 0.74) - 0.12));
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(210, 220, 230, 0.12);
+  /* 限制最大高度并在内部启用滚动 */
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.control-btn.floating-btn {
+  margin-right: 8px;
+}
+
+.control-btn.floating-btn.active {
+  color: var(--primary);
+  border-color: rgba(47, 120, 255, 0.34);
+  background: rgba(47, 120, 255, 0.06);
 }
 
 .settings-modal-header {

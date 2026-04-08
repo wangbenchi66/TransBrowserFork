@@ -204,7 +204,7 @@ onBeforeUnmount(() => {
 <template>
   <div
     class="window-shell"
-    :class="shellClasses"
+    :class="[shellClasses, { 'hide-scrollbars': !settings.showScrollbars }]"
     :style="themeVars">
     <header class="topbar drag-region">
       <div class="brand-group no-drag">
@@ -263,7 +263,7 @@ onBeforeUnmount(() => {
 
     <div
       v-if="isSettingsOpen"
-      class="settings-modal-layer no-drag"
+      class="settings-modal-layer settings-floating no-drag"
       @click.self="closeSettingsModal">
       <section class="settings-modal panel">
         <div class="settings-modal-header">

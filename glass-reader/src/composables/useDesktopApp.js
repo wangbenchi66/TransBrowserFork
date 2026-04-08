@@ -56,6 +56,7 @@ const defaultSettings = {
     readerTextColor: '#283247',
     readerFontScale: 100,
     statusBarColor: '#f5f5f7',
+    showScrollbars: true,
     defaultUrl: 'about:blank',
     bossKey: 'Alt+Q',
     decreaseTransparencyShortcut: 'Alt+Up',
@@ -98,6 +99,7 @@ const rightToggleKeys = [
     { key: 'hoverHeaderMode', label: '标题栏悬停' },
     { key: 'pageTransparentMode', label: '网页背景透明' },
     { key: 'forcePageTransparent', label: '强制网页透明' },
+    { key: 'showScrollbars', label: '显示滚动条' },
     { key: 'grayscaleMode', label: '灰度模式' },
     { key: 'noImageMode', label: '无图模式' },
     { key: 'clickThroughMode', label: '鼠标穿透' },
@@ -201,6 +203,7 @@ const immediateSyncKeys = new Set([
     'readerTextColor',
     'readerFontScale',
     'forcePageTransparent',
+    'showScrollbars',
     'fullWindowTransparent',
     // 全局快捷键需要立即同步并在主进程重新注册
     'bossKey',

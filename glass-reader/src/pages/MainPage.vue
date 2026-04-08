@@ -158,7 +158,8 @@ function buildAutoScrollScript(enabled, speed) {
   })();`;
 }
 
-function runWebviewScript(script) {
+// 原始的 JS 注入方法（用于自动滚动等需要执行脚本的场景）
+function runWebviewJS(script) {
   const webview = webviewRef.value;
   if (!webview || activeTab.value.kind === 'dashboard' || activeTab.value.kind === 'local-text') {
     return;
@@ -167,18 +168,77 @@ function runWebviewScript(script) {
   webview.executeJavaScript(script).catch(() => {});
 }
 
+// 存储通过 insertCSS 注入后返回的 key，便于后续移除和替换
+const insertedCssKeys = {};
+
+// 向 webview 注入或替换样式，优先使用 insertCSS（可绕过 CSP），无法使用时回退到 style 标签注入
+async function runWebviewCss(styleId, css) {
+  const webview = webviewRef.value;
+  if (!webview || activeTab.value.kind === 'dashboard' || activeTab.value.kind === 'local-text') {
+    return;
+  }
+
+  try {
+    // 如果之前注入过，尝试移除旧样式
+    const prevKey = insertedCssKeys[styleId];
+    if (prevKey && typeof webview.removeInsertedCSS === 'function') {
+      try {
+        await webview.removeInsertedCSS(prevKey);
+      } catch (e) {
+        // ignore
+      }
+      insertedCssKeys[styleId] = null;
+    }
+
+    if (!css) {
+      // css 为空意味着只需移除旧样式
+      // 作为回退，也移除可能存在的 style 标签
+      try {
+        const rmScript = `(function(){ const n=document.getElementById(${JSON.stringify(styleId)}); if(n) n.remove(); })();`;
+        await webview.executeJavaScript(rmScript);
+      } catch (e) {}
+      return;
+    }
+
+    // 优先通过 insertCSS 注入样式
+    if (typeof webview.insertCSS === 'function') {
+      try {
+        const key = await webview.insertCSS(css);
+        insertedCssKeys[styleId] = key;
+        return;
+      } catch (e) {
+        // 回退到 style 注入
+      }
+    }
+
+    // 回退：通过在页面中插入/替换 style 标签（可能受 CSP 限制）
+    const script = buildStyleScript(styleId, true, css);
+    try {
+      await webview.executeJavaScript(script);
+    } catch (e) {
+      // ignore
+    }
+  } catch (e) {
+    // ignore overall
+  }
+}
+
 function syncWebviewTransparency() {
   const enabled = settings.pageTransparentMode || settings.forcePageTransparent;
   const css = settings.forcePageTransparent ? transparentPageCssAggressive : transparentPageCss;
-  runWebviewScript(buildStyleScript('glass-transparent-style', enabled, css));
+  runWebviewCss('glass-transparent-style', enabled ? css : '');
+}
+
+function syncWebviewScrollbars() {
+  // 已移除：不再向 webview 注入滚动条样式，webview 保持原生行为
 }
 
 function syncWebviewNoImage() {
-  runWebviewScript(buildStyleScript('glass-no-image-style', settings.noImageMode, noImageCss));
+  runWebviewCss('glass-no-image-style', settings.noImageMode ? noImageCss : '');
 }
 
 function syncWebviewAutoScroll() {
-  runWebviewScript(buildAutoScrollScript(settings.autoScrollEnabled, settings.autoScrollSpeed));
+  runWebviewJS(buildAutoScrollScript(settings.autoScrollEnabled, settings.autoScrollSpeed));
 }
 
 function stopLocalReaderAutoScroll() {
