@@ -505,78 +505,7 @@ onBeforeUnmount(() => {
           </div>
         </section>
 
-        <aside class="control-rail panel no-drag">
-          <section class="workspace-block compact-block">
-            <div class="block-head">
-              <strong>快速控制</strong>
-              <span>阅读态</span>
-            </div>
-
-            <div class="control-toggle-grid">
-              <button
-                v-for="item in controlToggleKeys"
-                :key="item.key"
-                class="control-toggle"
-                :class="{ active: settings[item.key] }"
-                @click="toggleSetting(item.key)">
-                {{ item.label }}
-              </button>
-            </div>
-          </section>
-
-          <section class="workspace-block compact-block">
-            <div class="block-head">
-              <strong>透明与滚动</strong>
-              <span>即时生效</span>
-            </div>
-
-            <label class="range-field">
-              <span>窗口透明度</span>
-              <input
-                :value="settings.transparency"
-                class="slider"
-                type="range"
-                min="0"
-                max="85"
-                @input="patchSetting('transparency', Number($event.target.value))" />
-            </label>
-
-            <label class="range-field">
-              <span>自动滚动速度</span>
-              <input
-                :value="settings.autoScrollSpeed"
-                class="slider"
-                type="range"
-                min="5"
-                max="80"
-                @input="patchSetting('autoScrollSpeed', Number($event.target.value))" />
-            </label>
-
-            <button
-              class="secondary-btn wide"
-              @click="toggleSetting('autoScrollEnabled')">
-              {{ settings.autoScrollEnabled ? '关闭自动滚动' : '开启自动滚动' }}
-            </button>
-          </section>
-
-          <section class="workspace-block compact-block">
-            <div class="block-head">
-              <strong>最近访问</strong>
-              <span>{{ filteredRecentVisits.length }}</span>
-            </div>
-
-            <div class="history-list rail-list">
-              <button
-                v-for="item in filteredRecentVisits.slice(0, 6)"
-                :key="`${item.type}-${item.url}`"
-                class="history-item"
-                @click="openRecentVisit(item)">
-                <strong>{{ item.title }}</strong>
-                <span>{{ item.url }}</span>
-              </button>
-            </div>
-          </section>
-        </aside>
+        <!-- 右侧控制栏已移除：透明与滚动、最近访问等功能保留在设置中 -->
       </div>
     </section>
   </section>
