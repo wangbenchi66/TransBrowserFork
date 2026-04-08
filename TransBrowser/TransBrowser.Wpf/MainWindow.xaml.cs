@@ -71,6 +71,38 @@ namespace TransBrowser.Wpf
         // Settings / ControlPanel windows
         private SettingWindow? _settingWindow;
         private ControlPanelWindow? _controlPanel;
+        private BrowserWindow? _browserWindow;
+
+        // Preview window removed — functionality replaced by external BrowserWindow when needed.
+
+        private void EnsureBrowserWindow(string? url = null, bool isWeChat = false)
+        {
+            if (_browserWindow != null) return;
+            try
+            {
+                _browserWindow = new BrowserWindow();
+                _browserWindow.Owner = this;
+                _browserWindow.WindowStartupLocation = WindowStartupLocation.Manual;
+                // Position to match right content area (matches XAML: right column width 420 with margin 8)
+                _browserWindow.SetBounds(this.Left + (ActualWidth - 420) + 8, this.Top + 8, 420 - 16, Math.Max(200, this.ActualHeight - 40));
+                _browserWindow.Show();
+                if (isWeChat) _ = _browserWindow.NavigateTransparentAsync(url ?? _s.Current?.DefaultUrl ?? "about:blank", true);
+                else _ = _browserWindow.InitializeAsync(url ?? _s.Current?.DefaultUrl ?? "about:blank");
+            }
+            catch { _browserWindow = null; }
+        }
+
+        private static bool IsWeChatReader(string? url)
+        {
+            if (string.IsNullOrEmpty(url)) return false;
+            try
+            {
+                return url.Contains("mp.weixin.qq.com", StringComparison.OrdinalIgnoreCase)
+                    || url.Contains("weixin://", StringComparison.OrdinalIgnoreCase)
+                    || url.Contains("read.weixin.qq.com", StringComparison.OrdinalIgnoreCase);
+            }
+            catch { return false; }
+        }
 
         // Transparent-background CSS
         const string TransparentBgJs =
@@ -208,6 +240,11 @@ namespace TransBrowser.Wpf
 
             ApplyHoverHeaderMode(s.HoverHeaderMode);
             SetMobileMold(s.MobileMold);
+            // If transparent background requested, create external browser window to host WebView2
+            if (_s.Current.TransparentBackground)
+            {
+                EnsureBrowserWindow(_s.Current.DefaultUrl, IsWeChatReader(_s.Current.DefaultUrl));
+            }
 
             _s.Save();
         }
@@ -216,8 +253,9 @@ namespace TransBrowser.Wpf
         private void AddFirstTab()
         {
             var tab = new TabItem { Header = "新标签页" };
-            var wv = CreateWebView2();
-            tab.Content = wv;
+            // Use placeholder content when using external BrowserWindow
+            var placeholder = new Border { Background = System.Windows.Media.Brushes.Transparent };
+            tab.Content = placeholder;
             TabCtrl.Items.Insert(0, tab);
 
             // Add "+" sentinel tab
@@ -226,7 +264,8 @@ namespace TransBrowser.Wpf
             TabCtrl.Items.Add(addTab);
 
             TabCtrl.SelectedIndex = 0;
-            _ = InitWebViewAsync(wv, _s.Current.DefaultUrl);
+            // Ensure browser window created if transparent background
+            if (_s.Current.TransparentBackground) EnsureBrowserWindow(_s.Current.DefaultUrl, IsWeChatReader(_s.Current.DefaultUrl));
         }
 
         private WebView2 CreateWebView2()
@@ -248,48 +287,20 @@ namespace TransBrowser.Wpf
         {
             int insertAt = TabCtrl.Items.Count - 1; // before "+"
             var tab = new TabItem { Header = "新标签页" };
-            var wv = CreateWebView2();
-            tab.Content = wv;
+            var placeholder = new Border { Background = System.Windows.Media.Brushes.Transparent };
+            tab.Content = placeholder;
             TabCtrl.Items.Insert(insertAt, tab);
             TabCtrl.SelectedItem = tab;
-            _ = InitWebViewAsync(wv, url);
+            // navigate browser window if transparent mode
+            if (_s.Current.TransparentBackground)
+                EnsureBrowserWindow(url, IsWeChatReader(url));
             return tab;
         }
 
         private async Task InitWebViewAsync(WebView2 wv, string? url)
         {
-            if (_s.Current.TransparentBackground)
-                wv.DefaultBackgroundColor = System.Drawing.Color.Transparent;
-            await wv.EnsureCoreWebView2Async();
-            if (wv.CoreWebView2 == null) return;
-
-            // User-agent
-            try
-            {
-                if (_mobileMode)
-                    wv.CoreWebView2.Settings.UserAgent = MobileUA;
-                else if (!string.IsNullOrEmpty(_s.Current.DefaultUA))
-                    wv.CoreWebView2.Settings.UserAgent = _s.Current.DefaultUA;
-            }
-            catch { }
-
-            // Events
-            wv.CoreWebView2.DocumentTitleChanged += (_, _) => UpdateTabTitle(wv);
-            wv.CoreWebView2.NewWindowRequested += (_, e) => { e.Handled = true; AddNewTab(e.Uri); };
-            wv.CoreWebView2.ContextMenuRequested += CoreWebView2_ContextMenuRequested;
-            wv.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
-            wv.NavigationCompleted += (_, e) => OnNavigationCompleted(wv);
-
-            if (_s.Current.TransparentBackground)
-                await RegisterTransparentBgScript(wv);
-
-            // Apply current opacity to web content so it visually matches the window opacity.
-            try { await ApplyOpacityVarToWebViewAsync(wv, _s.Current.FormOpacity); } catch { }
-
-            if (!string.IsNullOrEmpty(url))
-                wv.CoreWebView2.Navigate(url);
-            else
-                wv.CoreWebView2.NavigateToString(GetNewTabHtml());
+            // Deprecated: individual WebView2 per tab. BrowserWindow hosts the real WebView2.
+            await System.Threading.Tasks.Task.CompletedTask;
         }
 
         const string MobileUA = "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1";
@@ -317,6 +328,20 @@ namespace TransBrowser.Wpf
             // If "+" tab selected -> open new tab
             if (TabCtrl.SelectedIndex == TabCtrl.Items.Count - 1)
                 Dispatcher.InvokeAsync(() => AddNewTab());
+
+            // When tab changes, navigate browser window to the selected tab's URL if any
+            int idx = TabCtrl.SelectedIndex;
+            if (idx >= 0 && idx < TabCtrl.Items.Count - 1)
+            {
+                var ti = TabCtrl.Items[idx] as TabItem;
+                if (ti != null)
+                {
+                    string url = _s.Current.DefaultUrl ?? "about:blank";
+                    // Try to read stored URL from tab.Tag
+                    if (ti.Tag is string t && !string.IsNullOrEmpty(t)) url = t;
+                    try { if (_browserWindow != null) _ = _browserWindow.InitializeAsync(url); } catch { }
+                }
+            }
         }
 
         private void TabCtrl_MouseDown(object sender, MouseButtonEventArgs e)
@@ -524,6 +549,8 @@ namespace TransBrowser.Wpf
 
         public WebView2? GetWebView2() => ActiveWebView;
 
+        public BrowserWindow? GetBrowserWindow() => _browserWindow;
+
         public void SetOpacity(double pct)
         {
             // Apply opacity to WPF content container instead of the Window to avoid WS_EX_LAYERED
@@ -597,6 +624,11 @@ namespace TransBrowser.Wpf
             _s.Current.TransparentBackground = enable;
             SetWindowBackgroundTransparent(enable);
             foreach (var wv in AllWebViews()) _ = ApplyTransparentBackground(wv, enable);
+            if (enable)
+            {
+                // preview removed — create browser window host for WebView2 when transparent background enabled
+                EnsureBrowserWindow(_s.Current.DefaultUrl, IsWeChatReader(_s.Current.DefaultUrl));
+            }
         }
 
         public void SetWindowBackgroundTransparent(bool enable)
@@ -918,6 +950,7 @@ namespace TransBrowser.Wpf
             {
                 _s.SetFormPosition(Left, Top);
                 _s.Save();
+                // preview window removed
             }
         }
 
@@ -936,10 +969,12 @@ namespace TransBrowser.Wpf
             {
                 if (_s.Current.ShowMinimizeNotification)
                     _trayIcon?.ShowBalloonTip(1000, "TransBrowser", "已最小化", WinForms.ToolTipIcon.Info);
+                // preview window removed
             }
             else if (WindowState == WindowState.Normal)
             {
                 SetShowInTaskbar(_s.Current.ShowInTaskbar);
+                // preview window removed
             }
         }
 
@@ -975,6 +1010,7 @@ namespace TransBrowser.Wpf
         {
             UnregisterAllHotkeys();
             if (_trayIcon != null) _trayIcon.Visible = false;
+            // preview removed
         }
 
         // ── Tray / show-hide ──────────────────────────────────────────────────
@@ -986,6 +1022,7 @@ namespace TransBrowser.Wpf
             Dispatcher.InvokeAsync(() => { try { ShowInTaskbar = show; } catch { } });
             Activate();
             ResumeAllWebViews();
+            // preview removed
         }
 
         public void OpenSettings()
@@ -999,6 +1036,7 @@ namespace TransBrowser.Wpf
             _settingWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen;
             _settingWindow.Closed += (_, _) => _settingWindow = null;
             _settingWindow.Show();
+            // preview window removed
         }
 
         public void OpenControlPanel()
@@ -1007,6 +1045,7 @@ namespace TransBrowser.Wpf
             _controlPanel.WindowStartupLocation = WindowStartupLocation.CenterScreen;
             _controlPanel.Show();
             _controlPanel.Activate();
+            // preview window removed
         }
 
         public void ExitApp()

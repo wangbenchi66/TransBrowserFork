@@ -136,9 +136,11 @@ namespace TransBrowser.Wpf
             if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
                 !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
                 url = "https://" + url;
-            _main.AddNewTab(url);
+            var tab = _main.AddNewTab(url);
+            tab.Tag = url;
             _s.Current.DefaultUrl = url;
             _s.Save();
+            try { var bw = _main.GetBrowserWindow(); if (bw != null) _ = bw.InitializeAsync(url); } catch { }
         }
 
         // ── Color ─────────────────────────────────────────────────────────────

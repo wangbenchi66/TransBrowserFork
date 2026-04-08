@@ -30,7 +30,7 @@
         <!-- Left transparent area (shows desktop) -->
         <Grid Grid.Column="0" Background="Transparent">
             <!-- Sample overlay text to preview transparency effect -->
-            <TextBlock Text="这是左侧透明预览区\n可以在此处显示任意文字" TextAlignment="Center"
+            <TextBlock Text="文字" TextAlignment="Center"
                        VerticalAlignment="Center" HorizontalAlignment="Center"
                        FontSize="18" Foreground="#CC000000" FontWeight="SemiBold"
                        TextWrapping="Wrap" Width="260">
