@@ -1,4 +1,4 @@
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref } from 'vue'
 
 const desktopApi = typeof window !== 'undefined' ? window.desktop : null
 
@@ -46,6 +46,7 @@ const defaultSettings = {
     mobileMode: false,
     hoverHeaderMode: false,
     pageTransparentMode: false,
+    forcePageTransparent: false,
     grayscaleMode: false,
     clickThroughMode: false,
     closeToTray: false,
@@ -96,6 +97,7 @@ const rightToggleKeys = [
     { key: 'mobileMode', label: '手机模式' },
     { key: 'hoverHeaderMode', label: '标题栏悬停' },
     { key: 'pageTransparentMode', label: '网页背景透明' },
+    { key: 'forcePageTransparent', label: '强制网页透明' },
     { key: 'grayscaleMode', label: '灰度模式' },
     { key: 'noImageMode', label: '无图模式' },
     { key: 'clickThroughMode', label: '鼠标穿透' },
@@ -200,6 +202,7 @@ const immediateSyncKeys = new Set([
     'autoScrollSpeed',
     'readerTextColor',
     'readerFontScale',
+    'forcePageTransparent',
 ])
 
 function normalizeUrl(rawUrl) {
@@ -247,37 +250,6 @@ function scheduleSettingsSync() {
     window.clearTimeout(syncTimer)
     syncTimer = window.setTimeout(syncSettingsNow, 120)
 }
-
-// 当用户开启全窗透明时，也希望网页内容背景变为透明：
-watch(() => settings.fullWindowTransparent, (next) => {
-    try {
-        if (next) {
-            if (!settings.pageTransparentMode) {
-                _prevPageTransparent = false
-                settings.pageTransparentMode = true
-                if (desktopApi?.updateSettings) {
-                    desktopApi.updateSettings({ ...settings }).then((ns) => Object.assign(settings, ns)).catch(() => { })
-                } else {
-                    scheduleSettingsSync()
-                }
-            } else {
-                _prevPageTransparent = null
-            }
-        } else {
-            if (_prevPageTransparent !== null) {
-                settings.pageTransparentMode = _prevPageTransparent
-                _prevPageTransparent = null
-                if (desktopApi?.updateSettings) {
-                    desktopApi.updateSettings({ ...settings }).then((ns) => Object.assign(settings, ns)).catch(() => { })
-                } else {
-                    scheduleSettingsSync()
-                }
-            }
-        }
-    } catch (e) {
-        // ignore
-    }
-})
 
 function patchSetting(key, value) {
     if (key === 'transparency') {

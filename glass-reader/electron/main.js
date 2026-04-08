@@ -24,6 +24,7 @@ const defaultSettings = {
     mobileMode: false,
     hoverHeaderMode: false,
     pageTransparentMode: false,
+    forcePageTransparent: false,
     grayscaleMode: false,
     clickThroughMode: false,
     closeToTray: false,
@@ -81,6 +82,7 @@ function normalizeSettings(partial = {}) {
         mobileMode: Boolean(partial.mobileMode ?? defaultSettings.mobileMode),
         hoverHeaderMode: Boolean(partial.hoverHeaderMode ?? defaultSettings.hoverHeaderMode),
         pageTransparentMode: Boolean(partial.pageTransparentMode ?? defaultSettings.pageTransparentMode),
+        forcePageTransparent: Boolean(partial.forcePageTransparent ?? defaultSettings.forcePageTransparent),
         grayscaleMode: Boolean(partial.grayscaleMode ?? defaultSettings.grayscaleMode),
         clickThroughMode: Boolean(partial.clickThroughMode ?? defaultSettings.clickThroughMode),
         fullWindowTransparent: Boolean(partial.fullWindowTransparent ?? defaultSettings.fullWindowTransparent),
@@ -462,10 +464,10 @@ function createWindow() {
     console.log('[main] creating BrowserWindow. preloadPath=', preloadPath, 'exists=', fs.existsSync(preloadPath))
 
     const win = new BrowserWindow({
-        width: 1420,
+        width: 420,
         height: 860,
-        minWidth: 520,
-        minHeight: 380,
+        minWidth: 80,
+        minHeight: 80,
         frame: false,
         // 创建为透明窗口，页面透明区域将透出桌面（CSS 控制具体显示效果）
         transparent: true,

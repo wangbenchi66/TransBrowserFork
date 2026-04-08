@@ -168,8 +168,9 @@ function runWebviewScript(script) {
 }
 
 function syncWebviewTransparency() {
-  const css = settings.fullWindowTransparent ? transparentPageCssAggressive : transparentPageCss;
-  runWebviewScript(buildStyleScript('glass-transparent-style', settings.pageTransparentMode, css));
+  const enabled = settings.pageTransparentMode || settings.forcePageTransparent;
+  const css = settings.forcePageTransparent ? transparentPageCssAggressive : transparentPageCss;
+  runWebviewScript(buildStyleScript('glass-transparent-style', enabled, css));
 }
 
 function syncWebviewNoImage() {
