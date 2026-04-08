@@ -2,23 +2,10 @@
 import { computed, ref } from 'vue';
 import { useDesktopApp } from '../composables/useDesktopApp';
 
-const {
-  quickLinks,
-  filteredRecommendedSites,
-  filteredRecentVisits,
-  useQuickLink,
-  useRecommendedSite,
-  openRecentVisit,
-  siteSearchKeyword,
-  searchKeyword,
-  dashboardMetrics,
-  urlInput,
-  handleOpenUrl,
-  uploadLocalFiles
-} = useDesktopApp();
+const { filteredRecommendedSites, filteredRecentVisits, useRecommendedSite, openRecentVisit, siteSearchKeyword, searchKeyword, dashboardMetrics, urlInput, handleOpenUrl, uploadLocalFiles } =
+  useDesktopApp();
 
 const recommendedPreview = computed(() => filteredRecommendedSites.value.slice(0, 8));
-const quickPreview = computed(() => quickLinks.value?.slice(0, 6) ?? []);
 
 const fileInputRef = ref(null);
 
@@ -69,26 +56,7 @@ async function handleFileChange(event) {
       </div>
     </section>
 
-    <section class="quicklinks">
-      <h2>快速入口</h2>
-      <div class="grid">
-        <button
-          v-for="site in quickPreview"
-          :key="site.name"
-          class="card"
-          @click="useQuickLink(site)">
-          <span
-            class="tag"
-            :class="site.tone"
-            >{{ site.tag }}</span
-          >
-          <div class="meta">
-            <strong>{{ site.name }}</strong>
-            <small>{{ site.desc }}</small>
-          </div>
-        </button>
-      </div>
-    </section>
+    <!-- 快速入口已移除，使用推荐与最近访问作为入口 -->
 
     <section class="spotlight">
       <h2>推荐站点</h2>
@@ -232,8 +200,6 @@ async function handleFileChange(event) {
 .secondary-btn {
   padding: 6px 10px;
   border-radius: 6px;
-  border: 1px solid #ddd;
-  background: #f5f5f5;
   cursor: pointer;
 }
 .hidden-input {

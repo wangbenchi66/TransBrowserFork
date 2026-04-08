@@ -1,41 +1,9 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { useDesktopApp } from '../composables/useDesktopApp';
 import recommendedPage from './RecommendedPage.vue';
 
-const {
-  settings,
-  quickLinks,
-  filteredRecommendedSites,
-  favoriteSites,
-  localDocuments,
-  urlInput,
-  searchKeyword,
-  siteSearchKeyword,
-  customSiteName,
-  customSiteUrl,
-  activeTab,
-  activeTabId,
-  tabs,
-  filteredRecentVisits,
-  dashboardMetrics,
-  controlToggleKeys,
-  patchSetting,
-  toggleSetting,
-  handleOpenUrl,
-  addNewTab,
-  selectTab,
-  closeTab,
-  useQuickLink,
-  useFavoriteSite,
-  useRecommendedSite,
-  openRecentVisit,
-  addFavoriteSite,
-  removeFavoriteSite,
-  uploadLocalFiles,
-  openLocalDocument,
-  removeLocalDocument
-} = useDesktopApp();
+const { settings, activeTab, activeTabId, tabs, addNewTab, selectTab, closeTab } = useDesktopApp();
 
 const webviewRef = ref(null);
 const localReaderRef = ref(null);
@@ -91,20 +59,6 @@ img, picture, video, canvas, svg {
   visibility: hidden !important;
 }
 `;
-
-const activeTabMeta = computed(() => {
-  if (activeTab.value.kind === 'dashboard') {
-    return '工作台';
-  }
-
-  if (activeTab.value.kind === 'local-text') {
-    return '本地文档';
-  }
-
-  return '在线网页';
-});
-
-const recommendedPreview = computed(() => filteredRecommendedSites.value.slice(0, 8));
 
 function buildStyleScript(styleId, enabled, cssText) {
   return `(() => {

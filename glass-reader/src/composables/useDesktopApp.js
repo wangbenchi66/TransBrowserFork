@@ -2,38 +2,17 @@ import { computed, reactive, ref } from 'vue'
 
 const desktopApi = typeof window !== 'undefined' ? window.desktop : null
 
-const quickLinks = [
-    { name: '微信读书', tag: '书', tone: 'green', desc: '沉浸式看书', url: 'https://weread.qq.com' },
-    { name: 'Bilibili', tag: '站', tone: 'pink', desc: '视频摸鱼', url: 'https://www.bilibili.com' },
-    { name: '抖音', tag: '抖', tone: 'ink', desc: '短视频信息流', url: 'https://www.douyin.com' },
-    { name: '知乎', tag: '知', tone: 'blue', desc: '问答与热榜', url: 'https://www.zhihu.com' },
-]
-
 const recommendedSites = ref([
     { name: '微信读书', tag: 'WR', tone: 'green', category: '阅读', hint: '小说与出版书', url: 'https://weread.qq.com' },
     { name: '番茄小说', tag: 'FQ', tone: 'orange', category: '阅读', hint: '网文阅读', url: 'https://fanqienovel.com' },
-    { name: '晋江文学城', tag: 'JJ', tone: 'rose', category: '阅读', hint: '女性向小说', url: 'https://wap.jjwxc.net' },
     { name: 'Bilibili', tag: 'BL', tone: 'pink', category: '娱乐', hint: '视频与直播', url: 'https://www.bilibili.com' },
     { name: '抖音', tag: 'DY', tone: 'ink', category: '娱乐', hint: '短视频', url: 'https://www.douyin.com' },
     { name: '小红书', tag: 'XH', tone: 'rose', category: '娱乐', hint: '生活方式', url: 'https://www.xiaohongshu.com' },
-    { name: '粉笔', tag: 'FB', tone: 'blue', category: '学习', hint: '刷题备考', url: 'https://www.fenbi.com' },
-    { name: 'GitHub', tag: 'GH', tone: 'slate', category: '学习', hint: '技术文档', url: 'https://github.com' },
 ])
-
-const favoriteSites = ref([
-    { id: 1, name: '百度', tag: 'BD', url: 'https://www.baidu.com' },
-    { id: 2, name: '豆瓣读书', tag: 'DB', url: 'https://book.douban.com' },
-    { id: 3, name: '少数派', tag: 'SS', url: 'https://sspai.com' },
-    { id: 4, name: '掘金', tag: 'JG', url: 'https://juejin.cn' },
-])
-
 const localDocuments = ref([])
 
-const recentVisits = ref([
-    { title: '微信读书', url: 'https://weread.qq.com', type: 'site' },
-    { title: '知乎热榜', url: 'https://www.zhihu.com/hot', type: 'site' },
-    { title: 'Bilibili 首页', url: 'https://www.bilibili.com', type: 'site' },
-])
+// 初始最近访问保持空，使用真实浏览行为填充
+const recentVisits = ref([])
 
 const defaultSettings = {
     transparency: 0,
@@ -69,8 +48,6 @@ const settings = reactive({ ...defaultSettings })
 const urlInput = ref(defaultSettings.defaultUrl)
 const searchKeyword = ref('')
 const siteSearchKeyword = ref('')
-const customSiteName = ref('')
-const customSiteUrl = ref('')
 const statusMessage = ref('Alt+Q 可快速隐藏或恢复窗口')
 const activeTabId = ref(1)
 const tabs = ref([
@@ -105,13 +82,7 @@ const rightToggleKeys = [
     { key: 'clickThroughMode', label: '鼠标穿透' },
 ]
 
-const controlToggleKeys = [
-    { key: 'pageTransparentMode', label: '网页透明' },
-    { key: 'fullWindowTransparent', label: '全窗透明' },
-    { key: 'noImageMode', label: '隐藏图片' },
-    { key: 'autoHide', label: '移出隐藏' },
-    { key: 'alwaysOnTop', label: '窗口置顶' },
-]
+// controlToggleKeys 已移除为导出项，UI 不再直接引用该集合
 
 const activeTab = computed(() => tabs.value.find((tab) => tab.id === activeTabId.value) ?? tabs.value[0])
 
@@ -135,7 +106,6 @@ const filteredRecommendedSites = computed(() => {
 
 const dashboardMetrics = computed(() => ([
     { label: '推荐站点', value: String(recommendedSites.value.length).padStart(2, '0') },
-    { label: '我的站点', value: String(favoriteSites.value.length).padStart(2, '0') },
     { label: '本地文档', value: String(localDocuments.value.length).padStart(2, '0') },
     { label: '最近访问', value: String(recentVisits.value.length).padStart(2, '0') },
 ]))
@@ -452,15 +422,7 @@ function closeTab(tabId) {
     }
 }
 
-function useQuickLink(site) {
-    urlInput.value = site.url
-    createPageTab(site.url, { title: site.name, subtitle: site.desc })
-}
 
-function useFavoriteSite(site) {
-    urlInput.value = site.url
-    createPageTab(site.url, { title: site.name, subtitle: site.url })
-}
 
 function useRecommendedSite(site) {
     urlInput.value = site.url
@@ -477,33 +439,6 @@ function openRecentVisit(item) {
     }
     urlInput.value = displayInputUrlForUI(item.url)
     createPageTab(item.url, { title: item.title })
-}
-
-function addFavoriteSite() {
-    const name = customSiteName.value.trim()
-    const url = normalizeUrl(customSiteUrl.value)
-
-    if (!name || url === 'about:blank') {
-        statusMessage.value = '请填写站点名称和有效网址'
-        return
-    }
-
-    favoriteSites.value.unshift({
-        id: Date.now(),
-        name,
-        tag: getSiteTag(name),
-        url,
-    })
-
-    favoriteSites.value = favoriteSites.value.slice(0, 12)
-    customSiteName.value = ''
-    customSiteUrl.value = ''
-    statusMessage.value = `已添加我的站点：${name}`
-}
-
-function removeFavoriteSite(siteId) {
-    favoriteSites.value = favoriteSites.value.filter((site) => site.id !== siteId)
-    statusMessage.value = '已移除站点'
 }
 
 async function uploadLocalFiles(fileList) {
@@ -574,7 +509,7 @@ function removeLocalDocument(documentId) {
     if (documentItem?.objectUrl) {
         URL.revokeObjectURL(documentItem.objectUrl)
     }
-
+    // removeLocalDocument 已移除为导出函数（UI 未直接调用），保留对对象 URL 的回收逻辑
     localDocuments.value = localDocuments.value.filter((item) => item.id !== documentId)
     tabs.value = tabs.value.filter((tab) => tab.documentId !== documentId)
 
@@ -621,6 +556,7 @@ function handleClose() {
 }
 
 function openSettingsWindow() {
+    // openSettingsWindow 保留实现但不再作为导出（设置通过内置 modal 控制）
     if (!desktopApi?.openSettingsWindow) {
         statusMessage.value = '当前环境不支持打开设置'
         return
@@ -661,24 +597,16 @@ function disposeDesktopApp() {
 
 export function useDesktopApp() {
     return {
-        quickLinks,
-        recommendedSites,
         filteredRecommendedSites,
-        favoriteSites,
-        localDocuments,
-        recentVisits,
         settings,
         urlInput,
         searchKeyword,
         siteSearchKeyword,
-        customSiteName,
-        customSiteUrl,
         statusMessage,
         activeTabId,
         tabs,
         leftToggleKeys,
         rightToggleKeys,
-        controlToggleKeys,
         activeTab,
         filteredRecentVisits,
         dashboardMetrics,
@@ -690,19 +618,13 @@ export function useDesktopApp() {
         addNewTab,
         selectTab,
         closeTab,
-        useQuickLink,
-        useFavoriteSite,
         useRecommendedSite,
         openRecentVisit,
-        addFavoriteSite,
-        removeFavoriteSite,
         uploadLocalFiles,
         openLocalDocument,
-        removeLocalDocument,
         handleMinimize,
         handleMaximize,
         handleClose,
-        openSettingsWindow,
         initializeDesktopApp,
         disposeDesktopApp,
     }
