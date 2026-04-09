@@ -1,6 +1,5 @@
 <script setup>
 import { onBeforeUnmount, onMounted, ref } from 'vue';
-import RuleManager from './components/RuleManager.vue';
 import { useDesktopApp } from './composables/useDesktopApp';
 import MainPage from './pages/MainPage.vue';
 
@@ -433,10 +432,7 @@ onBeforeUnmount(() => {
             </div>
           </section>
 
-          <section class="settings-block section-panel">
-            <div class="field-label">站点规则管理</div>
-            <RuleManager />
-          </section>
+          <!-- 站点规则管理已移除（按需在页面内快速编辑弹窗保留） -->
 
           <section class="settings-block shortcut-block section-panel">
             <div class="shortcut-title">全局快捷键</div>

@@ -1,7 +1,6 @@
 <script setup>
 import { Close, Hide, View } from '@element-plus/icons-vue';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import RuleManager from '../components/RuleManager.vue';
 import { useDesktopApp } from '../composables/useDesktopApp';
 import recommendedPage from './RecommendedPage.vue';
 
@@ -18,7 +17,6 @@ const popLeft = ref('50%');
 const draggingKey = ref(null);
 const fontRangeRef = ref(null);
 const autoRangeRef = ref(null);
-const showRuleManager = ref(false);
 
 const currentHost = computed(() => {
   try {
@@ -1079,12 +1077,7 @@ onMounted(() => {
                     title="重置">
                     1x
                   </button>
-                  <button
-                    class="icon-btn icon-only"
-                    @click="openSiteRuleEditor"
-                    title="站点注入规则">
-                    注
-                  </button>
+                  <!-- 站点规则编辑入口已移除 -->
                   <button
                     class="icon-btn hide-toolbar-btn icon-only"
                     @click="toggleToolbarPinned"
@@ -1110,32 +1103,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <!-- 站点规则快速编辑弹窗（内嵌，便于快速为当前站点添加/编辑注入规则） -->
-    <div
-      v-if="showRuleManager"
-      class="rule-modal-layer"
-      @click.self="showRuleManager = false">
-      <section class="rule-modal panel">
-        <div class="rule-modal-header">
-          <div>
-            <strong>站点注入规则 - {{ currentHost || activeTab.url }}</strong>
-            <div style="font-size: 12px; color: #666">在此为当前站点配置自定义 CSS/JS</div>
-          </div>
-          <button
-            class="control-btn close"
-            aria-label="关闭"
-            @click="showRuleManager = false">
-            x
-          </button>
-        </div>
-        <div class="rule-modal-body">
-          <RuleManager
-            :autoOpen="true"
-            initialType="site"
-            :initialPattern="currentHost" />
-        </div>
-      </section>
-    </div>
+    <!-- 站点规则快速编辑弹窗已移除（由自定义规则文件管理） -->
   </section>
 </template>
 
