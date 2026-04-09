@@ -310,13 +310,14 @@ function avatarText(site) {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  background: var(--page-surface);
 }
 .metrics .metric-grid {
   display: flex;
   gap: 8px;
 }
 .metric-card {
-  background: #fff;
+  background: var(--surface);
   padding: 10px;
   border-radius: 8px;
   min-width: 80px;
@@ -325,7 +326,7 @@ function avatarText(site) {
 .spotlight,
 .history,
 .quicklinks {
-  background: #fff;
+  background: var(--surface);
   padding: 12px;
   border-radius: 8px;
 }
@@ -341,7 +342,7 @@ function avatarText(site) {
   padding: 8px;
   border-radius: 6px;
   border: 1px solid #eee;
-  background: #fafafa;
+  background: var(--surface);
   cursor: pointer;
 }
 .tag {
@@ -363,7 +364,7 @@ function avatarText(site) {
   padding: 8px;
   border-radius: 6px;
   border: 1px solid #f0f0f0;
-  background: #fff;
+  background: var(--surface);
   cursor: pointer;
 }
 .url {

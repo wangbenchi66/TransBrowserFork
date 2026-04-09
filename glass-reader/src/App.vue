@@ -1,9 +1,11 @@
 <script setup>
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useDesktopApp } from './composables/useDesktopApp';
 import TopBar from './layouts/TopBar.vue';
 import MainPage from './pages/MainPage.vue';
 import TabBar from './pages/parts/TabBar.vue';
+import defaultSettings from './shared/defaultSettings.js';
 
 const {
   settings,
@@ -131,6 +133,38 @@ function openSettingsModal() {
     try {
       desktopApi.setIgnoreMouseEvents(false);
     } catch (e) {}
+  }
+}
+
+async function restoreDefaults() {
+  try {
+    await ElMessageBox.confirm('恢复默认配置将重置所有设置并应用。是否继续？', '恢复默认设置', {
+      confirmButtonText: '恢复',
+      cancelButtonText: '取消',
+      type: 'warning'
+    });
+
+    const defaults = defaultSettings || {};
+    // 优先通过主进程批量写入（如果可用），否则逐项 patch
+    if (typeof window !== 'undefined' && window.desktop && window.desktop.updateSettings) {
+      try {
+        const ns = await window.desktop.updateSettings({ ...defaults });
+        if (ns && settings) Object.assign(settings, ns);
+        ElMessage({ message: '已恢复默认设置', type: 'success' });
+      } catch (err) {
+        ElMessage({ message: '恢复默认设置失败', type: 'error' });
+      }
+    } else {
+      // 回退：通过 patchSetting 更新每一项
+      for (const [k, v] of Object.entries(defaults)) {
+        patchSetting(k, v);
+      }
+      ElMessage({ message: '已恢复默认设置（本地）', type: 'success' });
+    }
+
+    closeSettingsModal();
+  } catch (err) {
+    // 用户取消或出错，什么也不做
   }
 }
 
@@ -453,6 +487,17 @@ onBeforeUnmount(() => {
                   </el-button>
                 </div>
               </label>
+            </div>
+          </section>
+
+          <section class="settings-block section-panel">
+            <div class="field-label">恢复</div>
+            <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center">
+              <BaseButton
+                class="toggle-row"
+                @click="restoreDefaults">
+                <span>恢复默认配置</span>
+              </BaseButton>
             </div>
           </section>
         </section>

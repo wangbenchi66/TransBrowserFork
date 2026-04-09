@@ -887,6 +887,9 @@ iframe {
   background: transparent;
 }
 
+/* 当 page-frame 用于承载真实网页时，允许网页自身决定背景颜色（非仪表盘/本地阅读视图） */
+/* 当需要网页透明时，使用 `.mode-transparent-page .webview-frame` 覆盖为透明 */
+
 .page-preview {
   display: flex;
   flex-direction: column;

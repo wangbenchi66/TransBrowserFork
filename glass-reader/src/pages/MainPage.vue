@@ -969,7 +969,7 @@ onMounted(() => {
 
           <div
             class="page-frame panel no-drag"
-            :class="{ 'is-webview': activeTab.kind !== 'dashboard' }">
+            :class="{ 'is-webview': activeTab.kind === 'page' }">
             <template v-if="activeTab.kind === 'dashboard'">
               <recommended-page />
             </template>
