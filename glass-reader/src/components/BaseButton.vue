@@ -1,5 +1,10 @@
 <template>
-  <el-button v-bind="$attrs" :type="type" :size="size" :plain="plain" :circle="circle">
+  <el-button
+    v-bind="$attrs"
+    :type="type"
+    :size="size"
+    :plain="plain"
+    :circle="circle">
     <slot />
   </el-button>
 </template>
@@ -10,5 +15,5 @@ const props = defineProps({
   size: { type: String, default: undefined },
   plain: { type: Boolean, default: false },
   circle: { type: Boolean, default: false }
-})
+});
 </script>

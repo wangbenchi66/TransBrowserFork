@@ -301,7 +301,7 @@ onBeforeUnmount(() => {
       class="settings-modal-layer settings-floating no-drag"
       @click.self="closeSettingsModal">
       <section class="settings-modal panel">
-          <div class="settings-modal-header">
+        <div class="settings-modal-header">
           <div>
             <strong>设置中心</strong>
             <span>当前修改会直接作用于主窗口</span>
