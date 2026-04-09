@@ -1,63 +1,52 @@
 name: Build Electron Multi-Arch
 
 on:
-  watch:
-    types: [started]
   workflow_dispatch:
 
 jobs:
-  # Windows 多架构
-  build-win:
-    runs-on: windows-latest
-
+  build:
     strategy:
       matrix:
+        os: [windows-latest, macos-latest]
         arch: [x64, arm64]
 
-    steps:
-      - uses: actions/checkout@v3
+    runs-on: ${{ matrix.os }}
 
-      - name: Node
-        uses: actions/setup-node@v3
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 18
+          cache: npm
 
       - run: npm install
       - run: npm run build
 
-      - name: Build Windows
-        run: npx electron-builder --win --${{ matrix.arch }}
+      - name: Build Electron
+        run: npx electron-builder --${{ matrix.os == 'windows-latest' && 'win' || 'mac' }} --${{ matrix.arch }}
 
-      - name: Upload
-        uses: actions/upload-artifact@v3
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
         with:
-          name: win-${{ matrix.arch }}
-          path: dist/*.exe
+          name: app-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/**
 
-  # mac 多架构
-  build-mac:
-    runs-on: macos-latest
-
-    strategy:
-      matrix:
-        arch: [x64, arm64]
+  release:
+    needs: build
+    runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v4
 
-      - name: Node
-        uses: actions/setup-node@v3
+      - name: Release
+        uses: softprops/action-gh-release@v2
         with:
-          node-version: 18
-
-      - run: npm install
-      - run: npm run build
-
-      - name: Build mac
-        run: npx electron-builder --mac --${{ matrix.arch }}
-
-      - name: Upload
-        uses: actions/upload-artifact@v3
-        with:
-          name: mac-${{ matrix.arch }}
-          path: dist/*.dmg
+          tag_name: v${{ github.run_number }}
+          name: Release v${{ github.run_number }}
+          files: |
+            **/*.exe
+            **/*.dmg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
