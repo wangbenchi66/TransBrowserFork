@@ -1,8 +1,9 @@
 <script setup>
-import { Close, Hide, View } from '@element-plus/icons-vue';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useDesktopApp } from '../composables/useDesktopApp';
 import recommendedPage from './RecommendedPage.vue';
+import BottomToolbar from './parts/BottomToolbar.vue';
+import TabBar from './parts/TabBar.vue';
 
 const { settings, activeTab, activeTabId, tabs, addNewTab, selectTab, closeTab, patchSetting, updateTabMetadata, siteRules, ruleProviders } = useDesktopApp();
 
@@ -13,12 +14,7 @@ const userAgent = ref('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537
 const localReaderRef = ref(null);
 let localScrollTimer = null;
 const siteZoom = ref(1);
-const popActiveKey = ref(null);
-const popValue = ref(0);
-const popLeft = ref('50%');
-const draggingKey = ref(null);
-const fontRangeRef = ref(null);
-const autoRangeRef = ref(null);
+// bottom toolbar pop state is managed inside BottomToolbar component
 
 const currentHost = computed(() => {
   try {
@@ -135,29 +131,7 @@ function buildAutoScrollScript(enabled, speed) {
   })();`;
 }
 
-function computeLeftPct(value, min, max) {
-  const v = Number(value || 0);
-  const mn = Number(min || 0);
-  const mx = Number(max || 100);
-  const pct = mx === mn ? 50 : Math.max(0, Math.min(100, ((v - mn) / (mx - mn)) * 100));
-  return `${pct}%`;
-}
-
-function computeLeftFromInput(key, value, min = 0, max = 100) {
-  try {
-    const el = key === 'font' ? fontRangeRef.value : key === 'auto' ? autoRangeRef.value : null;
-    if (el && el instanceof HTMLElement) {
-      const mn = Number(min || 0);
-      const mx = Number(max || 100);
-      const ratio = mx === mn ? 0.5 : Math.max(0, Math.min(1, (Number(value || 0) - mn) / (mx - mn)));
-      const leftPx = el.offsetLeft + ratio * el.clientWidth;
-      return `${Math.round(leftPx)}px`;
-    }
-  } catch (e) {
-    // fallback to percent
-  }
-  return computeLeftPct(value, min, max);
-}
+// computeLeft helpers moved into BottomToolbar
 
 // 格式化标签标题：保证单行显示，超过指定字符数时截断并添加省略号
 function formatTabTitle(title) {
@@ -167,46 +141,9 @@ function formatTabTitle(title) {
   return s.length <= limit ? s : s.slice(0, limit) + '…';
 }
 
-function showPop(key, value, min = 0, max = 100) {
-  popActiveKey.value = key;
-  popValue.value = Number(value || 0);
-  popLeft.value = computeLeftFromInput(key, popValue.value, min, max);
-}
+// pop handlers moved into BottomToolbar
 
-function updatePopPosition(value, min = 0, max = 100) {
-  popValue.value = Number(value || 0);
-  popLeft.value = computeLeftFromInput(draggingKey.value || popActiveKey.value, popValue.value, min, max);
-}
-
-function hidePopIfNotDragging() {
-  if (!draggingKey.value) popActiveKey.value = null;
-}
-
-function onRangePointerDown(key) {
-  draggingKey.value = key;
-}
-
-function onRangePointerUp() {
-  draggingKey.value = null;
-}
-
-function setFontDefault() {
-  const def = 100;
-  patchSetting('readerFontScale', def);
-  if (!settings.forceReaderFont) patchSetting('forceReaderFont', true);
-  updatePopPosition(def, 80, 160);
-  syncWebviewFontSize();
-  applyLocalReaderStyles();
-}
-
-function setAutoDefault() {
-  const def = 22;
-  patchSetting('autoScrollSpeed', def);
-  if (!settings.autoScrollEnabled) patchSetting('autoScrollEnabled', true);
-  updatePopPosition(def, 5, 80);
-  syncWebviewAutoScroll();
-  syncLocalReaderAutoScroll();
-}
+// default helpers moved into BottomToolbar
 
 function toggleToolbarPinned() {
   if (settings.toolbarPinned) {
@@ -844,6 +781,16 @@ watch(
   }
 );
 
+// 当工具栏相关设置变更时，重新计算 effectiveToolbar
+watch(
+  () => [settings.toolbarVisible, settings.toolbarPinned, settings.toolbarDisabled, settings.toolbarDocked],
+  () => {
+    try {
+      updateEffectiveToolbar();
+    } catch (e) {}
+  }
+);
+
 watch(
   () => activeTabId.value,
   async () => {
@@ -859,11 +806,9 @@ watch(
 
 onBeforeUnmount(() => {
   stopLocalReaderAutoScroll();
-  window.removeEventListener('pointerup', onRangePointerUp);
 });
 
 onMounted(() => {
-  window.addEventListener('pointerup', onRangePointerUp);
   try {
     updateEffectiveToolbar();
   } catch (e) {}
@@ -872,31 +817,14 @@ onMounted(() => {
 
 <template>
   <section class="main-page">
-    <section
+    <TabBar
       v-if="settings.showTabBar"
-      class="tabbar panel no-drag">
-      <div class="tabs">
-        <BaseButton
-          v-for="tab in tabs"
-          :key="tab.id"
-          class="tab-chip"
-          :class="{ active: tab.id === activeTabId }"
-          @click="selectTab(tab.id)">
-          <span class="tab-title">{{ formatTabTitle(tab.title) }}</span>
-          <span
-            class="close-mark"
-            @click.stop="closeTab(tab.id)">
-            <el-icon><Close /></el-icon>
-          </span>
-        </BaseButton>
-
-        <BaseButton
-          class="tab-add"
-          @click="addNewTab">
-          +
-        </BaseButton>
-      </div>
-    </section>
+      :tabs="tabs"
+      :activeTabId="activeTabId"
+      :formatTabTitle="formatTabTitle"
+      :selectTab="selectTab"
+      :closeTab="closeTab"
+      :addNewTab="addNewTab" />
 
     <section class="browser-stage">
       <div class="workspace-shell">
@@ -951,167 +879,25 @@ onMounted(() => {
               </div>
             </template>
             <!-- 底部工具栏（网页模式下显示） -->
-            <div
+            <BottomToolbar
               v-if="activeTab.kind !== 'dashboard' && activeTab.kind !== 'local-text'"
-              :class="['bottom-toolbar-container', effectiveToolbar.docked ? 'docked' : 'overlay', effectiveToolbar.disabled ? 'no-hover' : '']">
-              <div
-                v-if="!effectiveToolbar.pinned && !effectiveToolbar.visible && !effectiveToolbar.disabled && !effectiveToolbar.hideHandle"
-                class="toolbar-handle"
-                @click="patchSetting('toolbarVisible', true)"></div>
-
-              <div
-                class="bottom-toolbar"
-                :class="{ hidden: !effectiveToolbar.visible, 'icon-mode': effectiveToolbar.iconOnly }">
-                <div class="toolbar-left">
-                  <BaseButton
-                    class="icon-btn icon-only"
-                    @click="webviewBack"
-                    title="后退">
-                    ◀
-                  </BaseButton>
-                  <BaseButton
-                    class="icon-btn icon-only"
-                    @click="webviewForward"
-                    title="前进">
-                    ▶
-                  </BaseButton>
-                  <BaseButton
-                    class="icon-btn icon-only"
-                    @click="webviewReload"
-                    title="刷新">
-                    ⟳
-                  </BaseButton>
-                </div>
-
-                <div class="toolbar-center">
-                  <div
-                    class="toggle-with-pop"
-                    @mouseenter="() => showPop('color', settings.readerTextColor, 0, 1)"
-                    @mouseleave="hidePopIfNotDragging">
-                    <BaseButton
-                      class="icon-btn icon-only"
-                      :class="{ on: settings.forceReaderTextColor }"
-                      @click="patchSetting('forceReaderTextColor', !settings.forceReaderTextColor)"
-                      title="文字颜色">
-                      A
-                    </BaseButton>
-
-                    <div
-                      class="hover-pop"
-                      :class="{ visible: popActiveKey === 'color' || draggingKey === 'color' }">
-                      <div class="range-row">
-                        <input
-                          type="color"
-                          :value="settings.readerTextColor"
-                          @input="onReaderColorInput" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <BaseButton
-                    class="icon-btn icon-only"
-                    :class="{ on: settings.noImageMode }"
-                    @click="patchSetting('noImageMode', !settings.noImageMode)"
-                    title="显示/隐藏图片">
-                    🖼
-                  </BaseButton>
-                  <BaseButton
-                    class="icon-btn icon-only"
-                    :class="{ on: settings.showScrollbars }"
-                    @click="patchSetting('showScrollbars', !settings.showScrollbars)"
-                    title="显示/隐藏滚动条">
-                    ≡
-                  </BaseButton>
-
-                  <div
-                    class="toggle-with-pop"
-                    @mouseenter="() => showPop('auto', settings.autoScrollSpeed, 5, 80)"
-                    @mouseleave="hidePopIfNotDragging">
-                    <BaseButton
-                      class="icon-btn icon-only"
-                      :class="{ on: settings.autoScrollEnabled }"
-                      @click="patchSetting('autoScrollEnabled', !settings.autoScrollEnabled)"
-                      title="自动滚动">
-                      ⇳
-                    </BaseButton>
-
-                    <div
-                      class="hover-pop"
-                      :class="{ visible: popActiveKey === 'auto' || draggingKey === 'auto' }">
-                      <div class="range-row">
-                        <input
-                          ref="autoRangeRef"
-                          class="mini-range"
-                          type="range"
-                          min="5"
-                          max="80"
-                          :value="settings.autoScrollSpeed"
-                          @input="onAutoScrollSpeedInput"
-                          @pointerdown="() => onRangePointerDown('auto')" />
-                        <div
-                          class="range-anchor"
-                          title="回到默认"
-                          @click="setAutoDefault"
-                          :style="{ left: computeLeftFromInput('auto', 22, 5, 80) }"></div>
-                        <BaseButton
-                          class="mini-reset-icon"
-                          title="重置到默认"
-                          @click="setAutoDefault">
-                          ⟲
-                        </BaseButton>
-                        <div class="range-default">默认 22</div>
-                      </div>
-                      <div
-                        v-if="draggingKey === 'auto'"
-                        class="pop-value"
-                        :style="{ left: popLeft }">
-                        {{ popValue }}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="toolbar-right">
-                  <BaseButton
-                    class="icon-btn icon-only"
-                    @click="zoomOut"
-                    title="缩小">
-                    -
-                  </BaseButton>
-                  <span class="zoom-label">{{ Math.round(siteZoom * 100) }}%</span>
-                  <BaseButton
-                    class="icon-btn icon-only"
-                    @click="zoomIn"
-                    title="放大">
-                    +
-                  </BaseButton>
-                  <BaseButton
-                    class="icon-btn icon-only"
-                    @click="resetZoom"
-                    title="重置">
-                    1x
-                  </BaseButton>
-                  <!-- 站点规则编辑入口已移除 -->
-                  <BaseButton
-                    class="icon-btn hide-toolbar-btn icon-only"
-                    @click="toggleToolbarPinned"
-                    :title="settings.toolbarPinned ? '切换到移入显示/移出隐藏' : '切换到始终显示'">
-                    <component
-                      :is="settings.toolbarPinned ? View : Hide"
-                      style="width: 18px; height: 18px" />
-                  </BaseButton>
-
-                  <BaseButton
-                    class="icon-btn close-toolbar-btn icon-only"
-                    @click="disableToolbar"
-                    title="关闭工具栏（不再移入显示）">
-                    <component
-                      :is="Close"
-                      style="width: 14px; height: 14px; display: block" />
-                  </BaseButton>
-                </div>
-              </div>
-            </div>
+              :settings="settings"
+              :siteZoom="siteZoom"
+              :patchSetting="patchSetting"
+              :webviewBack="webviewBack"
+              :webviewForward="webviewForward"
+              :webviewReload="webviewReload"
+              :zoomIn="zoomIn"
+              :zoomOut="zoomOut"
+              :resetZoom="resetZoom"
+              :toggleToolbarPinned="toggleToolbarPinned"
+              :disableToolbar="disableToolbar"
+              :toolbar-visible="effectiveToolbar.visible"
+              :toolbar-pinned="effectiveToolbar.pinned"
+              :toolbar-disabled="effectiveToolbar.disabled"
+              :toolbar-icon-only="effectiveToolbar.iconOnly"
+              :toolbar-docked="effectiveToolbar.docked"
+              :hide-handle="effectiveToolbar.hideHandle" />
           </div>
         </section>
       </div>

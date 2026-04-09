@@ -1,6 +1,7 @@
 <script setup>
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useDesktopApp } from './composables/useDesktopApp';
+import TopBar from './layouts/TopBar.vue';
 import MainPage from './pages/MainPage.vue';
 
 const {
@@ -239,58 +240,14 @@ onBeforeUnmount(() => {
       v-if="settings.hoverHeaderMode"
       class="header-hotzone"
       aria-hidden="true"></div>
-    <header class="topbar drag-region">
-      <div class="brand-group no-drag">
-        <!-- <button
-          class="pin-btn"
-          :class="{ active: settings.alwaysOnTop }"
-          @click="togglePin">
-          P
-        </button> -->
-        <div class="brand-block">
-          <strong>Trans Glass</strong>
-          <!-- <span>{{ statusMessage }}</span> -->
-        </div>
-      </div>
-
-      <div
-        class="title-drag"
-        aria-hidden="true"></div>
-
-      <div class="window-controls no-drag">
-        <BaseButton
-          class="control-btn settings-gear"
-          aria-label="设置"
-          @click="openSettingsModal">
-          ⚙
-        </BaseButton>
-        <BaseButton
-          class="control-btn pin-toggle"
-          :class="{ active: settings.alwaysOnTop }"
-          aria-label="窗口置顶"
-          @click="togglePin">
-          置
-        </BaseButton>
-        <BaseButton
-          class="control-btn"
-          aria-label="最小化"
-          @click="handleMinimize">
-          -
-        </BaseButton>
-        <BaseButton
-          class="control-btn"
-          aria-label="最大化"
-          @click="handleMaximize">
-          □
-        </BaseButton>
-        <BaseButton
-          class="control-btn close"
-          aria-label="关闭"
-          @click="handleClose">
-          x
-        </BaseButton>
-      </div>
-    </header>
+    <TopBar
+      :settings="settings"
+      :headerHoverActive="headerHoverActive"
+      :openSettingsModal="openSettingsModal"
+      :togglePin="togglePin"
+      :handleMinimize="handleMinimize"
+      :handleMaximize="handleMaximize"
+      :handleClose="handleClose" />
 
     <main class="page-host">
       <MainPage />
