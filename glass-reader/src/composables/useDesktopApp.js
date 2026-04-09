@@ -56,15 +56,14 @@ const leftToggleKeys = [
     // 窗口与标题/标签相关行为（把标题栏与标签的可见性放在一起）
     { key: 'showInTaskbar', label: '系统任务栏显示' },
     { key: 'closeToTray', label: '关闭时最小化到托盘' },
-    { key: 'autoHide', label: '鼠标移出隐藏' },
-    { key: 'hoverHeaderMode', label: '标题栏悬停' },
+    { key: 'hoverHeaderMode', label: '悬停显示标题栏' },
     { key: 'showTabBar', label: '显示标签栏' },
-    { key: 'pauseOnBlurHide', label: '失焦/隐藏时暂停媒体与滚动' },
+    { key: 'autoHide', label: '鼠标移出隐藏窗口' },
+    { key: 'pauseOnBlurHide', label: '隐藏时暂停媒体与滚动' },
     // 工具栏相关
-    { key: 'toolbarVisible', label: '显示工具栏' },
+    { key: 'toolbarVisible', label: '工具栏显示' },
     { key: 'toolbarDocked', label: '工具栏停靠底部' },
-    // 安全 / 行为
-    { key: 'antiScreenshotMode', label: '防截屏模式' },
+    { key: 'showScrollbars', label: '显示滚动条' },
 ]
 
 const rightToggleKeys = [
@@ -77,11 +76,12 @@ const rightToggleKeys = [
     { key: 'forceReaderTextColor', label: '强制修改文字颜色' },
     { key: 'forceReaderFont', label: '强制阅读器字号' },
     { key: 'autoScrollEnabled', label: '自动滚动' },
-    { key: 'showScrollbars', label: '显示滚动条' },
     { key: 'grayscaleMode', label: '灰度模式' },
     { key: 'noImageMode', label: '无图模式' },
     { key: 'clickThroughMode', label: '鼠标穿透' },
     { key: 'mobileMode', label: '手机模式' },
+    // 安全 / 行为
+    { key: 'antiScreenshotMode', label: '防截屏模式' },
 ]
 
 // controlToggleKeys 已移除为导出项，UI 不再直接引用该集合
@@ -134,7 +134,7 @@ const themeVars = computed(() => {
     // 透明度滑块仍然控制窗口整体不透明度（主进程通过 setOpacity 应用）。
     if (settings.fullWindowTransparent) {
         return {
-            '--header-tint': settings.statusBarColor,
+            '--header-tint': '#f5f5f7',
             '--shell-alpha': '0',
             '--surface-alpha': '0',
             '--page-alpha': '0',
@@ -148,7 +148,7 @@ const themeVars = computed(() => {
         : Math.max(0.72, 0.96 - settings.transparency / 145);
 
     return {
-        '--header-tint': settings.statusBarColor,
+        '--header-tint': '#f5f5f7',
         '--shell-alpha': String(shellAlpha),
         '--surface-alpha': String(surfaceAlpha),
         '--page-alpha': String(pageAlpha),
@@ -178,7 +178,6 @@ const immediateSyncKeys = new Set([
     'pageTransparentMode',
     'grayscaleMode',
     'clickThroughMode',
-    'statusBarColor',
     'autoScrollEnabled',
     'autoScrollSpeed',
     'readerTextColor',

@@ -342,14 +342,7 @@ onBeforeUnmount(() => {
 
             <div class="toggle-column">
               <h3 class="toggle-title">显示与渲染</h3>
-              <div class="color-row">
-                <span>状态栏背景色</span>
-                <input
-                  :value="settings.statusBarColor"
-                  class="color-input"
-                  type="color"
-                  @input="patchSetting('statusBarColor', $event.target.value)" />
-              </div>
+              <!-- 状态栏背景色控制已移除 -->
 
               <BaseButton
                 v-for="item in rightToggleKeys"

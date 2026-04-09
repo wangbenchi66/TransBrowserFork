@@ -33,11 +33,12 @@ function clamp(value, min, max) {
 }
 
 function normalizeColor(color) {
+    const DEFAULT_HEADER_TINT = '#f5f5f7'
     if (typeof color !== 'string') {
-        return defaultSettings.statusBarColor
+        return DEFAULT_HEADER_TINT
     }
 
-    return /^#[0-9a-fA-F]{6}$/.test(color) ? color : defaultSettings.statusBarColor
+    return /^#[0-9a-fA-F]{6}$/.test(color) ? color : DEFAULT_HEADER_TINT
 }
 
 function normalizeReaderColor(color) {
@@ -77,7 +78,7 @@ function normalizeSettings(partial = {}) {
         autoScrollSpeed: clamp(Number(partial.autoScrollSpeed ?? defaultSettings.autoScrollSpeed), 5, 80),
         readerTextColor: normalizeReaderColor(partial.readerTextColor ?? defaultSettings.readerTextColor),
         readerFontScale: clamp(Number(partial.readerFontScale ?? defaultSettings.readerFontScale), 80, 160),
-        statusBarColor: normalizeColor(partial.statusBarColor ?? defaultSettings.statusBarColor),
+        statusBarColor: normalizeColor(partial.statusBarColor),
         defaultUrl: String(partial.defaultUrl ?? defaultSettings.defaultUrl),
         bossKey: String(partial.bossKey ?? defaultSettings.bossKey),
         decreaseTransparencyShortcut: String(partial.decreaseTransparencyShortcut ?? defaultSettings.decreaseTransparencyShortcut),

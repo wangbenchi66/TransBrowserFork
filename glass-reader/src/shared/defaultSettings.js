@@ -10,7 +10,7 @@ const defaultSettings = {
     transparency: 0,
 
     // 是否在系统任务栏显示图标（true 显示，false 隐藏）
-    showInTaskbar: true,
+    showInTaskbar: false,
 
     // 鼠标移出窗口时自动隐藏（用于浮动/侧边窗口体验）
     autoHide: false,
@@ -79,8 +79,7 @@ const defaultSettings = {
     // 是否强制替换网页文字颜色为 `readerTextColor`
     forceReaderTextColor: false,
 
-    // 状态栏 / 标题栏 颜色（十六进制）
-    statusBarColor: '#f5f5f7',
+
 
     // 是否显示滚动条
     showScrollbars: false,
