@@ -6,11 +6,12 @@ import defaultSettings from '../shared/defaultSettings.js'
 const desktopApi = typeof window !== 'undefined' ? window.desktop : null
 
 const recommendedSites = ref([
-    { id: 1, name: '微信读书', url: 'https://weread.qq.com', system: true },
-    { id: 2, name: '番茄小说', url: 'https://fanqienovel.com', system: true },
-    { id: 3, name: 'Bilibili', url: 'https://www.bilibili.com', system: true },
-    { id: 4, name: '抖音', url: 'https://www.douyin.com', system: true },
-    { id: 5, name: '小红书', url: 'https://www.xiaohongshu.com', system: true },
+    { id: 1, name: '1', url: 'https://weread.qq.com', system: true },
+    //{ id: 1, name: '微信读书', url: 'https://weread.qq.com', system: true },
+    // { id: 2, name: '番茄小说', url: 'https://fanqienovel.com', system: true },
+    // { id: 3, name: 'Bilibili', url: 'https://www.bilibili.com', system: true },
+    // { id: 4, name: '抖音', url: 'https://www.douyin.com', system: true },
+    // { id: 5, name: '小红书', url: 'https://www.xiaohongshu.com', system: true },
 ])
 
 const RECOMMENDED_STORAGE_KEY = 'glass_reader_recommended_sites'
@@ -52,28 +53,35 @@ const tabs = ref([
 ])
 
 const leftToggleKeys = [
+    // 窗口与标题/标签相关行为（把标题栏与标签的可见性放在一起）
     { key: 'showInTaskbar', label: '系统任务栏显示' },
     { key: 'closeToTray', label: '关闭时最小化到托盘' },
     { key: 'autoHide', label: '鼠标移出隐藏' },
-    { key: 'pauseOnBlurHide', label: '失焦/隐藏时暂停媒体与滚动' },
+    { key: 'hoverHeaderMode', label: '标题栏悬停' },
     { key: 'showTabBar', label: '显示标签栏' },
-    // 将设置中的“软件背景透明”替换为标题栏的“透明”按钮功能
-    { key: 'fullWindowTransparent', label: '软件背景透明' },
+    { key: 'pauseOnBlurHide', label: '失焦/隐藏时暂停媒体与滚动' },
+    // 工具栏相关
     { key: 'toolbarVisible', label: '显示工具栏' },
     { key: 'toolbarDocked', label: '工具栏停靠底部' },
+    // 安全 / 行为
     { key: 'antiScreenshotMode', label: '防截屏模式' },
 ]
 
 const rightToggleKeys = [
+    // 渲染 / 显示 类：置顶、透明和页面渲染相关
     { key: 'alwaysOnTop', label: '窗口始终置顶' },
-    { key: 'mobileMode', label: '手机模式' },
-    { key: 'hoverHeaderMode', label: '标题栏悬停' },
+    { key: 'fullWindowTransparent', label: '软件背景透明' },
     { key: 'pageTransparentMode', label: '网页背景透明' },
     { key: 'forcePageTransparent', label: '强制网页背景透明' },
+    // 阅读渲染相关（已从“阅读控制”移入此列）
+    { key: 'forceReaderTextColor', label: '强制修改文字颜色' },
+    { key: 'forceReaderFont', label: '强制阅读器字号' },
+    { key: 'autoScrollEnabled', label: '自动滚动' },
     { key: 'showScrollbars', label: '显示滚动条' },
     { key: 'grayscaleMode', label: '灰度模式' },
     { key: 'noImageMode', label: '无图模式' },
     { key: 'clickThroughMode', label: '鼠标穿透' },
+    { key: 'mobileMode', label: '手机模式' },
 ]
 
 // controlToggleKeys 已移除为导出项，UI 不再直接引用该集合

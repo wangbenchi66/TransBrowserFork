@@ -358,7 +358,7 @@ iframe {
 .compact-header-tabs > .tabbar.panel,
 .compact-header-tabs > .topbar,
 .compact-header-tabs > .tabbar {
-  background: transparent !important;
+  /* background: transparent !important; */
   border: 0 !important;
   border-radius: 0 !important;
   box-shadow: none !important;
