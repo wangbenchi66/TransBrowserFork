@@ -279,7 +279,7 @@ onBeforeUnmount(() => {
             title="文字颜色"
             >A</BaseButton
           >
-          
+
           <div
             class="hover-pop"
             :class="{ visible: popActiveKey === 'color' || draggingKey === 'color' }"
@@ -306,7 +306,6 @@ onBeforeUnmount(() => {
             title="字号"
             >字</BaseButton
           >
-          
 
           <div
             class="hover-pop"
@@ -377,7 +376,6 @@ onBeforeUnmount(() => {
             :title="props.settings.autoScrollEnabled ? '关闭自动滚动' : '开启自动滚动'"
             >⇳</BaseButton
           >
-          
 
           <div
             class="hover-pop"

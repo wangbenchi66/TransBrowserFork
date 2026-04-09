@@ -55,6 +55,7 @@ const leftToggleKeys = [
     { key: 'showInTaskbar', label: '系统任务栏显示' },
     { key: 'closeToTray', label: '关闭时最小化到托盘' },
     { key: 'autoHide', label: '鼠标移出隐藏' },
+    { key: 'pauseOnBlurHide', label: '失焦/隐藏时暂停媒体与滚动' },
     { key: 'showTabBar', label: '显示标签栏' },
     // 将设置中的“软件背景透明”替换为标题栏的“透明”按钮功能
     { key: 'fullWindowTransparent', label: '软件背景透明' },

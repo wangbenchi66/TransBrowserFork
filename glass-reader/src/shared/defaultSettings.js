@@ -60,6 +60,10 @@ const defaultSettings = {
     // 自动滚动速度（范围 5-80，数值越大滚动越快）
     autoScrollSpeed: 22,
 
+    // 失焦或隐藏时暂停所有媒体（视频/音频）并停止自动滚动，恢复时再恢复
+    // true = 启用该行为，false = 不做任何自动暂停/恢复
+    pauseOnBlurHide: false,
+
     // 阅读器文字颜色（十六进制）
     readerTextColor: '#283247',
 

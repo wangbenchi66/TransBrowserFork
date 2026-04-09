@@ -513,6 +513,130 @@ function syncReaderEffects() {
   applyLocalReaderStyles();
 }
 
+// --- 失焦/隐藏时暂停媒体与自动滚动的实现 --- //
+let _pauseListenerAttached = false;
+let _pausedByHide = false;
+
+function pauseMediaAndScroll() {
+  try {
+    // 停止本地阅读器自动滚动
+    stopLocalReaderAutoScroll();
+  } catch (e) {}
+
+  try {
+    const script = `(() => {
+      try {
+        const media = Array.from(document.querySelectorAll('video, audio'));
+        media.forEach((el) => {
+          try {
+            // 记录之前的静音状态与播放状态
+            el.__glass_reader_prev_muted = el.muted ? 1 : 0;
+            el.__glass_reader_was_playing = el.paused ? 0 : 1;
+            if (typeof el.pause === 'function') el.pause();
+            try { el.muted = true; } catch(e) {}
+          } catch(e) {}
+        });
+        // 如果存在注入的自动滚动计时器，清除并标记为已被暂停
+        if (window.__glassReaderAutoScrollTimer) {
+          try { window.clearInterval(window.__glassReaderAutoScrollTimer); } catch(e) {}
+          window.__glassReaderAutoScrollTimer = null;
+          window.__glassReaderAutoScrollPausedByGlassReader = true;
+        }
+      } catch(e) {}
+      return true;
+    })();`;
+    runWebviewJS(script);
+  } catch (e) {}
+}
+
+function resumeMediaAndScroll() {
+  try {
+    // 恢复本地阅读器自动滚动（根据当前设置决定是否启用）
+    syncLocalReaderAutoScroll();
+  } catch (e) {}
+
+  try {
+    const script = `(() => {
+      try {
+        const media = Array.from(document.querySelectorAll('video, audio'));
+        media.forEach((el) => {
+          try {
+            if (el.__glass_reader_prev_muted !== undefined) {
+              try { el.muted = !!el.__glass_reader_prev_muted; } catch(e) {}
+              try { delete el.__glass_reader_prev_muted; } catch(e) {}
+            }
+            if (el.__glass_reader_was_playing === 1 || el.__glass_reader_was_playing === '1') {
+              try { const p = el.play(); if (p && typeof p.catch === 'function') p.catch(() => {}); } catch(e) {}
+            }
+            try { delete el.__glass_reader_was_playing; } catch(e) {}
+          } catch(e) {}
+        });
+        // 清理自动滚动暂停标记（host 侧会重新注入 autoScroll）
+        if (window.__glassReaderAutoScrollPausedByGlassReader) {
+          window.__glassReaderAutoScrollPausedByGlassReader = false;
+        }
+      } catch(e) {}
+      return true;
+    })();`;
+    runWebviewJS(script);
+    // 重新同步 webview 自动滚动（主机侧会根据 settings.autoScrollEnabled 决定是否启动）
+    syncWebviewAutoScroll();
+  } catch (e) {}
+}
+
+function handleHideEvent() {
+  if (!settings.pauseOnBlurHide) return;
+  if (_pausedByHide) return;
+  _pausedByHide = true;
+  pauseMediaAndScroll();
+}
+
+function handleShowEvent() {
+  if (!settings.pauseOnBlurHide) return;
+  if (!_pausedByHide) return;
+  _pausedByHide = false;
+  resumeMediaAndScroll();
+}
+
+function onVisibilityChange() {
+  try {
+    if (document.hidden) handleHideEvent();
+    else handleShowEvent();
+  } catch (e) {}
+}
+
+function onWindowBlur() {
+  try {
+    handleHideEvent();
+  } catch (e) {}
+}
+function onWindowFocus() {
+  try {
+    handleShowEvent();
+  } catch (e) {}
+}
+
+function attachPauseListeners() {
+  if (_pauseListenerAttached) return;
+  _pauseListenerAttached = true;
+  try {
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('blur', onWindowBlur);
+    window.addEventListener('focus', onWindowFocus);
+  } catch (e) {}
+}
+
+function detachPauseListeners() {
+  if (!_pauseListenerAttached) return;
+  _pauseListenerAttached = false;
+  try {
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+    window.removeEventListener('blur', onWindowBlur);
+    window.removeEventListener('focus', onWindowFocus);
+  } catch (e) {}
+  _pausedByHide = false;
+}
+
 // 将样式立即应用到本地阅读视图（local-text），保证在滑动/选色时有即时反馈
 function applyLocalReaderStyles() {
   try {
@@ -804,13 +928,31 @@ watch(
   }
 );
 
+// 监听用户是否启用失焦暂停行为，动态绑定/解绑事件监听器
+watch(
+  () => settings.pauseOnBlurHide,
+  (v) => {
+    try {
+      if (v) attachPauseListeners();
+      else detachPauseListeners();
+    } catch (e) {}
+  }
+);
+
 onBeforeUnmount(() => {
   stopLocalReaderAutoScroll();
+  try {
+    detachPauseListeners();
+  } catch (e) {}
 });
 
 onMounted(() => {
   try {
     updateEffectiveToolbar();
+  } catch (e) {}
+  // 如果用户已启用，初始化绑定隐藏/失焦监听
+  try {
+    if (settings.pauseOnBlurHide) attachPauseListeners();
   } catch (e) {}
 });
 </script>
