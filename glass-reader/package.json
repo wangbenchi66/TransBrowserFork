@@ -2,7 +2,7 @@
   "name": "glass-reader",
   "description": "透明模糊阅读与浏览工作台",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
   "type": "module",
   "author": "GitHub Copilot",
   "main": "electron/main.js",

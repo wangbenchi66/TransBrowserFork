@@ -17,6 +17,13 @@
   --scrollbar-track: transparent;
   --scrollbar-thumb-radius: 6px;
   --scrollbar-thumb-shadow: 0 6px 12px rgba(60,68,80,0.04);
+  /* 顶部与标签栏尺寸：可通过变量微调以减小 UI 体积 */
+  --topbar-height: 32px;
+  --topbar-padding-vertical: 6px;
+  --topbar-padding-horizontal: 10px;
+  --tab-height: 28px;
+  --tab-chip-min-width: 96px;
+  --tab-padding-horizontal: 10px;
   font-family: 'Microsoft YaHei UI', 'PingFang SC', sans-serif;
 }
 /* 项目内统一滚动条样式（仅影响应用自身元素）
@@ -100,7 +107,7 @@ input {
   /* padding: 10px; */ /* 统一内边距，保持内容不贴边，同时为可能的阴影和边框留出空间 */
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
   color: var(--text);
   -webkit-app-region: drag;
 }
@@ -165,8 +172,8 @@ iframe {
 }
 
 .topbar {
-  min-height: 46px;
-  padding: 8px 12px;
+  min-height: var(--topbar-height, 46px);
+  padding: var(--topbar-padding-vertical, 8px) var(--topbar-padding-horizontal, 12px);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -177,7 +184,7 @@ iframe {
 .brand-group {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
 }
 
 .pin-btn,
@@ -220,12 +227,12 @@ iframe {
 }
 
 .brand-block strong {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
 }
 
 .brand-block span {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted);
 }
 
@@ -299,7 +306,7 @@ iframe {
 }
 
 .tabbar {
-  padding: 6px 8px;
+  padding: 4px 6px;
   background: color-mix(in srgb, var(--header-tint) 22%, rgba(255, 255, 255, var(--shell-alpha, 0.92)));
 }
 
@@ -311,10 +318,10 @@ iframe {
 }
 
 .tab-chip {
-  min-width: 112px;
+  min-width: var(--tab-chip-min-width, 112px);
   max-width: 220px;
-  height: 34px;
-  padding: 0 12px;
+  height: var(--tab-height, 34px);
+  padding: 0 var(--tab-padding-horizontal, 10px);
   border: 1px solid transparent;
   border-radius: 10px 10px 0 0;
   background: rgba(255, 255, 255, var(--surface-alpha, 0.6));
@@ -322,7 +329,7 @@ iframe {
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 6px;
 }
 
 .tab-chip.active {
@@ -363,7 +370,7 @@ iframe {
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
 }
 
 .settings-page {
@@ -1372,7 +1379,7 @@ iframe {
   top: 0;
   left: 0;
   right: 0;
-  height: 48px; /* 感应高度：从 10px 提升到 48px，扩大触发区域以便更容易悬停和拖动 */
+  height: 28px; /* 感应高度：缩小以减少顶部空白（更紧凑） */
   z-index: 9998;
   pointer-events: auto;
   -webkit-app-region: drag; /* 使热区可直接拖动窗口（当顶部栏未显示时） */
@@ -1394,13 +1401,13 @@ iframe {
 /* topbar 位于顶部（可见时的目标位置） */
 .mode-hover-header .topbar.visible,
 .mode-hover-header.header-hover-active .topbar {
-  top: 12px;
+  top: 0;
 }
 
 /* tabbar 放在 topbar 之下（根据 topbar 高度调整） */
 .mode-hover-header .tabbar.visible,
 .mode-hover-header.header-hover-active .tabbar {
-  top: calc(12px + 46px);
+  top: calc(var(--topbar-height, 46px));
 }
 
 /* 中央拖动句柄：在 topbar 中占据中间伸缩区域，提供明确且稳定的拖动目标 */
@@ -1419,7 +1426,7 @@ iframe {
 .mode-hover-header .header-hotzone:hover ~ .topbar,
 .mode-hover-header .topbar:hover {
   opacity: 1;
-  top: 12px;
+  top: 0;
   pointer-events: auto;
   z-index: 10000; /* 提升到热区之上，保证交互不被热区遮挡 */
 }
@@ -1427,7 +1434,7 @@ iframe {
 .mode-hover-header .header-hotzone:hover ~ .page-host .tabbar,
 .mode-hover-header .tabbar:hover {
   opacity: 1;
-  top: calc(12px + 46px);
+  top: calc(var(--topbar-height, 46px));
   pointer-events: auto;
   z-index: 10000;
 }
