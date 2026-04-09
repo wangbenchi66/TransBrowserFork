@@ -258,37 +258,37 @@ onBeforeUnmount(() => {
         aria-hidden="true"></div>
 
       <div class="window-controls no-drag">
-        <button
+        <BaseButton
           class="control-btn settings-gear"
           aria-label="设置"
           @click="openSettingsModal">
           ⚙
-        </button>
-        <button
+        </BaseButton>
+        <BaseButton
           class="control-btn pin-toggle"
           :class="{ active: settings.alwaysOnTop }"
           aria-label="窗口置顶"
           @click="togglePin">
           置
-        </button>
-        <button
+        </BaseButton>
+        <BaseButton
           class="control-btn"
           aria-label="最小化"
           @click="handleMinimize">
           -
-        </button>
-        <button
+        </BaseButton>
+        <BaseButton
           class="control-btn"
           aria-label="最大化"
           @click="handleMaximize">
           □
-        </button>
-        <button
+        </BaseButton>
+        <BaseButton
           class="control-btn close"
           aria-label="关闭"
           @click="handleClose">
           x
-        </button>
+        </BaseButton>
       </div>
     </header>
 
@@ -301,17 +301,17 @@ onBeforeUnmount(() => {
       class="settings-modal-layer settings-floating no-drag"
       @click.self="closeSettingsModal">
       <section class="settings-modal panel">
-        <div class="settings-modal-header">
+          <div class="settings-modal-header">
           <div>
             <strong>设置中心</strong>
             <span>当前修改会直接作用于主窗口</span>
           </div>
-          <button
+          <BaseButton
             class="control-btn close"
             aria-label="关闭设置"
             @click="closeSettingsModal">
             x
-          </button>
+          </BaseButton>
         </div>
 
         <section class="settings-page panel no-drag">
@@ -392,38 +392,38 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
-            <button
+            <BaseButton
               class="toggle-row settings-row-gap"
               @click="toggleSetting('forceReaderTextColor')">
               <span>强制修改文字颜色</span>
               <span
                 class="switch"
                 :class="{ on: settings.forceReaderTextColor }"></span>
-            </button>
+            </BaseButton>
 
-            <button
+            <BaseButton
               class="toggle-row settings-row-gap"
               @click="toggleSetting('forceReaderFont')">
               <span>强制阅读器字号</span>
               <span
                 class="switch"
                 :class="{ on: settings.forceReaderFont }"></span>
-            </button>
+            </BaseButton>
 
-            <button
+            <BaseButton
               class="toggle-row settings-row-gap"
               @click="toggleSetting('autoScrollEnabled')">
               <span>自动滚动</span>
               <span
                 class="switch"
                 :class="{ on: settings.autoScrollEnabled }"></span>
-            </button>
+            </BaseButton>
           </section>
 
           <section class="toggle-grid section-panel">
             <div class="toggle-column">
               <h3 class="toggle-title">窗口行为</h3>
-              <button
+              <BaseButton
                 v-for="item in leftToggleKeys"
                 :key="item.key"
                 class="toggle-row"
@@ -432,15 +432,15 @@ onBeforeUnmount(() => {
                 <span
                   class="switch"
                   :class="{ on: settings[item.key] }"></span>
-              </button>
-              <button
+              </BaseButton>
+              <BaseButton
                 class="toggle-row"
                 @click="toggleSetting('toolbarDisabled')">
                 <span>禁用工具栏（不再移入显示）</span>
                 <span
                   class="switch"
                   :class="{ on: settings.toolbarDisabled }"></span>
-              </button>
+              </BaseButton>
             </div>
 
             <div class="toggle-column">
@@ -454,7 +454,7 @@ onBeforeUnmount(() => {
                   @input="patchSetting('statusBarColor', $event.target.value)" />
               </div>
 
-              <button
+              <BaseButton
                 v-for="item in rightToggleKeys"
                 :key="item.key"
                 class="toggle-row"
@@ -463,7 +463,7 @@ onBeforeUnmount(() => {
                 <span
                   class="switch"
                   :class="{ on: settings[item.key] }"></span>
-              </button>
+              </BaseButton>
             </div>
           </section>
 
@@ -479,17 +479,17 @@ onBeforeUnmount(() => {
                     class="text-field"
                     :value="editingShortcut === 'bossKey' ? capturedAccel || '按下组合键...' : settings.bossKey"
                     readonly />
-                  <button
+                  <BaseButton
                     class="secondary-btn"
                     @click="editingShortcut === 'bossKey' ? confirmShortcut('bossKey') : startEditShortcut('bossKey')">
                     {{ editingShortcut === 'bossKey' ? '保存' : '编辑' }}
-                  </button>
-                  <button
+                  </BaseButton>
+                  <BaseButton
                     v-if="editingShortcut === 'bossKey'"
                     class="secondary-btn"
                     @click="cancelShortcut">
                     取消
-                  </button>
+                  </BaseButton>
                 </div>
               </label>
 
@@ -500,17 +500,17 @@ onBeforeUnmount(() => {
                     class="text-field"
                     :value="editingShortcut === 'decreaseTransparencyShortcut' ? capturedAccel || '按下组合键...' : settings.decreaseTransparencyShortcut"
                     readonly />
-                  <button
+                  <BaseButton
                     class="secondary-btn"
                     @click="editingShortcut === 'decreaseTransparencyShortcut' ? confirmShortcut('decreaseTransparencyShortcut') : startEditShortcut('decreaseTransparencyShortcut')">
                     {{ editingShortcut === 'decreaseTransparencyShortcut' ? '保存' : '编辑' }}
-                  </button>
-                  <button
+                  </BaseButton>
+                  <BaseButton
                     v-if="editingShortcut === 'decreaseTransparencyShortcut'"
                     class="secondary-btn"
                     @click="cancelShortcut">
                     取消
-                  </button>
+                  </BaseButton>
                 </div>
               </label>
 
@@ -521,17 +521,17 @@ onBeforeUnmount(() => {
                     class="text-field"
                     :value="editingShortcut === 'increaseTransparencyShortcut' ? capturedAccel || '按下组合键...' : settings.increaseTransparencyShortcut"
                     readonly />
-                  <button
+                  <BaseButton
                     class="secondary-btn"
                     @click="editingShortcut === 'increaseTransparencyShortcut' ? confirmShortcut('increaseTransparencyShortcut') : startEditShortcut('increaseTransparencyShortcut')">
                     {{ editingShortcut === 'increaseTransparencyShortcut' ? '保存' : '编辑' }}
-                  </button>
-                  <button
+                  </BaseButton>
+                  <BaseButton
                     v-if="editingShortcut === 'increaseTransparencyShortcut'"
                     class="secondary-btn"
                     @click="cancelShortcut">
                     取消
-                  </button>
+                  </BaseButton>
                 </div>
               </label>
 
@@ -542,17 +542,17 @@ onBeforeUnmount(() => {
                     class="text-field"
                     :value="editingShortcut === 'clickThroughShortcut' ? capturedAccel || '按下组合键...' : settings.clickThroughShortcut"
                     readonly />
-                  <button
+                  <BaseButton
                     class="secondary-btn"
                     @click="editingShortcut === 'clickThroughShortcut' ? confirmShortcut('clickThroughShortcut') : startEditShortcut('clickThroughShortcut')">
                     {{ editingShortcut === 'clickThroughShortcut' ? '保存' : '编辑' }}
-                  </button>
-                  <button
+                  </BaseButton>
+                  <BaseButton
                     v-if="editingShortcut === 'clickThroughShortcut'"
                     class="secondary-btn"
                     @click="cancelShortcut">
                     取消
-                  </button>
+                  </BaseButton>
                 </div>
               </label>
             </div>

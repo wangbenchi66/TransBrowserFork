@@ -120,16 +120,16 @@ function avatarText(site) {
         class="url-input"
         placeholder="输入网址，回车打开任意网站..."
         @keydown.enter="handleOpenUrl" />
-      <button
+      <BaseButton
         class="open-btn"
         @click="handleOpenUrl">
         打开
-      </button>
-      <button
+      </BaseButton>
+      <BaseButton
         class="secondary-btn"
         @click="triggerFileSelect">
         导入文件
-      </button>
+      </BaseButton>
       <input
         ref="fileInputRef"
         class="hidden-input"
@@ -291,14 +291,14 @@ function avatarText(site) {
       </div>
 
       <div class="list">
-        <button
+        <BaseButton
           v-for="item in filteredRecentVisits"
           :key="`${item.type}-${item.url}`"
           class="history-item"
           @click="openRecentVisit(item)">
           <strong>{{ item.title }}</strong>
           <span class="url">{{ item.url }}</span>
-        </button>
+        </BaseButton>
       </div>
     </section>
   </div>

@@ -863,7 +863,7 @@ onMounted(() => {
       v-if="settings.showTabBar"
       class="tabbar panel no-drag">
       <div class="tabs">
-        <button
+        <BaseButton
           v-for="tab in tabs"
           :key="tab.id"
           class="tab-chip"
@@ -875,13 +875,13 @@ onMounted(() => {
             @click.stop="closeTab(tab.id)">
             x
           </span>
-        </button>
+        </BaseButton>
 
-        <button
+        <BaseButton
           class="tab-add"
           @click="addNewTab">
           +
-        </button>
+        </BaseButton>
       </div>
     </section>
 
@@ -949,24 +949,24 @@ onMounted(() => {
                 class="bottom-toolbar"
                 :class="{ hidden: !effectiveToolbar.visible, 'icon-mode': effectiveToolbar.iconOnly }">
                 <div class="toolbar-left">
-                  <button
+                  <BaseButton
                     class="icon-btn icon-only"
                     @click="webviewBack"
                     title="后退">
                     ◀
-                  </button>
-                  <button
+                  </BaseButton>
+                  <BaseButton
                     class="icon-btn icon-only"
                     @click="webviewForward"
                     title="前进">
                     ▶
-                  </button>
-                  <button
+                  </BaseButton>
+                  <BaseButton
                     class="icon-btn icon-only"
                     @click="webviewReload"
                     title="刷新">
                     ⟳
-                  </button>
+                  </BaseButton>
                 </div>
 
                 <div class="toolbar-center">
@@ -974,13 +974,13 @@ onMounted(() => {
                     class="toggle-with-pop"
                     @mouseenter="() => showPop('color', settings.readerTextColor, 0, 1)"
                     @mouseleave="hidePopIfNotDragging">
-                    <button
+                    <BaseButton
                       class="icon-btn icon-only"
                       :class="{ on: settings.forceReaderTextColor }"
                       @click="patchSetting('forceReaderTextColor', !settings.forceReaderTextColor)"
                       title="文字颜色">
                       A
-                    </button>
+                    </BaseButton>
 
                     <div
                       class="hover-pop"
@@ -994,32 +994,32 @@ onMounted(() => {
                     </div>
                   </div>
 
-                  <button
+                  <BaseButton
                     class="icon-btn icon-only"
                     :class="{ on: settings.noImageMode }"
                     @click="patchSetting('noImageMode', !settings.noImageMode)"
                     title="显示/隐藏图片">
                     🖼
-                  </button>
-                  <button
+                  </BaseButton>
+                  <BaseButton
                     class="icon-btn icon-only"
                     :class="{ on: settings.showScrollbars }"
                     @click="patchSetting('showScrollbars', !settings.showScrollbars)"
                     title="显示/隐藏滚动条">
                     ≡
-                  </button>
+                  </BaseButton>
 
                   <div
                     class="toggle-with-pop"
                     @mouseenter="() => showPop('auto', settings.autoScrollSpeed, 5, 80)"
                     @mouseleave="hidePopIfNotDragging">
-                    <button
+                    <BaseButton
                       class="icon-btn icon-only"
                       :class="{ on: settings.autoScrollEnabled }"
                       @click="patchSetting('autoScrollEnabled', !settings.autoScrollEnabled)"
                       title="自动滚动">
                       ⇳
-                    </button>
+                    </BaseButton>
 
                     <div
                       class="hover-pop"
@@ -1039,12 +1039,12 @@ onMounted(() => {
                           title="回到默认"
                           @click="setAutoDefault"
                           :style="{ left: computeLeftFromInput('auto', 22, 5, 80) }"></div>
-                        <button
+                        <BaseButton
                           class="mini-reset-icon"
                           title="重置到默认"
                           @click="setAutoDefault">
                           ⟲
-                        </button>
+                        </BaseButton>
                         <div class="range-default">默认 22</div>
                       </div>
                       <div
@@ -1058,43 +1058,43 @@ onMounted(() => {
                 </div>
 
                 <div class="toolbar-right">
-                  <button
+                  <BaseButton
                     class="icon-btn icon-only"
                     @click="zoomOut"
                     title="缩小">
                     -
-                  </button>
+                  </BaseButton>
                   <span class="zoom-label">{{ Math.round(siteZoom * 100) }}%</span>
-                  <button
+                  <BaseButton
                     class="icon-btn icon-only"
                     @click="zoomIn"
                     title="放大">
                     +
-                  </button>
-                  <button
+                  </BaseButton>
+                  <BaseButton
                     class="icon-btn icon-only"
                     @click="resetZoom"
                     title="重置">
                     1x
-                  </button>
+                  </BaseButton>
                   <!-- 站点规则编辑入口已移除 -->
-                  <button
+                  <BaseButton
                     class="icon-btn hide-toolbar-btn icon-only"
                     @click="toggleToolbarPinned"
                     :title="settings.toolbarPinned ? '切换到移入显示/移出隐藏' : '切换到始终显示'">
                     <component
                       :is="settings.toolbarPinned ? View : Hide"
                       style="width: 18px; height: 18px" />
-                  </button>
+                  </BaseButton>
 
-                  <button
+                  <BaseButton
                     class="icon-btn close-toolbar-btn icon-only"
                     @click="disableToolbar"
                     title="关闭工具栏（不再移入显示）">
                     <component
                       :is="Close"
                       style="width: 14px; height: 14px; display: block" />
-                  </button>
+                  </BaseButton>
                 </div>
               </div>
             </div>
