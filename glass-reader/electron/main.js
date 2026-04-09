@@ -496,10 +496,10 @@ function createWindow() {
         minWidth: 80,
         minHeight: 80,
         frame: false,
-        // 是否创建为透明窗口由设置控制：仅在启用“软件背景透明”时为透明
-        transparent: Boolean(currentSettings.transparentBackground),
+        // 创建为透明窗口，页面透明区域将透出桌面（CSS 控制具体显示效果）
+        transparent: true,
         hasShadow: false,
-        backgroundColor: currentSettings.transparentBackground ? '#00000000' : '#ffffff',
+        backgroundColor: '#00000000',
         titleBarStyle: 'hidden',
         webPreferences: {
             preload: path.join(__dirname, 'preload.cjs'),
@@ -608,8 +608,6 @@ ipcMain.handle('settings:get', () => currentSettings)
 ipcMain.handle('settings:update', (_, partial) => {
     //输出设置变更日志，帮助排查设置更新流程
     //console.log('[ipc] settings:update', { partial })
-    const prevTransparent = currentSettings.transparentBackground
-
     currentSettings = normalizeSettings({
         ...currentSettings,
         ...partial,
@@ -619,30 +617,8 @@ ipcMain.handle('settings:update', (_, partial) => {
     registerGlobalShortcuts()
     refreshAutoHideMonitor()
 
-    // 如果切换了软件背景透明设置，需要重建窗口以改变 BrowserWindow 的 `transparent` 属性
-    if (typeof partial.transparentBackground !== 'undefined' && prevTransparent !== currentSettings.transparentBackground) {
-        try {
-            if (mainWindow && !mainWindow.isDestroyed()) {
-                const wasVisible = mainWindow.isVisible()
-                let bounds = null
-                try { bounds = mainWindow.getBounds() } catch (e) { bounds = null }
-                try { mainWindow.destroy() } catch (e) { try { mainWindow.close() } catch (e) {} }
-                // 将上次尺寸持久化，createWindow 会从 store 读取
-                if (bounds && bounds.width && bounds.height) {
-                    try { store.set('width', bounds.width); store.set('height', bounds.height) } catch (e) {}
-                }
-            }
-        } catch (e) {
-            console.warn('[settings] error while recreating window for transparency change', e)
-        }
-
-        // 重新创建窗口并恢复托盘菜单等
-        createWindow()
-        refreshTrayMenu()
-    } else {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-            applyWindowSettings(mainWindow)
-        }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        applyWindowSettings(mainWindow)
     }
 
     broadcastSettings()
