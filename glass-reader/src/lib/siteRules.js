@@ -6,13 +6,16 @@ let _loaded = false
 // 从 src/rule 文件夹加载静态站点规则（由开发者以文件形式提供）
 // 每个模块应导出默认对象：{ pattern, matchType, enabled, preventBlankTargets, removeImages, customCss, customJs }
 // 也支持导出默认函数（返回规则对象）或直接导出对象。
-let staticRules = []
+// 静态规则分为两类：默认全局规则（来自 rule/default.js）与站点规则（其它文件）
+let staticDefaults = []
+let staticSiteRules = []
 try {
     // 使用 Vite 的 import.meta.glob({ eager: true }) 在构建时加载规则模块
     const modules = import.meta.glob('../rule/*.js', { eager: true });
     for (const key in modules) {
         const mod = modules[key];
         const name = key.split('/').pop().replace('.js', '');
+        const isDefaultFile = name === 'default' || /\/default\.js$/.test(key);
         const base = {
             id: `static:${name}`,
             pattern: name,
@@ -34,7 +37,8 @@ try {
                 const p = mod.default.pattern ?? mod.pattern ?? mod.patterns ?? base.pattern;
                 const ruleObj = Object.assign({}, base, { pattern: p, apply: mod.default });
                 if (typeof mod.match === 'function') ruleObj.match = mod.match;
-                staticRules.push(ruleObj);
+                if (isDefaultFile) ruleObj.isDefault = true;
+                if (isDefaultFile) staticDefaults.push(ruleObj); else staticSiteRules.push(ruleObj);
                 continue;
             }
 
@@ -46,7 +50,8 @@ try {
                 if ((!ruleObj.pattern || ruleObj.pattern === base.pattern) && mod.pattern) ruleObj.pattern = mod.pattern;
                 if ((!ruleObj.pattern || ruleObj.pattern === base.pattern) && mod.patterns) ruleObj.pattern = mod.patterns;
                 if (typeof mod.match === 'function' && typeof ruleObj.match !== 'function') ruleObj.match = mod.match;
-                staticRules.push(ruleObj);
+                if (isDefaultFile) ruleObj.isDefault = true;
+                if (isDefaultFile) staticDefaults.push(ruleObj); else staticSiteRules.push(ruleObj);
                 continue;
             }
         }
@@ -61,11 +66,19 @@ try {
         if (typeof mod.match === 'function') { named.match = mod.match; has = true; }
         if (typeof mod.customCss === 'string') { named.customCss = mod.customCss; has = true; }
         if (typeof mod.customJs === 'string') { named.customJs = mod.customJs; has = true; }
-        if (has || named.pattern !== base.pattern || named.apply) staticRules.push(named);
+        if (has || named.pattern !== base.pattern || named.apply) {
+            if (isDefaultFile) {
+                named.isDefault = true;
+                staticDefaults.push(named);
+            } else {
+                staticSiteRules.push(named);
+            }
+        }
     }
 } catch (e) {
     // ignore if import.meta.glob 不可用 或 在非 vite 环境下出错
-    staticRules = [];
+    staticDefaults = [];
+    staticSiteRules = [];
 }
 
 function loadRules() {
@@ -92,8 +105,8 @@ function persistRules() {
 
 function getRules() {
     loadRules()
-    // 合并用户持久化规则与静态文件规则（静态规则为只读）
-    return rules.concat(staticRules).slice()
+    // 合并静态默认规则 -> 静态站点规则 -> 用户持久化规则（用户规则优先级最高）
+    return staticDefaults.concat(staticSiteRules).concat(rules).slice()
 }
 
 function matchesRule(rule, rawUrl) {
@@ -190,8 +203,13 @@ function matchesRule(rule, rawUrl) {
 function getRulesForUrl(rawUrl) {
     loadRules()
     try {
-        const combined = rules.concat(staticRules)
-        return combined.filter(r => (r.enabled ?? true) && matchesRule(r, rawUrl))
+        // 优先返回：静态默认规则（对所有 URL 生效） -> 静态站点规则（按 pattern 匹配） -> 用户持久化规则（按 pattern 匹配）
+        const combined = staticDefaults.concat(staticSiteRules).concat(rules)
+        return combined.filter(r => {
+            if (!(r.enabled ?? true)) return false
+            if (r.isDefault) return true
+            return matchesRule(r, rawUrl)
+        })
     } catch (e) {
         return []
     }
@@ -237,5 +255,5 @@ function removeRule(id) {
 // 自动在模块加载时读取一次
 loadRules()
 
-export { addRule, editRule, getRules, getRulesForUrl, loadRules, persistRules, removeRule };
+export { addRule, editRule, getRules, getRulesForUrl, loadRules, persistRules, removeRule }
 
