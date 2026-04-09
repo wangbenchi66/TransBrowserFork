@@ -75,7 +75,8 @@ function _onPointerMove(e) {
 }
 
 function computeLeftPct(value, min, max) {
-  const v = Number(value || 0);
+  const v = Number(value);
+  if (Number.isNaN(v)) return '50%';
   const mn = Number(min || 0);
   const mx = Number(max || 100);
   const pct = mx === mn ? 50 : Math.max(0, Math.min(100, ((v - mn) / (mx - mn)) * 100));
@@ -88,9 +89,14 @@ function computeLeftFromInput(key, value, min = 0, max = 100) {
     if (el && el instanceof HTMLElement) {
       const mn = Number(min || 0);
       const mx = Number(max || 100);
-      const ratio = mx === mn ? 0.5 : Math.max(0, Math.min(1, (Number(value || 0) - mn) / (mx - mn)));
+      let v = Number(value);
+      if (Number.isNaN(v)) v = mn + (mx - mn) / 2;
+      const ratio = mx === mn ? 0.5 : Math.max(0, Math.min(1, (v - mn) / (mx - mn)));
       const leftPx = el.offsetLeft + ratio * el.clientWidth;
-      return `${Math.round(leftPx)}px`;
+      const parent = el.offsetParent || el.parentElement || el;
+      const parentWidth = parent && parent.clientWidth ? parent.clientWidth : el.clientWidth || 1;
+      const pct = Math.round((leftPx / parentWidth) * 100);
+      return `${pct}%`;
     }
   } catch (e) {
     // fallback
@@ -110,7 +116,7 @@ function updatePopPosition(value, min = 0, max = 100) {
   popLeft.value = computeLeftFromInput(draggingKey.value || popActiveKey.value, popValue.value, min, max);
 }
 
-function hidePopIfNotDragging(delay = 180) {
+function hidePopIfNotDragging(delay = 300) {
   if (draggingKey.value) return;
   clearHidePopTimeout();
   hidePopTimeout = setTimeout(() => {
@@ -124,6 +130,22 @@ function onPopMouseEnter() {
 }
 
 function onPopMouseLeave() {
+  hidePopIfNotDragging();
+}
+
+function onToggleMouseLeave(e) {
+  try {
+    const to = e && e.relatedTarget;
+    const el = e && e.currentTarget;
+    if (to && el) {
+      const hover = el.querySelector && el.querySelector('.hover-pop');
+      if (hover && (hover === to || hover.contains(to) || el === to || el.contains(to))) {
+        return;
+      }
+    }
+  } catch (err) {
+    // ignore
+  }
   hidePopIfNotDragging();
 }
 
@@ -223,7 +245,7 @@ onBeforeUnmount(() => {
         <div
           class="toggle-with-pop"
           @mouseenter="() => showPop('color', props.settings.readerTextColor, 0, 1)"
-          @mouseleave="hidePopIfNotDragging">
+          @mouseleave="onToggleMouseLeave">
           <BaseButton
             class="icon-btn icon-only"
             :class="{ on: props.settings.forceReaderTextColor }"
@@ -249,7 +271,7 @@ onBeforeUnmount(() => {
         <div
           class="toggle-with-pop"
           @mouseenter="() => showPop('font', props.settings.readerFontScale, 80, 160)"
-          @mouseleave="hidePopIfNotDragging">
+          @mouseleave="onToggleMouseLeave">
           <BaseButton
             class="icon-btn icon-only"
             :class="{ on: props.settings.forceReaderFont }"
@@ -314,7 +336,7 @@ onBeforeUnmount(() => {
         <div
           class="toggle-with-pop"
           @mouseenter="() => showPop('auto', props.settings.autoScrollSpeed, 5, 80)"
-          @mouseleave="hidePopIfNotDragging">
+          @mouseleave="onToggleMouseLeave">
           <BaseButton
             class="icon-btn icon-only"
             :class="{ on: props.settings.autoScrollEnabled }"
