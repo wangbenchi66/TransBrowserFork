@@ -97,7 +97,7 @@ input {
   position: relative;
   width: 100%;
   height: 100%;
-  padding: 10px;
+  /* padding: 10px; */ /* 统一内边距，保持内容不贴边，同时为可能的阴影和边框留出空间 */
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -130,9 +130,9 @@ iframe {
   position: absolute;
   inset: 0;
   border-radius: 14px;
-  background:
+  /* background:
     radial-gradient(circle at top right, rgba(113, 188, 255, 0.32), transparent 32%),
-    linear-gradient(180deg, rgba(255, 255, 255, var(--shell-alpha, 0.9)), rgba(236, 241, 247, calc(var(--shell-alpha, 0.9) - 0.08)));
+    linear-gradient(180deg, rgba(255, 255, 255, var(--shell-alpha, 0.9)), rgba(236, 241, 247, calc(var(--shell-alpha, 0.9) - 0.08))); */
   backdrop-filter: blur(24px) saturate(140%);
   -webkit-backdrop-filter: blur(24px) saturate(140%);
   border: 1px solid rgba(255, 255, 255, var(--shell-alpha, 0.75));
@@ -151,7 +151,7 @@ iframe {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 14px;
-  box-shadow: var(--shadow);
+  /* box-shadow: var(--shadow); */
 }
 
 .drag-region {
@@ -512,7 +512,7 @@ iframe {
 .page-frame {
   min-height: 0;
   flex: 1;
-  padding: 16px;
+  /* padding: 16px; */
   overflow: auto;
   background: var(--page-surface);
   display: flex;
@@ -520,7 +520,7 @@ iframe {
 }
 
 .page-frame.is-webview {
-  padding: 10px;
+  /* padding: 10px; */
   overflow: hidden;
 }
 
