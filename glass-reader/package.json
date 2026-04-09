@@ -33,6 +33,7 @@
   "build": {
     "appId": "com.glassreader.app",
     "productName": "GlassReader",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "asar": true,
     "directories": {
       "output": "release"

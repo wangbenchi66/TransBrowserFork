@@ -1,6 +1,7 @@
 import { computed, reactive, ref } from 'vue'
 import * as ruleProviders from '../lib/ruleProviders'
 import * as siteRules from '../lib/siteRules'
+import defaultSettings from '../shared/defaultSettings.js'
 
 const desktopApi = typeof window !== 'undefined' ? window.desktop : null
 
@@ -32,47 +33,7 @@ const localDocuments = ref([])
 // 初始最近访问保持空，使用真实浏览行为填充
 const recentVisits = ref([])
 
-const defaultSettings = {
-    transparency: 0,
-    showInTaskbar: true,
-    autoHide: false,
-    showTabBar: true,
-    noImageMode: false,
-    transparentBackground: false,
-    antiScreenshotMode: false,
-    mobileMode: false,
-    hoverHeaderMode: false,
-    pageTransparentMode: false,
-    forcePageTransparent: false,
-    grayscaleMode: false,
-    clickThroughMode: false,
-    closeToTray: false,
-    alwaysOnTop: false,
-    autoScrollEnabled: false,
-    autoScrollSpeed: 22,
-    readerTextColor: '#283247',
-    readerFontScale: 100,
-    // 强制将网页文字颜色替换为 readerTextColor（工具栏/设置可切换）
-    forceReaderTextColor: false,
-    // 是否在网页中强制使用阅读器字号
-    forceReaderFont: false,
-    // 工具栏停靠底部（true）或悬浮在页面上（false）
-    toolbarDocked: true,
-    // 工具栏是否固定（固定=true 始终显示；false=移入显示/移出隐藏）
-    toolbarPinned: false,
-    // 工具栏是否显示（隐藏时悬浮显示）
-    toolbarVisible: true,
-    // 工具栏被用户关闭后不再通过移入显示（需在设置中手动恢复）
-    toolbarDisabled: false,
-    statusBarColor: '#f5f5f7',
-    showScrollbars: true,
-    defaultUrl: '',
-    bossKey: 'Alt+Q',
-    decreaseTransparencyShortcut: 'Alt+Up',
-    increaseTransparencyShortcut: 'Alt+Down',
-    clickThroughShortcut: 'Ctrl+Alt+T',
-    fullWindowTransparent: false,
-}
+// 使用共享默认配置（由 electron/main.js 与渲染端共同维护）
 
 const settings = reactive({ ...defaultSettings })
 const urlInput = ref(defaultSettings.defaultUrl)
@@ -685,7 +646,9 @@ function handleClose() {
         return
     }
 
-    const closeAction = desktopApi.quitWindow ?? desktopApi.closeWindow
+    // 优先使用 closeWindow，这样主进程的 `close` 事件能正确触发并遵循
+    // `closeToTray` 等设置；仅当 closeWindow 不可用时才使用 quitWindow
+    const closeAction = desktopApi.closeWindow ?? desktopApi.quitWindow
     closeAction().catch(() => {
         statusMessage.value = '关闭窗口失败，请重试'
     })

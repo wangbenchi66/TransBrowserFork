@@ -11,10 +11,10 @@ export default function main(helper) {
 
     try {
         //全局基础样式：让页面在透明窗口下更友好
-        runCss && runCss('default-base', `
-          html, body { background: transparent !important; }
-          img, video { max-width: 100% !important; height: auto !important; }
-        `);
+        // runCss && runCss('default-base', `
+        //   html, body { background: transparent !important; }
+        //   img, video { max-width: 100% !important; height: auto !important; }
+        // `);
 
         // 全局 JS：安装一个轻量的 keybind（示例），避免重复安装
         // runJs && runJs(`(() => {

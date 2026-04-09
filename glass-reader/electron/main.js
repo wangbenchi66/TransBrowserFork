@@ -3,6 +3,7 @@ import Store from 'electron-store'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import defaultSettings from '../src/shared/defaultSettings.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -14,42 +15,6 @@ let tray = null
 let isQuitting = false
 let autoHideMonitor = null
 let lastVisibleBounds = null
-const defaultSettings = {
-    transparency: 0,//透明度
-    showInTaskbar: true,
-    autoHide: false,
-    showTabBar: true,
-    noImageMode: false,
-    transparentBackground: false,
-    antiScreenshotMode: false,
-    mobileMode: false,
-    hoverHeaderMode: false,
-    pageTransparentMode: false,
-    forcePageTransparent: false,
-    grayscaleMode: false,
-    clickThroughMode: false,
-    closeToTray: false,
-    disableWindowShadow: false,
-    alwaysOnTop: false,
-    autoScrollEnabled: false,
-    autoScrollSpeed: 22,
-    readerTextColor: '#283247',
-    readerFontScale: 100,
-    // 是否在网页中强制使用阅读器字号
-    forceReaderFont: false,
-    // 工具栏停靠底部（true）或悬浮在页面上（false）
-    toolbarDocked: true,
-    // 强制修改网页文字颜色
-    forceReaderTextColor: false,
-    statusBarColor: '#f5f5f7',
-    showScrollbars: true,
-    defaultUrl: '',
-    bossKey: 'Alt+Q',
-    decreaseTransparencyShortcut: 'Alt+Up',
-    increaseTransparencyShortcut: 'Alt+Down',
-    clickThroughShortcut: 'Ctrl+Alt+T',
-    fullWindowTransparent: false,
-}
 let currentSettings = { ...defaultSettings }
 
 // 窗口尺寸持久化（使用 electron-store）
@@ -363,8 +328,33 @@ function createTray() {
         return
     }
 
-    const trayIcon = nativeImage.createFromPath(process.execPath)
-    tray = new Tray(trayIcon)
+    // 仅从共享默认配置指定的路径加载托盘图标（不读取用户上传路径）
+    const configured = defaultSettings.trayIconPath || ''
+    if (!configured) {
+        console.warn('[tray] default trayIconPath not set; skipping tray creation')
+        return
+    }
+
+    const resolvedPath = path.isAbsolute(configured) ? configured : path.join(__dirname, '..', configured)
+    if (!fs.existsSync(resolvedPath)) {
+        console.warn('[tray] specified trayIconPath does not exist:', resolvedPath)
+        return
+    }
+
+    let trayImage = null
+    try {
+        trayImage = nativeImage.createFromPath(resolvedPath)
+    } catch (e) {
+        console.warn('[tray] createFromPath failed for', resolvedPath, e)
+        return
+    }
+
+    if (!trayImage || (typeof trayImage.isEmpty === 'function' && trayImage.isEmpty())) {
+        console.warn('[tray] nativeImage is empty for', resolvedPath)
+        return
+    }
+
+    tray = new Tray(trayImage)
     tray.setToolTip('Trans Glass')
 
     const buildMenu = () => Menu.buildFromTemplate([
@@ -489,15 +479,27 @@ function createWindow() {
     const initialH = clamp(savedH, MIN_SAFE_HEIGHT, maxH)
 
     const win = new BrowserWindow({
+        // 在 Windows 上，通过 BrowserWindow.icon 可以控制任务栏/窗口图标。
+        // 使用共享默认配置中的 trayIconPath（若存在且文件可用）。
+        icon: (() => {
+            try {
+                const cfg = defaultSettings.trayIconPath || ''
+                if (!cfg) return undefined
+                const p = path.isAbsolute(cfg) ? cfg : path.join(__dirname, '..', cfg)
+                return fs.existsSync(p) ? p : undefined
+            } catch (e) {
+                return undefined
+            }
+        })(),
         width: initialW,
         height: initialH,
         minWidth: 80,
         minHeight: 80,
         frame: false,
-        // 创建为透明窗口，页面透明区域将透出桌面（CSS 控制具体显示效果）
-        transparent: true,
+        // 是否创建为透明窗口由设置控制：仅在启用“软件背景透明”时为透明
+        transparent: Boolean(currentSettings.transparentBackground),
         hasShadow: false,
-        backgroundColor: '#00000000',
+        backgroundColor: currentSettings.transparentBackground ? '#00000000' : '#ffffff',
         titleBarStyle: 'hidden',
         webPreferences: {
             preload: path.join(__dirname, 'preload.cjs'),
@@ -606,6 +608,8 @@ ipcMain.handle('settings:get', () => currentSettings)
 ipcMain.handle('settings:update', (_, partial) => {
     //输出设置变更日志，帮助排查设置更新流程
     //console.log('[ipc] settings:update', { partial })
+    const prevTransparent = currentSettings.transparentBackground
+
     currentSettings = normalizeSettings({
         ...currentSettings,
         ...partial,
@@ -615,8 +619,30 @@ ipcMain.handle('settings:update', (_, partial) => {
     registerGlobalShortcuts()
     refreshAutoHideMonitor()
 
-    if (mainWindow && !mainWindow.isDestroyed()) {
-        applyWindowSettings(mainWindow)
+    // 如果切换了软件背景透明设置，需要重建窗口以改变 BrowserWindow 的 `transparent` 属性
+    if (typeof partial.transparentBackground !== 'undefined' && prevTransparent !== currentSettings.transparentBackground) {
+        try {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                const wasVisible = mainWindow.isVisible()
+                let bounds = null
+                try { bounds = mainWindow.getBounds() } catch (e) { bounds = null }
+                try { mainWindow.destroy() } catch (e) { try { mainWindow.close() } catch (e) {} }
+                // 将上次尺寸持久化，createWindow 会从 store 读取
+                if (bounds && bounds.width && bounds.height) {
+                    try { store.set('width', bounds.width); store.set('height', bounds.height) } catch (e) {}
+                }
+            }
+        } catch (e) {
+            console.warn('[settings] error while recreating window for transparency change', e)
+        }
+
+        // 重新创建窗口并恢复托盘菜单等
+        createWindow()
+        refreshTrayMenu()
+    } else {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            applyWindowSettings(mainWindow)
+        }
     }
 
     broadcastSettings()
