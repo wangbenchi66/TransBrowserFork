@@ -1722,6 +1722,17 @@ iframe {
   color: var(--danger);
 }
 
+/* make el-icon inside close-mark match expected size and center */
+.close-mark .el-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  font-size: 14px;
+}
+
 /* 设置面板内的 toggle-row 微调：保证文本与 switch 垂直居中且无内嵌白色条 */
 .el-button.toggle-row {
   width: 100%;
@@ -1801,6 +1812,23 @@ iframe {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+/* 在设置页的每个 toggle-column 内，为每个开关行添加垂直间距，模仿阅读控制的间距 */
+.toggle-column .el-button.toggle-row,
+.toggle-column .toggle-row {
+  margin-bottom: 10px;
+}
+
+.toggle-column .el-button.toggle-row:last-child,
+.toggle-column .toggle-row:last-child {
+  margin-bottom: 0;
+}
+
+/* 标题后第一个开关与标题之间的上边距，避免紧贴标题 */
+.toggle-column .toggle-title + .el-button.toggle-row,
+.toggle-column .toggle-title + .toggle-row {
+  margin-top: 10px;
 }
 
 /* 当 switch 为 on 状态，其视觉需要更突出，保持原始色调 */

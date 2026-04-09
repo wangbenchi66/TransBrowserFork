@@ -479,17 +479,19 @@ onBeforeUnmount(() => {
                     class="text-field"
                     :value="editingShortcut === 'bossKey' ? capturedAccel || '按下组合键...' : settings.bossKey"
                     readonly />
-                  <BaseButton
-                    class="secondary-btn"
+                  <el-button
+                    round
+                    size="large"
                     @click="editingShortcut === 'bossKey' ? confirmShortcut('bossKey') : startEditShortcut('bossKey')">
                     {{ editingShortcut === 'bossKey' ? '保存' : '编辑' }}
-                  </BaseButton>
-                  <BaseButton
+                  </el-button>
+                  <el-button
+                    round
+                    size="large"
                     v-if="editingShortcut === 'bossKey'"
-                    class="secondary-btn"
                     @click="cancelShortcut">
                     取消
-                  </BaseButton>
+                  </el-button>
                 </div>
               </label>
 
@@ -500,17 +502,19 @@ onBeforeUnmount(() => {
                     class="text-field"
                     :value="editingShortcut === 'decreaseTransparencyShortcut' ? capturedAccel || '按下组合键...' : settings.decreaseTransparencyShortcut"
                     readonly />
-                  <BaseButton
-                    class="secondary-btn"
+                  <el-button
+                    round
+                    size="large"
                     @click="editingShortcut === 'decreaseTransparencyShortcut' ? confirmShortcut('decreaseTransparencyShortcut') : startEditShortcut('decreaseTransparencyShortcut')">
                     {{ editingShortcut === 'decreaseTransparencyShortcut' ? '保存' : '编辑' }}
-                  </BaseButton>
-                  <BaseButton
+                  </el-button>
+                  <el-button
+                    round
+                    size="large"
                     v-if="editingShortcut === 'decreaseTransparencyShortcut'"
-                    class="secondary-btn"
                     @click="cancelShortcut">
                     取消
-                  </BaseButton>
+                  </el-button>
                 </div>
               </label>
 
@@ -521,17 +525,19 @@ onBeforeUnmount(() => {
                     class="text-field"
                     :value="editingShortcut === 'increaseTransparencyShortcut' ? capturedAccel || '按下组合键...' : settings.increaseTransparencyShortcut"
                     readonly />
-                  <BaseButton
-                    class="secondary-btn"
+                  <el-button
+                    round
+                    size="large"
                     @click="editingShortcut === 'increaseTransparencyShortcut' ? confirmShortcut('increaseTransparencyShortcut') : startEditShortcut('increaseTransparencyShortcut')">
                     {{ editingShortcut === 'increaseTransparencyShortcut' ? '保存' : '编辑' }}
-                  </BaseButton>
-                  <BaseButton
+                  </el-button>
+                  <el-button
+                    round
+                    size="large"
                     v-if="editingShortcut === 'increaseTransparencyShortcut'"
-                    class="secondary-btn"
                     @click="cancelShortcut">
                     取消
-                  </BaseButton>
+                  </el-button>
                 </div>
               </label>
 
@@ -542,17 +548,19 @@ onBeforeUnmount(() => {
                     class="text-field"
                     :value="editingShortcut === 'clickThroughShortcut' ? capturedAccel || '按下组合键...' : settings.clickThroughShortcut"
                     readonly />
-                  <BaseButton
-                    class="secondary-btn"
+                  <el-button
+                    round
+                    size="large"
                     @click="editingShortcut === 'clickThroughShortcut' ? confirmShortcut('clickThroughShortcut') : startEditShortcut('clickThroughShortcut')">
                     {{ editingShortcut === 'clickThroughShortcut' ? '保存' : '编辑' }}
-                  </BaseButton>
-                  <BaseButton
+                  </el-button>
+                  <el-button
+                    round
+                    size="large"
                     v-if="editingShortcut === 'clickThroughShortcut'"
-                    class="secondary-btn"
                     @click="cancelShortcut">
                     取消
-                  </BaseButton>
+                  </el-button>
                 </div>
               </label>
             </div>

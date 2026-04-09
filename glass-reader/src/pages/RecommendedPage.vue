@@ -120,16 +120,17 @@ function avatarText(site) {
         class="url-input"
         placeholder="输入网址，回车打开任意网站..."
         @keydown.enter="handleOpenUrl" />
-      <BaseButton
-        class="open-btn"
+      <el-button
+        round
+        type="primary"
         @click="handleOpenUrl">
         打开
-      </BaseButton>
-      <BaseButton
-        class="secondary-btn"
+      </el-button>
+      <el-button
+        round
         @click="triggerFileSelect">
         导入文件
-      </BaseButton>
+      </el-button>
       <input
         ref="fileInputRef"
         class="hidden-input"

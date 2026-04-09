@@ -873,7 +873,7 @@ onMounted(() => {
           <span
             class="close-mark"
             @click.stop="closeTab(tab.id)">
-            x
+            <el-icon><Close /></el-icon>
           </span>
         </BaseButton>
 
