@@ -149,6 +149,30 @@ function onToggleMouseLeave(e) {
   hidePopIfNotDragging();
 }
 
+function onContainerMouseLeave(e) {
+  try {
+    if (props.toolbarPinned || props.toolbarDisabled || props.hideHandle) return;
+    const to = e && e.relatedTarget;
+    const el = e && e.currentTarget;
+    if (to && el) {
+      // 如果离开是移动到容器内部的子元素或弹层，则不立即隐藏
+      if (el === to || el.contains(to)) return;
+      const hover = el.querySelector && el.querySelector('.hover-pop');
+      if (hover && (hover === to || hover.contains(to))) return;
+    }
+    // 只有在没有拖拽且没有弹出项时，立即隐藏工具栏
+    if (!draggingKey.value && !popActiveKey.value) {
+      if (hideTimeout) {
+        clearTimeout(hideTimeout);
+        hideTimeout = null;
+      }
+      try {
+        props.patchSetting('toolbarVisible', false);
+      } catch (err) {}
+    }
+  } catch (err) {}
+}
+
 function onRangePointerDown(key) {
   draggingKey.value = key;
 }
@@ -211,7 +235,9 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div :class="['bottom-toolbar-container', props.toolbarDocked ? 'docked' : 'overlay', props.toolbarDisabled ? 'no-hover' : '']">
+  <div
+    :class="['bottom-toolbar-container', props.toolbarDocked ? 'docked' : 'overlay', props.toolbarDisabled ? 'no-hover' : '']"
+    @mouseleave="onContainerMouseLeave">
     <div
       v-if="!props.toolbarPinned && !props.toolbarVisible && !props.toolbarDisabled && !props.hideHandle"
       class="toolbar-handle"
@@ -253,6 +279,10 @@ onBeforeUnmount(() => {
             title="文字颜色"
             >A</BaseButton
           >
+          <span
+            class="hover-gap"
+            @mouseenter="onPopMouseEnter"
+            @mouseleave="onPopMouseLeave"></span>
           <div
             class="hover-pop"
             :class="{ visible: popActiveKey === 'color' || draggingKey === 'color' }"
@@ -279,6 +309,10 @@ onBeforeUnmount(() => {
             title="字号"
             >字</BaseButton
           >
+          <span
+            class="hover-gap"
+            @mouseenter="onPopMouseEnter"
+            @mouseleave="onPopMouseLeave"></span>
 
           <div
             class="hover-pop"
@@ -308,7 +342,11 @@ onBeforeUnmount(() => {
                 >⟲</BaseButton
               >
               <div class="range-default">默认 100</div>
-              <div class="range-current" v-if="popActiveKey === 'font' || draggingKey === 'font'">当前 {{ popValue }}</div>
+              <div
+                class="range-current"
+                v-if="popActiveKey === 'font' || draggingKey === 'font'">
+                当前 {{ popValue }}
+              </div>
             </div>
             <div
               v-if="popActiveKey === 'font' || draggingKey === 'font'"
@@ -345,6 +383,10 @@ onBeforeUnmount(() => {
             :title="props.settings.autoScrollEnabled ? '关闭自动滚动' : '开启自动滚动'"
             >⇳</BaseButton
           >
+          <span
+            class="hover-gap"
+            @mouseenter="onPopMouseEnter"
+            @mouseleave="onPopMouseLeave"></span>
 
           <div
             class="hover-pop"
@@ -374,7 +416,11 @@ onBeforeUnmount(() => {
                 >⟲</BaseButton
               >
               <div class="range-default">默认 22</div>
-              <div class="range-current" v-if="popActiveKey === 'auto' || draggingKey === 'auto'">当前 {{ popValue }}</div>
+              <div
+                class="range-current"
+                v-if="popActiveKey === 'auto' || draggingKey === 'auto'">
+                当前 {{ popValue }}
+              </div>
             </div>
             <div
               v-if="popActiveKey === 'auto' || draggingKey === 'auto'"
@@ -546,9 +592,11 @@ onBeforeUnmount(() => {
 }
 .hover-pop {
   position: absolute;
-  bottom: calc(100% + 8px);
+  /* 重叠：让弹层底部下移到超出按钮顶部 8px，实现视觉重合 */
+  bottom: calc(100% - 8px);
   left: 50%;
-  transform: translateX(-50%) translateY(6px);
+  /* 隐藏态向下位移 12px，使隐藏位置与之前保持一定距离 */
+  transform: translateX(-50%) translateY(12px);
   opacity: 0;
   pointer-events: none;
   transition:
@@ -659,6 +707,17 @@ onBeforeUnmount(() => {
 }
 .range-anchor:hover::before {
   background: #2b88ff;
+}
+.toggle-with-pop .hover-gap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  /* 扩大 hover-hit 区域以覆盖更多移动间隙，避免弹层在移动时消失 */
+  bottom: -28px;
+  height: 28px;
+  pointer-events: auto;
+  background: transparent;
+  z-index: 10006;
 }
 .range-default {
   font-size: 12px;
