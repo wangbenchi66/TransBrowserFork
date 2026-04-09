@@ -333,56 +333,7 @@ iframe {
 .tabbar .el-button {
   -webkit-app-region: no-drag !important;
 }
-
-/* Compact mode: make header/tab area visually transparent to avoid white framed box in dark backgrounds */
-.compact-header-tabs .topbar,
-.compact-header-tabs .tabbar {
-  /* 不强制改变背景色（由其它设置控制），仅移除边框与阴影以减少白色边线 */
-  border: none !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
-}
-
-/* Keep tab chips visible with subtle background even when header background is transparent */
-.compact-header-tabs .tabbar .tab-chip {
-  background: rgba(255,255,255,0.06) !important;
-}
-
-/* Ensure window controls remain clearly visible */
-.compact-header-tabs .topbar .window-controls .control-btn {
-  background: rgba(255,255,255,0.06) !important;
-}
-
-/* 强制移除紧凑模式下的 panel 样式（更彻底避免白色边框） */
-.compact-header-tabs > .topbar.panel,
-.compact-header-tabs > .tabbar.panel,
-.compact-header-tabs > .topbar,
-.compact-header-tabs > .tabbar {
-  /* background: transparent !important; */
-  border: 0 !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-}
-
-/* 如果某些内部元素仍有白色背景，强制设为透明 */
-.compact-header-tabs .topbar *,
-.compact-header-tabs .tabbar * {
-  /* 保留内部元素原有背景（避免影响其它功能），仅确保不会强制性添加边框 */
-  border: none !important;
-}
-
-/* 但保持 tab-chip 的可见度（用更暗的透明背景以适配深色背景） */
-.compact-header-tabs .tabbar .tab-chip {
-  background: rgba(255,255,255,0.06) !important;
-}
-
-/* 在紧凑模式下，去掉页面主内容区的顶部圆角和边框，避免出现独立的白色框线 */
-.compact-header-tabs .page-frame {
-  border-top-left-radius: 0 !important;
-  border-top-right-radius: 0 !important;
-  border: 0 !important;
-  box-shadow: none !important;
-}
+/* 紧凑模式（compact-header-tabs）样式已移除，相关视觉由常规样式控制 */
 
 .tabs {
   display: flex;
@@ -1469,17 +1420,15 @@ iframe {
   -webkit-app-region: drag; /* 使热区可直接拖动窗口（当顶部栏未显示时） */
 }
 
-/* 在悬停模式下，topbar/tabbar 保持在文档流中但默认不可见（保留占位），避免遮挡和不可拖动的问题 */
+/* 在悬停模式下，topbar/tabbar 保持在文档流中但默认不可见（保留占位），避免遮挡和不可拖动的问题
+   保持与常驻模式一致的宽度与边距，避免视觉差异 */
 .mode-hover-header .topbar,
 .mode-hover-header .tabbar {
   position: relative;
-  margin-left: 12px;
-  margin-right: 12px;
   z-index: 1;
   transition: opacity 0.18s ease;
   opacity: 0;
   pointer-events: none;
-  top: 0;
   /* 保持占位高度以避免布局跳动 */
 }
 

@@ -245,7 +245,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div
-    class="window-shell compact-header-tabs"
+    class="window-shell"
     :class="[shellClasses, { 'hide-scrollbars': !settings.showScrollbars, 'header-hover-active': headerHoverActive }]"
     :style="themeVars">
     <!-- top hotzone: when hoverHeaderMode enabled, this invisible strip triggers header/tab reveal -->
