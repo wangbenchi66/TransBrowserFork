@@ -1365,26 +1365,90 @@ iframe {
   width: 100%;
 }
 
+.mode-hover-header .header-hotzone {
+  /* invisible strip at very top to catch mouse enter and reveal header/tab */
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 48px; /* 感应高度：从 10px 提升到 48px，扩大触发区域以便更容易悬停和拖动 */
+  z-index: 9998;
+  pointer-events: auto;
+  -webkit-app-region: drag; /* 使热区可直接拖动窗口（当顶部栏未显示时） */
+}
+
+/* 把 topbar/tabbar 置为绝对定位并在默认（未悬停）状态完全移出视图，避免占位 */
+.mode-hover-header .topbar,
 .mode-hover-header .tabbar {
-  opacity: 0.12;
-  transform: translateY(-10px);
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  z-index: 9999;
+  transition: opacity 0.18s ease, top 0.18s ease;
+  opacity: 0;
+  pointer-events: none;
+  top: -84px; /* 隐藏在视口上方（负 top），避免使用 transform，以保持 drag 区域有效） */
 }
 
-.mode-hover-header .tabbar:hover {
-  opacity: 1;
-  transform: translateY(0);
+/* topbar 位于顶部（可见时的目标位置） */
+.mode-hover-header .topbar.visible,
+.mode-hover-header.header-hover-active .topbar {
+  top: 12px;
 }
 
-.mode-hover-header .topbar {
-  opacity: 0.18;
-  transform: translateY(-8px);
-  transition: opacity 0.2s ease, transform 0.2s ease;
+/* tabbar 放在 topbar 之下（根据 topbar 高度调整） */
+.mode-hover-header .tabbar.visible,
+.mode-hover-header.header-hover-active .tabbar {
+  top: calc(12px + 46px);
 }
 
+/* 中央拖动句柄：在 topbar 中占据中间伸缩区域，提供明确且稳定的拖动目标 */
+.title-drag {
+  flex: 1 1 auto;
+  height: 100%;
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.title-drag, .title-drag * {
+  pointer-events: auto; /* 确保拖动区域可响应鼠标以触发拖动 */
+}
+
+/* 在热区或自身悬停时显示 */
+.mode-hover-header .header-hotzone:hover ~ .topbar,
 .mode-hover-header .topbar:hover {
   opacity: 1;
-  transform: translateY(0);
+  top: 12px;
+  pointer-events: auto;
+  z-index: 10000; /* 提升到热区之上，保证交互不被热区遮挡 */
+}
+
+.mode-hover-header .header-hotzone:hover ~ .page-host .tabbar,
+.mode-hover-header .tabbar:hover {
+  opacity: 1;
+  top: calc(12px + 46px);
+  pointer-events: auto;
+  z-index: 10000;
+}
+
+/* JS 驱动的激活类：更可靠地控制显示（由 App.vue 的 headerHoverActive 控制） */
+
+.mode-hover-header.header-hover-active .topbar,
+.mode-hover-header.header-hover-active .tabbar {
+  opacity: 1;
+  pointer-events: auto;
+  z-index: 10000;
+}
+
+/* 当通过 JS 激活（headerHoverActive）时，保持热区为 drag（仍可作为拖动后备），不使用 pointer-events: none */
+.mode-hover-header.header-hover-active .header-hotzone {
+  pointer-events: auto;
+  -webkit-app-region: drag;
+}
+
+/* 确保激活时 topbar 本身也作为拖动区域（其子元素通过 no-drag 保持可交互） */
+.mode-hover-header.header-hover-active .topbar {
+  -webkit-app-region: drag;
 }
 
 .hide-tabs .workspace {

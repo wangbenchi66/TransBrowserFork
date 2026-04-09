@@ -26,6 +26,27 @@ const isSettingsOpen = ref(false);
 let removeOpenSettingsListener = null;
 const editingShortcut = ref(null);
 const capturedAccel = ref('');
+const autoRangeRef = ref(null);
+// 当开启 hoverHeaderMode 时，记录是否处于“悬停激活”状态（由全局鼠标位置控制）
+const headerHoverActive = ref(false);
+
+function _onMouseMoveForHeader(e) {
+  try {
+    if (!settings.hoverHeaderMode) {
+      if (headerHoverActive.value) headerHoverActive.value = false;
+      return;
+    }
+    const y = e && typeof e.clientY === 'number' ? e.clientY : 0;
+    // 当光标靠近窗口顶部时激活；增加迟滞以避免闪烁
+    const THRESHOLD = 80; // 触发高度
+    const HYSTERESIS = 24; // 取消触发的附加距离，避免抖动
+    if (y <= THRESHOLD) {
+      if (!headerHoverActive.value) headerHoverActive.value = true;
+    } else if (headerHoverActive.value && y > THRESHOLD + HYSTERESIS) {
+      headerHoverActive.value = false;
+    }
+  } catch (e) {}
+}
 
 function formatAcceleratorFromEvent(e) {
   // 返回例如: Ctrl+Alt+T
@@ -184,6 +205,10 @@ onMounted(() => {
   initializeDesktopApp();
   console.log('[renderer] desktopApi present', !!desktopApi, { setTransparency: !!desktopApi?.setTransparency, updateSettings: !!desktopApi?.updateSettings, log: !!desktopApi?.log });
   window.addEventListener('keydown', handleKeydown);
+  // 全局鼠标移动监听：用于 hover 标题栏逻辑
+  try {
+    window.addEventListener('mousemove', _onMouseMoveForHeader);
+  } catch (e) {}
 
   if (desktopApi?.onOpenSettingsRequest) {
     removeOpenSettingsListener = desktopApi.onOpenSettingsRequest(() => {
@@ -196,6 +221,9 @@ onBeforeUnmount(() => {
   disposeDesktopApp();
   window.removeEventListener('keydown', handleKeydown);
   window.removeEventListener('keydown', _onCaptureKeydown);
+  try {
+    window.removeEventListener('mousemove', _onMouseMoveForHeader);
+  } catch (e) {}
   removeOpenSettingsListener?.();
   removeOpenSettingsListener = null;
 });
@@ -204,23 +232,30 @@ onBeforeUnmount(() => {
 <template>
   <div
     class="window-shell"
-    :class="[shellClasses, { 'hide-scrollbars': !settings.showScrollbars }]"
+    :class="[shellClasses, { 'hide-scrollbars': !settings.showScrollbars, 'header-hover-active': headerHoverActive }]"
     :style="themeVars">
+    <!-- top hotzone: when hoverHeaderMode enabled, this invisible strip triggers header/tab reveal -->
+    <div
+      v-if="settings.hoverHeaderMode"
+      class="header-hotzone"
+      aria-hidden="true"></div>
     <header class="topbar drag-region">
       <div class="brand-group no-drag">
-        <button
+        <!-- <button
           class="pin-btn"
           :class="{ active: settings.alwaysOnTop }"
           @click="togglePin">
           P
-        </button>
+        </button> -->
         <div class="brand-block">
           <strong>Trans Glass</strong>
-          <span>{{ statusMessage }}</span>
+          <!-- <span>{{ statusMessage }}</span> -->
         </div>
       </div>
 
-      <div class="nav-switch no-drag"></div>
+      <div
+        class="title-drag"
+        aria-hidden="true"></div>
 
       <div class="window-controls no-drag">
         <button
