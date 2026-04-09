@@ -15,7 +15,7 @@ const props = defineProps({
 
 <template>
   <header class="topbar drag-region">
-    <div class="brand-group no-drag">
+    <div class="brand-group">
       <div class="brand-block">
         <strong>Trans Glass</strong>
       </div>

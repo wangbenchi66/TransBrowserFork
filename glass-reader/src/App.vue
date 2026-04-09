@@ -3,6 +3,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useDesktopApp } from './composables/useDesktopApp';
 import TopBar from './layouts/TopBar.vue';
 import MainPage from './pages/MainPage.vue';
+import TabBar from './pages/parts/TabBar.vue';
 
 const {
   settings,
@@ -17,6 +18,11 @@ const {
   disposeDesktopApp,
   leftToggleKeys,
   rightToggleKeys,
+  tabs,
+  activeTabId,
+  selectTab,
+  closeTab,
+  addNewTab,
   toggleSetting,
   urlInput,
   handleOpenUrl
@@ -76,6 +82,13 @@ function formatAcceleratorFromEvent(e) {
   // 对于 FunctionKeys F1..F12 保持原样
   parts.push(keyName);
   return parts.join('+');
+}
+
+function formatTabTitle(title) {
+  const s = (title ?? '').toString().trim();
+  const limit = 10; // 超过 10 个字符则截断
+  if (!s) return '';
+  return s.length <= limit ? s : s.slice(0, limit) + '…';
 }
 
 function _onCaptureKeydown(e) {
@@ -232,7 +245,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div
-    class="window-shell"
+    class="window-shell compact-header-tabs"
     :class="[shellClasses, { 'hide-scrollbars': !settings.showScrollbars, 'header-hover-active': headerHoverActive }]"
     :style="themeVars">
     <!-- top hotzone: when hoverHeaderMode enabled, this invisible strip triggers header/tab reveal -->
@@ -248,6 +261,15 @@ onBeforeUnmount(() => {
       :handleMinimize="handleMinimize"
       :handleMaximize="handleMaximize"
       :handleClose="handleClose" />
+
+    <TabBar
+      v-if="settings.showTabBar"
+      :tabs="tabs"
+      :activeTabId="activeTabId"
+      :formatTabTitle="formatTabTitle"
+      :selectTab="selectTab"
+      :closeTab="closeTab"
+      :addNewTab="addNewTab" />
 
     <main class="page-host">
       <MainPage />
@@ -376,6 +398,8 @@ onBeforeUnmount(() => {
                 :class="{ on: settings.autoScrollEnabled }"></span>
             </BaseButton>
           </section>
+
+          <!-- 标题与标签默认合并，相关开关在常规列表中管理 -->
 
           <section class="toggle-grid section-panel">
             <div class="toggle-column">

@@ -3,7 +3,6 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useDesktopApp } from '../composables/useDesktopApp';
 import recommendedPage from './RecommendedPage.vue';
 import BottomToolbar from './parts/BottomToolbar.vue';
-import TabBar from './parts/TabBar.vue';
 
 const { settings, activeTab, activeTabId, tabs, addNewTab, selectTab, closeTab, patchSetting, updateTabMetadata, siteRules, ruleProviders } = useDesktopApp();
 
@@ -133,13 +132,7 @@ function buildAutoScrollScript(enabled, speed) {
 
 // computeLeft helpers moved into BottomToolbar
 
-// 格式化标签标题：保证单行显示，超过指定字符数时截断并添加省略号
-function formatTabTitle(title) {
-  const s = (title ?? '').toString().trim();
-  const limit = 10; // 超过 10 个字符则截断
-  if (!s) return '';
-  return s.length <= limit ? s : s.slice(0, limit) + '…';
-}
+// （标签标题格式化已移至 App.vue）
 
 // pop handlers moved into BottomToolbar
 
@@ -959,15 +952,6 @@ onMounted(() => {
 
 <template>
   <section class="main-page">
-    <TabBar
-      v-if="settings.showTabBar"
-      :tabs="tabs"
-      :activeTabId="activeTabId"
-      :formatTabTitle="formatTabTitle"
-      :selectTab="selectTab"
-      :closeTab="closeTab"
-      :addNewTab="addNewTab" />
-
     <section class="browser-stage">
       <div class="workspace-shell">
         <section class="reader-stage">

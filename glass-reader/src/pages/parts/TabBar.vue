@@ -14,7 +14,7 @@ const props = defineProps({
 </script>
 
 <template>
-  <section class="tabbar panel no-drag">
+  <section class="tabbar panel">
     <div class="tabs">
       <BaseButton
         v-for="tab in props.tabs"
