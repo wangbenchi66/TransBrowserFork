@@ -311,7 +311,8 @@ function applyWindowSettings(win) {
         // 区别在于：启用“软件背景透明”时，页面背景由前端 CSS 控制（shell/surface 设为透明），
         // 而透明度滑块会影响整个窗口（主进程通过 setOpacity），实现用户期望的“整体透明度”效果。
         const opacity = clamp(1 - currentSettings.transparency / 100, 0.12, 1)
-        console.log(`[applyWindowSettings] transparency=${currentSettings.transparency} fullWindowTransparent=${currentSettings.fullWindowTransparent} -> opacity=${opacity}`)
+        // 输出当前透明度设置与计算结果，帮助排查透明度调整问题
+        //console.log(`[applyWindowSettings] transparency=${currentSettings.transparency} fullWindowTransparent=${currentSettings.fullWindowTransparent} -> opacity=${opacity}`)
         win.setOpacity(opacity)
     } catch (e) {
         console.warn('[applyWindowSettings] setOpacity failed:', e)
@@ -580,7 +581,8 @@ ipcMain.handle('window:open-settings', () => {
 ipcMain.handle('settings:get', () => currentSettings)
 
 ipcMain.handle('settings:update', (_, partial) => {
-    console.log('[ipc] settings:update', { partial })
+    //输出设置变更日志，帮助排查设置更新流程
+    //console.log('[ipc] settings:update', { partial })
     currentSettings = normalizeSettings({
         ...currentSettings,
         ...partial,

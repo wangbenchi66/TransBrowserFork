@@ -1,10 +1,11 @@
 <script setup>
 import { Close, Hide, View } from '@element-plus/icons-vue';
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import RuleManager from '../components/RuleManager.vue';
 import { useDesktopApp } from '../composables/useDesktopApp';
 import recommendedPage from './RecommendedPage.vue';
 
-const { settings, activeTab, activeTabId, tabs, addNewTab, selectTab, closeTab, patchSetting, updateTabMetadata } = useDesktopApp();
+const { settings, activeTab, activeTabId, tabs, addNewTab, selectTab, closeTab, patchSetting, updateTabMetadata, siteRules, ruleProviders } = useDesktopApp();
 
 const webviewRef = ref(null);
 const webviewReady = ref(false);
@@ -17,6 +18,16 @@ const popLeft = ref('50%');
 const draggingKey = ref(null);
 const fontRangeRef = ref(null);
 const autoRangeRef = ref(null);
+const showRuleManager = ref(false);
+
+const currentHost = computed(() => {
+  try {
+    const u = new URL(activeTab?.url || '');
+    return (u.hostname || '').replace(/^www\./i, '');
+  } catch (e) {
+    return '';
+  }
+});
 
 const transparentPageCss = `
 html,
@@ -40,6 +51,7 @@ body::after {
 
 // 更强力的透明样式（保留图片/视频/canvas/svg）
 const transparentPageCssAggressive = `
+      }
 .hover-pop .mini-range {
   width: 140px;
 }
@@ -221,15 +233,34 @@ function disableToolbar() {
 function runWebviewJS(script) {
   const webview = webviewRef.value;
   if (!webview || activeTab.value.kind === 'dashboard' || activeTab.value.kind === 'local-text') {
-    return;
+    return Promise.resolve();
   }
 
   if (!webviewReady.value) return;
 
   try {
-    webview.executeJavaScript(script).catch(() => {});
+    // 返回 executeJavaScript 的 Promise 并记录错误，便于调试注入失败的原因
+    try {
+      const p = webview.executeJavaScript(script);
+      if (p && typeof p.then === 'function') {
+        return p.catch((err) => {
+          try {
+            console.error('[runWebviewJS] executeJavaScript error', err);
+          } catch (e) {}
+        });
+      }
+      return Promise.resolve();
+    } catch (err) {
+      try {
+        console.error('[runWebviewJS] executeJavaScript sync error', err);
+      } catch (e) {}
+      return Promise.resolve();
+    }
   } catch (e) {
-    // ignore synchronous errors when webview not ready
+    try {
+      console.error('[runWebviewJS] unexpected error', e);
+    } catch (err) {}
+    return Promise.resolve();
   }
 }
 
@@ -601,9 +632,32 @@ function onAutoScrollSpeedInput(e) {
 
 function handleWebviewDomReady() {
   webviewReady.value = true;
+  const w = webviewRef.value;
+  // 优先使用 activeTab.url；若不存在则回退到 webview 的 URL（getURL 或 src）
+  let pageUrl = '';
+  try {
+    if (activeTab && activeTab.url) {
+      pageUrl = activeTab.url;
+    } else if (w) {
+      if (typeof w.getURL === 'function') {
+        try {
+          pageUrl = w.getURL() || '';
+        } catch (e) {
+          pageUrl = w.src || '';
+        }
+      } else {
+        pageUrl = w.src || '';
+      }
+    }
+  } catch (e) {
+    pageUrl = activeTab?.url || '';
+  }
+
+  try {
+    console.log('[webview] dom-ready', { url: pageUrl, kind: activeTab?.kind, webviewRefPresent: !!webviewRef.value, webviewReady: webviewReady.value });
+  } catch (e) {}
   syncReaderEffects();
   // 尝试读取并同步当前页面缩放比例
-  const w = webviewRef.value;
   try {
     if (w && typeof w.getZoomFactor === 'function') {
       w.getZoomFactor()
@@ -643,13 +697,104 @@ function handleWebviewDomReady() {
       w.addEventListener('page-title-updated', onPageTitleUpdated);
       w.addEventListener('did-navigate', onDidNavigate);
       w.addEventListener('did-navigate-in-page', onDidNavigate);
+      try {
+        w.addEventListener('console-message', (evt) => {
+          try {
+            console.log('[webview.console]', evt && evt.message ? evt.message : evt);
+          } catch (e) {}
+        });
+      } catch (e) {}
+      try {
+        w.addEventListener('ipc-message', (evt) => {
+          try {
+            console.log('[webview.ipc]', evt && evt.channel ? evt.channel : evt, evt && evt.args ? evt.args : undefined);
+          } catch (e) {}
+        });
+      } catch (e) {}
     }
   } catch (e) {}
 
-  // 注入脚本，强制移除 target="_blank" 并拦截 window.open
+  // 根据各类规则决定是否注入拦截 _blank 的脚本，以及应用站点自定义 CSS/JS
   try {
-    forceDisableBlankTargets();
+    let combined = null;
+    try {
+      combined = ruleProviders && typeof ruleProviders.getCombinedRulesForUrl === 'function' ? ruleProviders.getCombinedRulesForUrl(pageUrl || '') : null;
+    } catch (e) {
+      combined = null;
+    }
+
+    const siteRulesList = combined?.site || [];
+    const toolbarRulesList = combined?.toolbar || [];
+
+    const allowNewWindow = toolbarRulesList.some((r) => r.toolbarDisabled === false) || siteRulesList.some((r) => r.preventBlankTargets === false);
+
+    if (!allowNewWindow) {
+      try {
+        forceDisableBlankTargets();
+      } catch (e) {}
+    }
+
+    // 应用站点自定义样式/脚本：仅支持规则的 apply(helper) 单一方法
+    try {
+      for (const r of siteRulesList) {
+        try {
+          if (typeof r.apply === 'function') {
+            try {
+              try {
+                console.log('[site-rules] applying rule', r.id, r.pattern);
+              } catch (e) {}
+              const maybe = r.apply({
+                runWebviewCss: (idSuffix, css) => runWebviewCss(`site-custom-css-${r.id}${idSuffix ? `-${idSuffix}` : ''}`, css),
+                runWebviewJS: (js) => runWebviewJS(js),
+                webview: w,
+                settings,
+                activeTab: activeTab,
+                rule: r
+              });
+              if (maybe && typeof maybe.then === 'function') maybe.catch(() => {});
+            } catch (e) {}
+          }
+        } catch (e) {}
+      }
+    } catch (e) {}
   } catch (e) {}
+
+  // 工具栏规则逻辑已移动至顶层，避免模板访问到未定义的变量
+}
+
+// 计算并维护对当前页面的工具栏覆盖规则（优先使用 toolbarRules）
+const effectiveToolbar = ref({
+  docked: settings.toolbarDocked,
+  pinned: settings.toolbarPinned,
+  visible: settings.toolbarVisible,
+  disabled: settings.toolbarDisabled,
+  hideHandle: false,
+  iconOnly: false
+});
+
+function updateEffectiveToolbar() {
+  try {
+    const w = webviewRef.value;
+    let pageUrl = '';
+    try {
+      if (activeTab && activeTab.url) pageUrl = activeTab.url;
+      else if (w) pageUrl = typeof w.getURL === 'function' ? w.getURL() || '' : w.src || '';
+    } catch (e) {
+      pageUrl = activeTab?.url || '';
+    }
+
+    const combined = ruleProviders && typeof ruleProviders.getCombinedRulesForUrl === 'function' ? ruleProviders.getCombinedRulesForUrl(pageUrl || '') : null;
+    const toolbarList = combined?.toolbar || [];
+    const override = toolbarList.length ? toolbarList[0] : null;
+    effectiveToolbar.value.docked = override?.toolbarDocked ?? settings.toolbarDocked;
+    effectiveToolbar.value.pinned = override?.toolbarPinned ?? settings.toolbarPinned;
+    effectiveToolbar.value.visible = override?.toolbarVisible ?? settings.toolbarVisible;
+    effectiveToolbar.value.disabled = override?.toolbarDisabled ?? settings.toolbarDisabled;
+    effectiveToolbar.value.hideHandle = override?.hideHandle ?? false;
+    effectiveToolbar.value.iconOnly = override?.iconOnly ?? false;
+  } catch (e) {
+    // ignore
+  }
 }
 
 watch(() => settings.pageTransparentMode, syncReaderEffects);
@@ -695,6 +840,9 @@ watch(
     webviewReady.value = false;
     await nextTick();
     syncReaderEffects();
+    try {
+      updateEffectiveToolbar();
+    } catch (e) {}
   }
 );
 
@@ -705,6 +853,9 @@ onBeforeUnmount(() => {
 
 onMounted(() => {
   window.addEventListener('pointerup', onRangePointerUp);
+  try {
+    updateEffectiveToolbar();
+  } catch (e) {}
 });
 </script>
 
@@ -790,15 +941,15 @@ onMounted(() => {
             <!-- 底部工具栏（网页模式下显示） -->
             <div
               v-if="activeTab.kind !== 'dashboard' && activeTab.kind !== 'local-text'"
-              :class="['bottom-toolbar-container', settings.toolbarDocked ? 'docked' : 'overlay', settings.toolbarDisabled ? 'no-hover' : '']">
+              :class="['bottom-toolbar-container', effectiveToolbar.docked ? 'docked' : 'overlay', effectiveToolbar.disabled ? 'no-hover' : '']">
               <div
-                v-if="!settings.toolbarPinned && !settings.toolbarVisible && !settings.toolbarDisabled"
+                v-if="!effectiveToolbar.pinned && !effectiveToolbar.visible && !effectiveToolbar.disabled && !effectiveToolbar.hideHandle"
                 class="toolbar-handle"
                 @click="patchSetting('toolbarVisible', true)"></div>
 
               <div
                 class="bottom-toolbar"
-                :class="{ hidden: !settings.toolbarVisible }">
+                :class="{ hidden: !effectiveToolbar.visible, 'icon-mode': effectiveToolbar.iconOnly }">
                 <div class="toolbar-left">
                   <button
                     class="icon-btn icon-only"
@@ -829,62 +980,18 @@ onMounted(() => {
                       class="icon-btn icon-only"
                       :class="{ on: settings.forceReaderTextColor }"
                       @click="patchSetting('forceReaderTextColor', !settings.forceReaderTextColor)"
-                      title="强制文字色">
-                      字
+                      title="文字颜色">
+                      A
                     </button>
+
                     <div
                       class="hover-pop"
                       :class="{ visible: popActiveKey === 'color' || draggingKey === 'color' }">
-                      <input
-                        class="mini-color"
-                        type="color"
-                        :value="settings.readerTextColor"
-                        @input="onReaderColorInput" />
-                    </div>
-                  </div>
-
-                  <div
-                    class="toggle-with-pop"
-                    @mouseenter="() => showPop('font', settings.readerFontScale, 80, 160)"
-                    @mouseleave="hidePopIfNotDragging">
-                    <button
-                      class="icon-btn icon-only"
-                      :class="{ on: settings.forceReaderFont }"
-                      @click="patchSetting('forceReaderFont', !settings.forceReaderFont)"
-                      title="强制字号">
-                      大
-                    </button>
-                    <div
-                      class="hover-pop"
-                      :class="{ visible: popActiveKey === 'font' || draggingKey === 'font' }">
                       <div class="range-row">
                         <input
-                          ref="fontRangeRef"
-                          class="mini-range"
-                          type="range"
-                          min="80"
-                          max="160"
-                          :value="settings.readerFontScale"
-                          @input="onFontScaleInput"
-                          @pointerdown="() => onRangePointerDown('font')" />
-                        <div
-                          class="range-anchor"
-                          title="回到默认"
-                          @click="setFontDefault"
-                          :style="{ left: computeLeftFromInput('font', 100, 80, 160) }"></div>
-                        <button
-                          class="mini-reset-icon"
-                          title="重置到默认"
-                          @click="setFontDefault">
-                          ⟲
-                        </button>
-                        <div class="range-default">默认 100%</div>
-                      </div>
-                      <div
-                        v-if="draggingKey === 'font'"
-                        class="pop-value"
-                        :style="{ left: popLeft }">
-                        {{ popValue }}%
+                          type="color"
+                          :value="settings.readerTextColor"
+                          @input="onReaderColorInput" />
                       </div>
                     </div>
                   </div>
@@ -973,6 +1080,12 @@ onMounted(() => {
                     1x
                   </button>
                   <button
+                    class="icon-btn icon-only"
+                    @click="openSiteRuleEditor"
+                    title="站点注入规则">
+                    注
+                  </button>
+                  <button
                     class="icon-btn hide-toolbar-btn icon-only"
                     @click="toggleToolbarPinned"
                     :title="settings.toolbarPinned ? '切换到移入显示/移出隐藏' : '切换到始终显示'">
@@ -996,6 +1109,33 @@ onMounted(() => {
         </section>
       </div>
     </section>
+
+    <!-- 站点规则快速编辑弹窗（内嵌，便于快速为当前站点添加/编辑注入规则） -->
+    <div
+      v-if="showRuleManager"
+      class="rule-modal-layer"
+      @click.self="showRuleManager = false">
+      <section class="rule-modal panel">
+        <div class="rule-modal-header">
+          <div>
+            <strong>站点注入规则 - {{ currentHost || activeTab.url }}</strong>
+            <div style="font-size: 12px; color: #666">在此为当前站点配置自定义 CSS/JS</div>
+          </div>
+          <button
+            class="control-btn close"
+            aria-label="关闭"
+            @click="showRuleManager = false">
+            x
+          </button>
+        </div>
+        <div class="rule-modal-body">
+          <RuleManager
+            :autoOpen="true"
+            initialType="site"
+            :initialPattern="currentHost" />
+        </div>
+      </section>
+    </div>
   </section>
 </template>
 
@@ -1003,7 +1143,6 @@ onMounted(() => {
 .page-frame {
   position: relative;
 }
-
 /* toolbar base: layout only - positioning moved to .overlay / .docked */
 .bottom-toolbar {
   display: flex;
@@ -1132,6 +1271,39 @@ onMounted(() => {
 .icon-btn.on {
   background: rgba(64, 158, 255, 0.1);
   color: #409eff;
+}
+
+/* 站点规则编辑弹窗样式 */
+.rule-modal-layer {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.32);
+  z-index: 2400;
+}
+.rule-modal {
+  width: 760px;
+  max-width: calc(100% - 48px);
+  max-height: calc(100% - 48px);
+  overflow: auto;
+  padding: 12px;
+}
+.rule-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.rule-modal-body {
+  background: #fff;
+  padding: 12px;
+  border-radius: 8px;
 }
 .icon-btn:hover {
   background: rgba(16, 23, 32, 0.04);

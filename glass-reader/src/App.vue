@@ -1,5 +1,6 @@
 <script setup>
 import { onBeforeUnmount, onMounted, ref } from 'vue';
+import RuleManager from './components/RuleManager.vue';
 import { useDesktopApp } from './composables/useDesktopApp';
 import MainPage from './pages/MainPage.vue';
 
@@ -430,6 +431,11 @@ onBeforeUnmount(() => {
                   :class="{ on: settings[item.key] }"></span>
               </button>
             </div>
+          </section>
+
+          <section class="settings-block section-panel">
+            <div class="field-label">站点规则管理</div>
+            <RuleManager />
           </section>
 
           <section class="settings-block shortcut-block section-panel">

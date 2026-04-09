@@ -1,4 +1,6 @@
 import { computed, reactive, ref } from 'vue'
+import * as ruleProviders from '../lib/ruleProviders'
+import * as siteRules from '../lib/siteRules'
 
 const desktopApi = typeof window !== 'undefined' ? window.desktop : null
 
@@ -718,6 +720,15 @@ function initializeDesktopApp() {
         })
     }
 
+    // 加载站点级规则（若存在），以及各类规则提供器，供 webview 注入或个性化配置使用
+    try {
+        siteRules.loadRules()
+    } catch (e) { }
+    try {
+        ruleProviders.toolbar.loadRules()
+        ruleProviders.settings.loadRules()
+    } catch (e) { }
+
     if (desktopApi?.onSettingsChanged) {
         removeSettingsListener = desktopApi.onSettingsChanged((nextSettings) => {
             Object.assign(settings, nextSettings)
@@ -769,5 +780,19 @@ export function useDesktopApp() {
         initializeDesktopApp,
         disposeDesktopApp,
         updateTabMetadata,
+        siteRules: {
+            getRules: siteRules.getRules,
+            getRulesForUrl: siteRules.getRulesForUrl,
+            addRule: siteRules.addRule,
+            editRule: siteRules.editRule,
+            removeRule: siteRules.removeRule,
+            persist: siteRules.persistRules,
+        },
+        ruleProviders: {
+            getCombinedRulesForUrl: ruleProviders.getCombinedRulesForUrl,
+            toolbar: ruleProviders.toolbar,
+            settings: ruleProviders.settings,
+            site: ruleProviders.site,
+        },
     }
 }
