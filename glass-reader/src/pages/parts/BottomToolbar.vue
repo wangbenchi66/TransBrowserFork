@@ -279,10 +279,7 @@ onBeforeUnmount(() => {
             title="文字颜色"
             >A</BaseButton
           >
-          <span
-            class="hover-gap"
-            @mouseenter="onPopMouseEnter"
-            @mouseleave="onPopMouseLeave"></span>
+          
           <div
             class="hover-pop"
             :class="{ visible: popActiveKey === 'color' || draggingKey === 'color' }"
@@ -309,10 +306,7 @@ onBeforeUnmount(() => {
             title="字号"
             >字</BaseButton
           >
-          <span
-            class="hover-gap"
-            @mouseenter="onPopMouseEnter"
-            @mouseleave="onPopMouseLeave"></span>
+          
 
           <div
             class="hover-pop"
@@ -383,10 +377,7 @@ onBeforeUnmount(() => {
             :title="props.settings.autoScrollEnabled ? '关闭自动滚动' : '开启自动滚动'"
             >⇳</BaseButton
           >
-          <span
-            class="hover-gap"
-            @mouseenter="onPopMouseEnter"
-            @mouseleave="onPopMouseLeave"></span>
+          
 
           <div
             class="hover-pop"
@@ -550,19 +541,6 @@ onBeforeUnmount(() => {
   opacity: 0.98;
 }
 
-.toolbar-hotzone {
-  /* 使用 fixed 定位，避免容器高度或 transform 导致位置偏移 */
-  position: fixed;
-  left: 12px;
-  right: 12px;
-  /* 从视口底部开始，覆盖向上一段距离，确保能从手柄移动到弹层 */
-  bottom: 12px;
-  height: 220px;
-  pointer-events: auto;
-  background: transparent;
-  z-index: 10002;
-}
-
 .bottom-toolbar-container:hover .bottom-toolbar.hidden {
   transform: translateY(0);
   opacity: 1;
@@ -707,17 +685,6 @@ onBeforeUnmount(() => {
 }
 .range-anchor:hover::before {
   background: #2b88ff;
-}
-.toggle-with-pop .hover-gap {
-  position: absolute;
-  left: 0;
-  right: 0;
-  /* 扩大 hover-hit 区域以覆盖更多移动间隙，避免弹层在移动时消失 */
-  bottom: -28px;
-  height: 28px;
-  pointer-events: auto;
-  background: transparent;
-  z-index: 10006;
 }
 .range-default {
   font-size: 12px;
