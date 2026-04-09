@@ -1,4 +1,5 @@
 import { app, BrowserWindow, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, screen, Tray } from 'electron'
+import Store from 'electron-store'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -50,6 +51,13 @@ const defaultSettings = {
     fullWindowTransparent: false,
 }
 let currentSettings = { ...defaultSettings }
+
+// 窗口尺寸持久化（使用 electron-store）
+const store = new Store()
+const DEFAULT_WIDTH = 820
+const DEFAULT_HEIGHT = 860
+const MIN_SAFE_WIDTH = 360
+const MIN_SAFE_HEIGHT = 240
 
 function getSettingsFilePath() {
     return path.join(app.getPath('userData'), 'glass-reader-settings.json')
@@ -471,10 +479,18 @@ function applyWindowsAcrylic(win, enabled) {
 function createWindow() {
     const preloadPath = path.join(__dirname, 'preload.cjs')
     console.log('[main] creating BrowserWindow. preloadPath=', preloadPath, 'exists=', fs.existsSync(preloadPath))
+    // 读取持久化的窗口尺寸，若过小或超出屏幕则使用安全默认
+    const savedW = Number(store.get('width', DEFAULT_WIDTH)) || DEFAULT_WIDTH
+    const savedH = Number(store.get('height', DEFAULT_HEIGHT)) || DEFAULT_HEIGHT
+    const primary = screen.getPrimaryDisplay()
+    const maxW = primary && primary.workAreaSize ? primary.workAreaSize.width : DEFAULT_WIDTH * 2
+    const maxH = primary && primary.workAreaSize ? primary.workAreaSize.height : DEFAULT_HEIGHT * 2
+    const initialW = clamp(savedW, MIN_SAFE_WIDTH, maxW)
+    const initialH = clamp(savedH, MIN_SAFE_HEIGHT, maxH)
 
     const win = new BrowserWindow({
-        width: 820,
-        height: 860,
+        width: initialW,
+        height: initialH,
         minWidth: 80,
         minHeight: 80,
         frame: false,
@@ -512,6 +528,13 @@ function createWindow() {
 
     win.on('resize', () => {
         rememberWindowBounds()
+        try {
+            const [w, h] = win.getSize()
+            store.set('width', w)
+            store.set('height', h)
+        } catch (e) {
+            // ignore
+        }
     })
 
     win.on('show', () => {

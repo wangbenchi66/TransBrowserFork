@@ -742,18 +742,19 @@ iframe {
 }
 
 .switch {
-  width: 42px;
-  height: 24px;
+  width: 56px; /* 与容器 flex 基准一致，确保轨道填满 */
+  height: 28px;
   border-radius: 999px;
   background: #c8ccd5;
   position: relative;
   transition: background 0.2s ease;
+  box-sizing: border-box;
 }
 
 .switch::after {
   content: '';
   position: absolute;
-  top: 3px;
+  top: 5px; /* 使圆点垂直居中（28 - 18 = 10） */
   left: 3px;
   width: 18px;
   height: 18px;
@@ -768,7 +769,7 @@ iframe {
 }
 
 .switch.on::after {
-  transform: translateX(18px);
+  transform: translateX(32px); /* 56 - 3 - 18 - 3 = 32 */
 }
 
 .color-input {
@@ -1471,3 +1472,348 @@ iframe {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* ==================== Element Plus 按钮覆盖与整合（使 el-button 遵循项目视觉规范） ==================== */
+/* 这些规则针对我们常用的类名（control-btn, icon-btn, tab-chip, tab-add, toggle-row 等）
+   当按钮由 BaseButton (el-button) 渲染时，保持原有外观与交互 */
+.el-button.control-btn,
+.el-button.pin-btn,
+.el-button.tab-add,
+.el-button.primary-btn,
+.el-button.open-btn,
+.el-button.toggle-row,
+.el-button.site-card,
+.el-button.history-item,
+.el-button.tab-chip,
+.el-button.secondary-btn,
+.el-button.mini-reset-icon,
+.el-button.counter {
+  cursor: pointer;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, var(--surface-alpha, 0.75));
+  color: var(--text);
+  padding: 0 10px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: inherit;
+  box-shadow: none;
+}
+
+.el-button.tab-chip {
+  min-width: 112px;
+  max-width: 220px;
+  height: 34px;
+  padding: 0 12px;
+}
+
+.el-button.tab-add {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px dashed var(--line);
+  background: rgba(255,255,255,var(--surface-alpha,0.6));
+}
+
+.el-button.control-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 8px;
+}
+
+.el-button.control-btn svg,
+.el-button.control-btn .el-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.el-button.control-btn.close:hover {
+  color: #fff;
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+.el-button.icon-btn.icon-only {
+  background: transparent;
+  border: none;
+  padding: 6px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: background 120ms ease, transform 120ms ease, color 120ms ease;
+}
+
+.el-button.icon-btn.icon-only:hover {
+  background: rgba(16, 23, 32, 0.04);
+  transform: translateY(-1px);
+}
+
+.el-button.icon-btn.icon-only.on {
+  color: #409eff;
+  background: rgba(64, 158, 255, 0.06);
+}
+
+.el-button.toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line-soft);
+  background: rgba(255,255,255,var(--surface-alpha,0.65));
+  color: var(--text-secondary);
+}
+
+.el-button.mini-reset-icon {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
+.el-button.secondary-btn {
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(255,255,255,var(--surface-alpha,0.65));
+  border: 1px solid var(--line-soft);
+}
+
+.el-button.history-item {
+  text-align: left;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(240,240,240,1);
+  background: #fff;
+}
+
+.el-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(47,120,255,0.08);
+}
+
+/* 小尺寸适配 */
+.el-button--small.control-btn,
+.el-button--small.icon-btn {
+  height: 28px;
+  font-size: 13px;
+}
+
+/* 文本型按钮在表单内保持轻量 */
+.el-button--text.secondary-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+/* 覆盖默认 primary 视觉以更贴合主题 */
+.el-button--primary {
+  background: var(--primary);
+  color: #fff;
+  border-color: rgba(47,120,255,0.12);
+}
+
+/* 透明/plain 按钮保持无背景 */
+.el-button--plain {
+  background: transparent;
+  border: none;
+}
+
+/* ==================== 结束 Element Plus 覆盖 ==================== */
+
+/* 进一步修正 el-button 内部结构：确保 slot 内容按项目原始布局对齐 */
+.el-button.tab-chip .el-button__content,
+.el-button.tab-add .el-button__content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+/* 保证标签标题截断并留下关闭区域空间 */
+.el-button.tab-chip .tab-title {
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: calc(100% - 36px);
+}
+
+/* 关闭标记微调：靠右、可点击、与文本垂直居中 */
+.el-button.tab-chip .close-mark {
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  margin-left: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 设置面板的 toggle-row 内容使用 el-button__content 对齐 */
+.settings-page .el-button.toggle-row .el-button__content,
+.settings-modal .el-button.toggle-row .el-button__content,
+.settings-modal-layer .el-button.toggle-row .el-button__content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+/* 让 switch 在垂直方向上居中显示 */
+.switch,
+.el-button .switch {
+  vertical-align: middle;
+  display: inline-block;
+}
+
+
+/* 额外微调：确保 tab-chip 在 el-button 渲染时外观与原生一致 */
+.el-button.tab-chip {
+  padding: 0 12px;
+  border-radius: 10px 10px 0 0;
+  min-width: 112px;
+  max-width: 220px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.el-button.tab-chip .el-button__content {
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+}
+
+.el-button.tab-chip .tab-title {
+  max-width: calc(100% - 36px);
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.el-button.tab-chip .close-mark {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 8px;
+  border-radius: 6px;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.el-button.tab-chip .close-mark:hover {
+  background: rgba(0,0,0,0.04);
+  color: var(--danger);
+}
+
+/* 设置面板内的 toggle-row 微调：保证文本与 switch 垂直居中且无内嵌白色条 */
+.el-button.toggle-row {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 10px;
+  background: rgba(255,255,255,var(--surface-alpha,0.72));
+  border: 1px solid rgba(213,219,232,0.85);
+  color: var(--text);
+}
+
+.el-button.toggle-row .el-button__content {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* 当 toggle-row 内含 switch 时，保持 switch 垂直居中 */
+.el-button.toggle-row .switch {
+  margin: 0;
+  align-self: center;
+}
+
+/* 小屏幕下稍微压缩高度，避免过大留白 */
+@media (max-width: 520px) {
+  .el-button.toggle-row { min-height: 42px; padding: 8px 10px; }
+  .el-button.tab-chip { height: 32px; }
+}
+
+/* 强制设置：设置面板中所有 toggle-row（无论是 el-button 还是原生 button）
+   左侧文字靠左，右侧开关靠右，并在同一列对齐 */
+.settings-page .toggle-column,
+.settings-modal .toggle-column,
+.settings-modal-layer .toggle-column {
+  display: block;
+}
+
+.el-button.toggle-row,
+.toggle-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  box-sizing: border-box;
+  min-height: 46px;
+  padding: 10px 14px;
+}
+
+.el-button.toggle-row .el-button__content {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px;
+  width: 100%;
+}
+
+/* 左侧文字：始终靠左并占据可用宽度 */
+.el-button.toggle-row .el-button__content > span:first-child,
+.toggle-row > span:first-child {
+  flex: 1 1 auto;
+  text-align: left;
+  padding-left: 2px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+/* 右侧开关：固定宽度，靠右对齐，保持列对齐 */
+.el-button.toggle-row .switch,
+.toggle-row .switch {
+  flex: 0 0 56px !important; /* 包含内间距，确保对齐 */
+  margin-left: 12px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 当 switch 为 on 状态，其视觉需要更突出，保持原始色调 */
+.el-button.toggle-row .switch.on,
+.toggle-row .switch.on {
+  background: var(--primary) !important;
+}
+
+/* 避免内嵌白块：如果 el-button 自带 background，确保边框与背景一致 */
+.settings-page .el-button.toggle-row,
+.settings-modal .el-button.toggle-row {
+  background: rgba(255,255,255,var(--surface-alpha,0.72));
+  border: 1px solid rgba(213,219,232,0.85);
+}
+
+

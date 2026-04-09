@@ -1,0 +1,63 @@
+name: Build Electron Multi-Arch
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  # Windows 多架构
+  build-win:
+    runs-on: windows-latest
+
+    strategy:
+      matrix:
+        arch: [x64, arm64]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - run: npm install
+      - run: npm run build
+
+      - name: Build Windows
+        run: npx electron-builder --win --${{ matrix.arch }}
+
+      - name: Upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: win-${{ matrix.arch }}
+          path: dist/*.exe
+
+  # mac 多架构
+  build-mac:
+    runs-on: macos-latest
+
+    strategy:
+      matrix:
+        arch: [x64, arm64]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - run: npm install
+      - run: npm run build
+
+      - name: Build mac
+        run: npx electron-builder --mac --${{ matrix.arch }}
+
+      - name: Upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: mac-${{ matrix.arch }}
+          path: dist/*.dmg
