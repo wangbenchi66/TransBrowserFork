@@ -308,9 +308,10 @@ onBeforeUnmount(() => {
                 >⟲</BaseButton
               >
               <div class="range-default">默认 100</div>
+              <div class="range-current" v-if="popActiveKey === 'font' || draggingKey === 'font'">当前 {{ popValue }}</div>
             </div>
             <div
-              v-if="draggingKey === 'font'"
+              v-if="popActiveKey === 'font' || draggingKey === 'font'"
               class="pop-value"
               :style="{ left: popLeft }">
               {{ popValue }}
@@ -373,9 +374,10 @@ onBeforeUnmount(() => {
                 >⟲</BaseButton
               >
               <div class="range-default">默认 22</div>
+              <div class="range-current" v-if="popActiveKey === 'auto' || draggingKey === 'auto'">当前 {{ popValue }}</div>
             </div>
             <div
-              v-if="draggingKey === 'auto'"
+              v-if="popActiveKey === 'auto' || draggingKey === 'auto'"
               class="pop-value"
               :style="{ left: popLeft }">
               {{ popValue }}
@@ -657,5 +659,17 @@ onBeforeUnmount(() => {
 }
 .range-anchor:hover::before {
   background: #2b88ff;
+}
+.range-default {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.46);
+  font-weight: 400;
+  margin-left: 6px;
+}
+.range-current {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.8);
+  font-weight: 600;
+  margin-left: 6px;
 }
 </style>
