@@ -8,6 +8,8 @@ const { settings, activeTab, activeTabId, tabs, addNewTab, selectTab, closeTab, 
 
 const webviewRef = ref(null);
 const webviewReady = ref(false);
+// 覆盖 webview 的 User-Agent，部分站点会屏蔽 Electron UA 导致连接被关闭
+const userAgent = ref('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36');
 const localReaderRef = ref(null);
 let localScrollTimer = null;
 const siteZoom = ref(1);
@@ -755,6 +757,17 @@ function handleWebviewDomReady() {
         } catch (e) {}
       }
     } catch (e) {}
+
+    // 记录加载失败以便排查网络错误（例如 ERR_CONNECTION_CLOSED）
+    try {
+      if (w && typeof w.addEventListener === 'function') {
+        try {
+          w.removeEventListener('did-fail-load', onWebviewFailLoad);
+        } catch (e) {}
+
+        w.addEventListener('did-fail-load', onWebviewFailLoad);
+      }
+    } catch (e) {}
   } catch (e) {}
 
   // 工具栏规则逻辑已移动至顶层，避免模板访问到未定义的变量
@@ -930,6 +943,7 @@ onMounted(() => {
                   ref="webviewRef"
                   class="webview-frame"
                   :src="activeTab.url"
+                  :useragent="userAgent"
                   nodeintegration="false"
                   enableblinkfeatures="ResizeObserver"
                   @dom-ready="handleWebviewDomReady"

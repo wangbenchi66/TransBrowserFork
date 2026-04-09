@@ -1,8 +1,8 @@
 name: Build Electron Multi-Arch
 
 on:
-  push:
-    branches: [master]
+  watch:
+    types: [started]
   workflow_dispatch:
 
 jobs:
