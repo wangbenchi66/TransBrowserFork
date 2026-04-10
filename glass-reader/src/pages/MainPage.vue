@@ -723,19 +723,38 @@ function syncWebviewNoImage() {
 }
 
 function syncWebviewScrollbars() {
-  const css = `
-    ::-webkit-scrollbar { width: 12px !important; height: 12px !important; }
-    ::-webkit-scrollbar-track { background: transparent !important; }
-    ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2) !important; border-radius: 6px !important; }
-  `;
-
-  // 当 settings.showScrollbars 为 false 时，隐藏网页滚动条
-  const hideCss = `
-    ::-webkit-scrollbar { display: none !important; }
-  `;
-
   const tabId = arguments.length ? arguments[0] : undefined;
-  runWebviewCss('glass-scrollbar-style', settings.showScrollbars ? css : hideCss, tabId);
+  const enabled = !!settings.showScrollbars;
+  // 注入样式节点以隐藏滚动条视觉，但保留页面滚动行为
+  const css = `
+    /* 保留滚动但隐藏滚动条（Chrome/WebKit） */
+    ::-webkit-scrollbar { width: 0 !important; height: 0 !important; }
+    ::-webkit-scrollbar-thumb { background: transparent !important; }
+    /* Firefox */
+    * { scrollbar-width: none !important; -ms-overflow-style: none !important; }
+  `;
+
+  const script = `(() => {
+    try {
+      const id = 'glass-scrollbar-style';
+      const existing = document.getElementById(id);
+      if (${enabled}) {
+        if (existing) existing.remove();
+        return true;
+      }
+      if (existing) {
+        existing.textContent = ${JSON.stringify(css)};
+        return true;
+      }
+      const style = document.createElement('style');
+      style.id = id;
+      style.textContent = ${JSON.stringify(css)};
+      (document.head || document.documentElement || document.body).appendChild(style);
+    } catch(e) {}
+    return true;
+  })();`;
+
+  runWebviewJS(script, tabId);
 }
 
 function syncWebviewTextColor() {
@@ -1173,12 +1192,29 @@ function updateEffectiveToolbar() {
   }
 }
 
-watch(() => settings.pageTransparentMode, syncReaderEffects);
 // 监听强制网页透明开关，确保其变更能立即同步到 webview
-watch(() => settings.forcePageTransparent, syncReaderEffects);
-watch(() => settings.noImageMode, syncReaderEffects);
-watch(() => settings.autoScrollEnabled, syncReaderEffects);
-watch(() => settings.autoScrollSpeed, syncReaderEffects);
+// 注意：直接传入 syncReaderEffects 会让 Vue 把新值作为参数传入
+// 从而误把布尔值当作 tabId；使用包裹函数以避免该问题
+watch(
+  () => settings.pageTransparentMode,
+  () => syncReaderEffects()
+);
+watch(
+  () => settings.forcePageTransparent,
+  () => syncReaderEffects()
+);
+watch(
+  () => settings.noImageMode,
+  () => syncReaderEffects()
+);
+watch(
+  () => settings.autoScrollEnabled,
+  () => syncReaderEffects()
+);
+watch(
+  () => settings.autoScrollSpeed,
+  () => syncReaderEffects()
+);
 watch(
   () => settings.readerTextColor,
   (v) => {
@@ -1193,7 +1229,11 @@ watch(
     applyLocalReaderStyles();
   }
 );
-watch(() => settings.showScrollbars, syncWebviewScrollbars);
+// 单独监听滚动条显示设置，直接调用包装函数以避免 Vue 传参误用
+watch(
+  () => settings.showScrollbars,
+  () => syncWebviewScrollbars()
+);
 watch(
   () => settings.readerFontScale,
   (v) => {
