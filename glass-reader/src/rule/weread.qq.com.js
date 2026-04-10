@@ -109,13 +109,11 @@ function fnToStr(fn) {
     return str;
 }
 
-
-
-
+//页面是否正在加载（例如章节内容尚未加载完成时会有一个 loading 元素），如果正在加载则不执行下一章切换，以免触发错误或过早切换。
 function isPageLoading() {
     try {
         if (document.readyState && document.readyState !== 'complete') return true;
-        var spinner = document.querySelector('.chapter-loading, .loading, .spinner, .loading-mask, .reader-loading');
+        var spinner = document.querySelector('.chapter-loading, .loading, .spinner, .loading-mask, .reader-loading, .readerChapterContentLoading');
         if (spinner) return true;
         var bodyCl = (document.body && document.body.className) || '';
         if (/loading|is-loading|loading-mask/.test(bodyCl)) return true;
@@ -123,6 +121,7 @@ function isPageLoading() {
     } catch (e) { return false; }
 }
 
+// 模拟键盘事件以触发下一章切换，优先使用键盘事件（如果页面有监听），其次尝试点击下一章按钮。
 function fireKeyEvent(code) {
     try {
         var key = (code === 39) ? 'ArrowRight' : (code === 37) ? 'ArrowLeft' : String.fromCharCode(code);
@@ -133,6 +132,7 @@ function fireKeyEvent(code) {
     } catch (e) { return false; }
 }
 
+// 执行切换下一章的逻辑：优先通过键盘事件触发（如果页面有监听），其次尝试点击下一章按钮，最后检查是否已到结尾。
 function __performNextNow() {
     try {
         if (window.__glassReaderPerformingNext) return false;
@@ -176,6 +176,7 @@ function __performNextNow() {
     return false;
 }
 
+// 切换下一章的入口函数，支持可选的延迟参数以避免过快触发（例如章节内容尚未加载完成时），默认延迟 3 秒。
 function nextChapter(opts) {
     try {
         if (window.__glassReaderNextPending) return false;
@@ -194,6 +195,7 @@ function nextChapter(opts) {
     return false;
 }
 
+// 监听用户选区变化以优化交互体验，例如当有选区时暂不自动切换下一章，或在渲染器显示相关提示。
 function installSelectionWatcher() {
     try {
         if (window.__glassReaderSelectionWatcherInstalled) return;
@@ -220,11 +222,53 @@ function installSelectionWatcher() {
     } catch (e) { }
 }
 
+// 获取当前选区状态，返回布尔值表示是否有选区。页面内的其他脚本或渲染器可以调用此函数以决定是否执行某些操作（例如自动切换下一章）。
 function getSelectionState() { try { return !!(window.Cache && window.Cache.HasSelection); } catch (e) { return false; } }
 
+// 监听滚动事件以实现自动切换下一章的功能：当用户滚动到接近底部时自动触发下一章切换，提升阅读流畅度。支持多个可能的滚动容器，并提供阈值设置以避免过早触发。
+// 可能会隐藏滚动栏(隐藏滚动栏可能会导致无法触发 scroll 事件)，如果需要可以在 CSS 注入中覆盖相关样式以确保滚动事件能被监听到。
 function attachAutoNext() {
     try {
-        if (window.__glassReaderAutoNextAttached) return;
+        if (window.__glassReaderAutoNextAttached) {
+            try { console.log('[glassreader] attachAutoNext: already attached'); } catch (e) { }
+            return;
+        }
+
+        try { console.log('[glassreader] attachAutoNext: checking page load state'); } catch (e) { }
+
+        // 如果页面仍在加载中，则延迟安装滚动监听器，等待加载完成或超时回退（约 30s）
+        try {
+            if (typeof isPageLoading === 'function' && isPageLoading()) {
+                if (window.__glassReaderAutoNextWaiter) return;
+                var attempts = 0;
+                window.__glassReaderAutoNextWaiter = setInterval(function () {
+                    try {
+                        attempts++;
+                        var loading = (typeof isPageLoading === 'function' && isPageLoading());
+                        try { console.log('[glassreader] attachAutoNext: waiting, attempt', attempts, 'loading=', loading); } catch (e) { }
+                        if (!loading) {
+                            clearInterval(window.__glassReaderAutoNextWaiter);
+                            window.__glassReaderAutoNextWaiter = null;
+                            try { console.log('[glassreader] attachAutoNext: page loaded, installing handlers'); } catch (e) { }
+                            attachAutoNext();
+                            return;
+                        }
+                        // 超时回退（100 次 * 300ms = ~30s）
+                        if (attempts >= 100) {
+                            clearInterval(window.__glassReaderAutoNextWaiter);
+                            window.__glassReaderAutoNextWaiter = null;
+                            try { console.log('[glassreader] attachAutoNext: wait timeout, installing handlers anyway'); } catch (e) { }
+                            attachAutoNext();
+                            return;
+                        }
+                    } catch (e) { }
+                }, 300);
+                return;
+            }
+        } catch (e) { }
+
+        try { console.log('[glassreader] attachAutoNext: installing scroll handlers now'); } catch (e) { }
+
         var targets = [window];
         var selectors = ['.chapter-content', '.reader-content', '.read-content', '.reader-main', '.book-content', '.read_view', '.readerWrapper', '.content-scroll'];
         selectors.forEach(function (s) { try { var el = document.querySelector(s); if (el && targets.indexOf(el) === -1) targets.push(el); } catch (e) { } });
@@ -235,6 +279,7 @@ function attachAutoNext() {
             } catch (e) { }
         }
 
+        var minScrollable = (window.__glassReaderMinScrollable || 50);
         var threshold = 10;
         targets.forEach(function (t) {
             try {
@@ -244,7 +289,16 @@ function attachAutoNext() {
                         var scrollTop = (el === document.scrollingElement || el === document.documentElement || el === document.body) ? (window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop) : el.scrollTop;
                         var scrollHeight = (el === document.scrollingElement || el === document.documentElement || el === document.body) ? (document.documentElement.scrollHeight || document.body.scrollHeight) : el.scrollHeight;
                         var clientHeight = (el === document.scrollingElement || el === document.documentElement || el === document.body) ? (document.documentElement.clientHeight || window.innerHeight) : el.clientHeight;
-                        if (scrollTop + clientHeight >= scrollHeight - threshold) {
+
+                        var delta = (scrollHeight - clientHeight) || 0;
+                        var near = (scrollTop + clientHeight >= scrollHeight - threshold);
+                        if (near) {
+                            try { console.log('[glassreader] attachAutoNext: near bottom', { scrollTop: scrollTop, clientHeight: clientHeight, scrollHeight: scrollHeight, delta: delta, threshold: threshold }); } catch (e) { }
+                        }
+
+                        if (delta <= minScrollable) return;
+
+                        if (near) {
                             if (window.__glassReaderAutoNextTimer) return;
                             window.__glassReaderAutoNextTimer = true;
                             try { if (typeof window.nextChapter === 'function') window.nextChapter(); } catch (e) { }
