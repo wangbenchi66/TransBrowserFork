@@ -187,6 +187,11 @@ function getActiveWebview() {
 const userAgent = ref('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36');
 const localReaderRef = ref(null);
 let localScrollTimer = null;
+let localScrollRaf = null;
+let localScrollLastTs = null;
+let localScrollAcc = 0;
+let localUserInteractingAt = null;
+let localAutoHandlers = null;
 const siteZoom = ref(1);
 // bottom toolbar pop state is managed inside BottomToolbar component
 
@@ -289,30 +294,67 @@ function buildStyleScript(styleId, enabled, cssText) {
 }
 
 function buildAutoScrollScript(enabled, speed) {
-  const interval = Math.max(16, Math.round(320 - speed * 3));
-  const step = Math.max(1, speed / 6);
+  // 将 UI speed 映射到像素/秒，用于 RAF 平滑滚动
+  const pxPerSecond = Math.max(12, Math.round((speed || 22) * 3));
+  // embed uid to avoid accidental dedupe by runWebviewJS
+  const uid = Date.now();
 
   return `(() => {
-    if (window.__glassReaderAutoScrollTimer) {
-      window.clearInterval(window.__glassReaderAutoScrollTimer);
-      window.__glassReaderAutoScrollTimer = null;
-    }
+    try {
+      // 清理旧的 interval/RAF/handler
+      try { if (window.__glassReaderAutoScrollTimer) { window.clearInterval(window.__glassReaderAutoScrollTimer); window.__glassReaderAutoScrollTimer = null; } } catch(e) {}
+      try { if (window.__glassReaderAutoScrollRAF) { window.cancelAnimationFrame(window.__glassReaderAutoScrollRAF); window.__glassReaderAutoScrollRAF = null; } } catch(e) {}
+      try { if (window.__glassReaderAutoScrollUserHandler) { ['wheel','touchstart','pointerdown','keydown'].forEach(e=>{ try{ document.removeEventListener(e, window.__glassReaderAutoScrollUserHandler); }catch(e){} }); window.__glassReaderAutoScrollUserHandler = null; } } catch(e) {}
 
-    if (!${enabled ? 'true' : 'false'}) {
-      return true;
-    }
-
-    window.__glassReaderAutoScrollTimer = window.setInterval(() => {
-      const root = document.scrollingElement || document.documentElement || document.body;
-      if (!root) {
-        return;
+      if (!${enabled ? 'true' : 'false'}) {
+        return true;
       }
 
-      root.scrollBy(0, ${step});
-    }, ${interval});
+      const speedPxPerSec = ${pxPerSecond};
+      const root = document.scrollingElement || document.documentElement || document.body;
+      let lastTs = performance.now();
+      let acc = 0;
+      window.__glassReaderAutoScrollUserInteractionAt = window.__glassReaderAutoScrollUserInteractionAt || 0;
 
+      // user interaction handler: mark last interaction time
+      window.__glassReaderAutoScrollUserHandler = function() {
+        try { window.__glassReaderAutoScrollUserInteractionAt = performance.now(); } catch(e) {}
+      };
+
+      try {
+        ['wheel','touchstart','pointerdown','keydown'].forEach((n) => {
+          try { document.addEventListener(n, window.__glassReaderAutoScrollUserHandler, { passive: true }); } catch(e) { try { document.addEventListener(n, window.__glassReaderAutoScrollUserHandler); } catch(e) {} }
+        });
+      } catch(e) {}
+
+      function step(ts) {
+        try {
+          const now = ts || performance.now();
+          const delta = now - lastTs;
+          lastTs = now;
+
+          // 如果用户最近交互过，短暂停止自动滚动以避免冲突
+          if (window.__glassReaderAutoScrollUserInteractionAt && (now - window.__glassReaderAutoScrollUserInteractionAt) < 300) {
+            window.__glassReaderAutoScrollRAF = window.requestAnimationFrame(step);
+            return;
+          }
+
+          acc += (speedPxPerSec * delta) / 1000;
+          const toScroll = Math.floor(acc);
+          if (toScroll >= 1) {
+            if (root) {
+              try { root.scrollBy(0, toScroll); } catch(e) {}
+            }
+            acc -= toScroll;
+          }
+        } catch(e) {}
+        window.__glassReaderAutoScrollRAF = window.requestAnimationFrame(step);
+      }
+
+      window.__glassReaderAutoScrollRAF = window.requestAnimationFrame(step);
+    } catch(e) {}
     return true;
-  })();`;
+  })(); /* uid:${uid} */`;
 }
 
 // computeLeft helpers moved into BottomToolbar
@@ -800,6 +842,34 @@ function stopLocalReaderAutoScroll() {
     window.clearInterval(localScrollTimer);
     localScrollTimer = null;
   }
+  if (localScrollRaf) {
+    try {
+      window.cancelAnimationFrame(localScrollRaf);
+    } catch (e) {}
+    localScrollRaf = null;
+    localScrollLastTs = null;
+  }
+  // 移除本地阅读器上的交互监听器并重置累积器
+  try {
+    const el = localReaderRef && localReaderRef.value ? localReaderRef.value : null;
+    if (el && localAutoHandlers) {
+      try {
+        el.removeEventListener('wheel', localAutoHandlers.wheel);
+      } catch (e) {}
+      try {
+        el.removeEventListener('pointerdown', localAutoHandlers.pointerdown);
+      } catch (e) {}
+      try {
+        el.removeEventListener('touchstart', localAutoHandlers.touchstart);
+      } catch (e) {}
+      try {
+        el.removeEventListener('keydown', localAutoHandlers.keydown);
+      } catch (e) {}
+    }
+  } catch (e) {}
+  localAutoHandlers = null;
+  localUserInteractingAt = null;
+  localScrollAcc = 0;
 }
 
 function syncLocalReaderAutoScroll() {
@@ -809,13 +879,76 @@ function syncLocalReaderAutoScroll() {
     return;
   }
 
-  const interval = Math.max(16, Math.round(320 - settings.autoScrollSpeed * 3));
-  const step = Math.max(1, settings.autoScrollSpeed / 6);
-  localScrollTimer = window.setInterval(() => {
-    if (localReaderRef.value) {
-      localReaderRef.value.scrollBy({ top: step, behavior: 'auto' });
+  const speedPxPerSec = Math.max(12, Math.round((settings.autoScrollSpeed || 22) * 3));
+  localScrollLastTs = performance.now();
+  localScrollAcc = 0;
+
+  // attach user interaction handlers to pause auto-scroll temporarily
+  try {
+    const el = localReaderRef.value;
+    if (el) {
+      const onUser = function () {
+        localUserInteractingAt = performance.now();
+      };
+      const onKey = function (ev) {
+        try {
+          const k = ev && ev.key ? ev.key : '';
+          if (['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', ' '].includes(k)) localUserInteractingAt = performance.now();
+        } catch (e) {}
+      };
+      localAutoHandlers = { wheel: onUser, pointerdown: onUser, touchstart: onUser, keydown: onKey };
+      try {
+        el.addEventListener('wheel', onUser, { passive: true });
+      } catch (e) {
+        try {
+          el.addEventListener('wheel', onUser);
+        } catch (e) {}
+      }
+      try {
+        el.addEventListener('pointerdown', onUser, { passive: true });
+      } catch (e) {
+        try {
+          el.addEventListener('pointerdown', onUser);
+        } catch (e) {}
+      }
+      try {
+        el.addEventListener('touchstart', onUser, { passive: true });
+      } catch (e) {
+        try {
+          el.addEventListener('touchstart', onUser);
+        } catch (e) {}
+      }
+      try {
+        el.addEventListener('keydown', onKey);
+      } catch (e) {}
     }
-  }, interval);
+  } catch (e) {}
+
+  function localStep(ts) {
+    try {
+      const now = ts || performance.now();
+      const delta = now - localScrollLastTs;
+      localScrollLastTs = now;
+
+      // 若用户近期交互则短暂停止自动滚动以避免冲突
+      if (localUserInteractingAt && now - localUserInteractingAt < 300) {
+        localScrollRaf = window.requestAnimationFrame(localStep);
+        return;
+      }
+
+      localScrollAcc += (speedPxPerSec * delta) / 1000;
+      const toScroll = Math.floor(localScrollAcc);
+      if (toScroll >= 1) {
+        try {
+          if (localReaderRef.value) localReaderRef.value.scrollBy({ top: toScroll, behavior: 'auto' });
+        } catch (e) {}
+        localScrollAcc -= toScroll;
+      }
+    } catch (e) {}
+    localScrollRaf = window.requestAnimationFrame(localStep);
+  }
+
+  localScrollRaf = window.requestAnimationFrame(localStep);
 }
 
 function syncReaderEffects(tabId) {
@@ -853,12 +986,10 @@ function pauseMediaAndScroll() {
             try { el.muted = true; } catch(e) {}
           } catch(e) {}
         });
-        // 如果存在注入的自动滚动计时器，清除并标记为已被暂停
-        if (window.__glassReaderAutoScrollTimer) {
-          try { window.clearInterval(window.__glassReaderAutoScrollTimer); } catch(e) {}
-          window.__glassReaderAutoScrollTimer = null;
-          window.__glassReaderAutoScrollPausedByGlassReader = true;
-        }
+        // 如果存在注入的自动滚动计时器或 RAF，清除并标记为已被暂停
+        try { if (window.__glassReaderAutoScrollTimer) { window.clearInterval(window.__glassReaderAutoScrollTimer); window.__glassReaderAutoScrollTimer = null; } } catch(e) {}
+        try { if (window.__glassReaderAutoScrollRAF) { window.cancelAnimationFrame(window.__glassReaderAutoScrollRAF); window.__glassReaderAutoScrollRAF = null; } } catch(e) {}
+        window.__glassReaderAutoScrollPausedByGlassReader = true;
       } catch(e) {}
       return true;
     })();`;
