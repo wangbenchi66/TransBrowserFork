@@ -415,7 +415,8 @@ iframe {
 .settings-modal-layer {
   position: absolute;
   inset: 10px;
-  z-index: 20;
+  /* 提升到高优先级，确保设置面板位于所有窗口控件之上 */
+  z-index: 10000;
   display: flex;
   align-items: stretch;
   justify-content: flex-end;
