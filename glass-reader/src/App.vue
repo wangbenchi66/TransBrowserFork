@@ -1,10 +1,11 @@
 <script setup>
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref, computed } from 'vue';
 import { useDesktopApp } from './composables/useDesktopApp';
 import TopBar from './layouts/TopBar.vue';
 import MainPage from './pages/MainPage.vue';
 import TabBar from './pages/parts/TabBar.vue';
+import BottomToolbar from './pages/parts/BottomToolbar.vue';
 import defaultSettings from './shared/defaultSettings.js';
 
 const {
@@ -42,6 +43,35 @@ const capturedAccel = ref('');
 const autoRangeRef = ref(null);
 // 当开启 hoverHeaderMode 时，记录是否处于“悬停激活”状态（由全局鼠标位置控制）
 const headerHoverActive = ref(false);
+
+// 引用 MainPage 实例，以便将 BottomToolbar 渲染在 MainPage 之外（位于 MainPage 下面）
+const mainPageRef = ref(null);
+
+// 为 BottomToolbar 准备需要的 props（从 MainPage expose 的实例中读取）
+const toolbarProps = computed(() => {
+  const mp = mainPageRef.value;
+  const eff = mp && mp.effectiveToolbar ? (mp.effectiveToolbar.value ?? mp.effectiveToolbar) : null;
+  return {
+    settings: mp ? mp.settings : settings,
+    siteZoom: mp ? (mp.siteZoom ?? 1) : 1,
+    patchSetting: mp ? mp.patchSetting : patchSetting,
+    webviewBack: mp && mp.webviewBack ? mp.webviewBack : () => {},
+    webviewForward: mp && mp.webviewForward ? mp.webviewForward : () => {},
+    webviewReload: mp && mp.webviewReload ? mp.webviewReload : () => {},
+    zoomIn: mp && mp.zoomIn ? mp.zoomIn : () => {},
+    zoomOut: mp && mp.zoomOut ? mp.zoomOut : () => {},
+    resetZoom: mp && mp.resetZoom ? mp.resetZoom : () => {},
+    toggleToolbarPinned: mp && mp.toggleToolbarPinned ? mp.toggleToolbarPinned : () => {},
+    disableToolbar: mp && mp.disableToolbar ? mp.disableToolbar : () => {},
+    toolbarVisible: eff ? (eff.visible ?? false) : settings.toolbarVisible,
+    toolbarPinned: eff ? (eff.pinned ?? false) : settings.toolbarPinned,
+    toolbarDisabled: eff ? (eff.disabled ?? false) : settings.toolbarDisabled,
+    toolbarIconOnly: eff ? (eff.iconOnly ?? false) : false,
+    toolbarDocked: eff ? (eff.docked ?? false) : settings.toolbarDocked,
+    hideHandle: eff ? (eff.hideHandle ?? false) : false,
+    external: true
+  };
+});
 
 function _onMouseMoveForHeader(e) {
   try {
@@ -314,8 +344,11 @@ onBeforeUnmount(() => {
       :closeAllTabs="closeAllTabs" />
 
     <main class="page-host">
-      <MainPage />
+      <MainPage ref="mainPageRef" />
     </main>
+
+    <!-- 将 BottomToolbar 放在 MainPage 之外，作为外挂部件展示，避免遮挡 MainPage 底部内容 -->
+    <BottomToolbar v-bind="toolbarProps" />
 
     <div
       v-if="isSettingsOpen"
@@ -354,10 +387,6 @@ onBeforeUnmount(() => {
               max="85"
               @input="handleTransparencyInput($event)" />
           </section>
-
-          <!-- 阅读控制已移除：相关控制已精简或合并到其它设置 -->
-
-          <!-- 标题与标签默认合并，相关开关在常规列表中管理 -->
 
           <section class="toggle-grid section-panel">
             <div class="toggle-column">

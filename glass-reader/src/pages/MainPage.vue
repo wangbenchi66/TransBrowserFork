@@ -2,7 +2,6 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useDesktopApp } from '../composables/useDesktopApp';
 import recommendedPage from './RecommendedPage.vue';
-import BottomToolbar from './parts/BottomToolbar.vue';
 
 const { settings, activeTab, activeTabId, tabs, addNewTab, selectTab, closeTab, patchSetting, updateTabMetadata, siteRules, ruleProviders, pushRecentVisit } = useDesktopApp();
 
@@ -1429,6 +1428,22 @@ watch(
   }
 );
 
+// 向父组件暴露必要方法和状态，以便将 BottomToolbar 移到 App.vue
+defineExpose({
+  settings,
+  siteZoom,
+  patchSetting,
+  webviewBack,
+  webviewForward,
+  webviewReload,
+  zoomIn,
+  zoomOut,
+  resetZoom,
+  toggleToolbarPinned,
+  disableToolbar,
+  effectiveToolbar
+});
+
 onBeforeUnmount(() => {
   stopLocalReaderAutoScroll();
   try {
@@ -1495,25 +1510,7 @@ onMounted(() => {
               </header>
               <pre class="local-reader-content">{{ activeTab?.content }}</pre>
             </article>
-            <!-- 底部工具栏（网页模式下显示） -->
-            <BottomToolbar
-              :settings="settings"
-              :siteZoom="siteZoom"
-              :patchSetting="patchSetting"
-              :webviewBack="webviewBack"
-              :webviewForward="webviewForward"
-              :webviewReload="webviewReload"
-              :zoomIn="zoomIn"
-              :zoomOut="zoomOut"
-              :resetZoom="resetZoom"
-              :toggleToolbarPinned="toggleToolbarPinned"
-              :disableToolbar="disableToolbar"
-              :toolbar-visible="effectiveToolbar.visible"
-              :toolbar-pinned="effectiveToolbar.pinned"
-              :toolbar-disabled="effectiveToolbar.disabled"
-              :toolbar-icon-only="effectiveToolbar.iconOnly"
-              :toolbar-docked="effectiveToolbar.docked"
-              :hide-handle="effectiveToolbar.hideHandle" />
+            <!-- 底部工具栏已移到父组件 App.vue 以避免覆盖页面底部内容 -->
           </div>
         </section>
       </div>

@@ -21,6 +21,8 @@ const props = defineProps({
   toolbarIconOnly: Boolean,
   toolbarDocked: Boolean,
   hideHandle: Boolean
+  ,
+  external: { type: Boolean, default: false }
 });
 
 const popActiveKey = ref(null);
@@ -45,6 +47,8 @@ const HOTZONE_HEIGHT = 220; // 与 toolbar-hotzone 保持一致
 
 function _onPointerMove(e) {
   try {
+    // external 模式由父组件作为页面流的一部分渲染，不使用自动隐藏逻辑
+    if (props.external) return;
     if (props.toolbarDisabled || props.toolbarPinned || props.hideHandle) return;
     const y = e && typeof e.clientY === 'number' ? e.clientY : (window.event && window.event.clientY) || 0;
     const winH = window.innerHeight || document.documentElement.clientHeight || 0;
@@ -151,6 +155,7 @@ function onToggleMouseLeave(e) {
 
 function onContainerMouseLeave(e) {
   try {
+    if (props.external) return;
     if (props.toolbarPinned || props.toolbarDisabled || props.hideHandle) return;
     const to = e && e.relatedTarget;
     const el = e && e.currentTarget;
@@ -218,7 +223,10 @@ function onAutoScrollSpeedInput(e) {
 onMounted(() => {
   window.addEventListener('pointerup', onRangePointerUp);
   _pmHandler = _onPointerMove;
-  window.addEventListener('pointermove', _pmHandler);
+  // 仅在非 external 模式下监听全局 pointermove 自动显示/隐藏逻辑
+  if (!props.external) {
+    window.addEventListener('pointermove', _pmHandler);
+  }
 });
 
 onBeforeUnmount(() => {
@@ -228,7 +236,7 @@ onBeforeUnmount(() => {
     hideTimeout = null;
   }
   if (_pmHandler) {
-    window.removeEventListener('pointermove', _pmHandler);
+    try { window.removeEventListener('pointermove', _pmHandler); } catch (e) {}
     _pmHandler = null;
   }
 });
@@ -236,7 +244,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div
-    :class="['bottom-toolbar-container', props.toolbarDocked ? 'docked' : 'overlay', props.toolbarDisabled ? 'no-hover' : '']"
+    :class="['bottom-toolbar-container', props.toolbarDocked ? 'docked' : 'overlay', props.toolbarDisabled ? 'no-hover' : '', props.external ? 'external' : '']"
     @mouseleave="onContainerMouseLeave">
     <div
       v-if="!props.toolbarPinned && !props.toolbarVisible && !props.toolbarDisabled && !props.hideHandle"
@@ -245,7 +253,7 @@ onBeforeUnmount(() => {
 
     <div
       class="bottom-toolbar"
-      :class="{ hidden: !props.toolbarVisible, 'icon-mode': props.toolbarIconOnly }">
+      :class="{ hidden: !props.external && !props.toolbarVisible, 'icon-mode': props.toolbarIconOnly }">
       <div class="toolbar-left">
         <BaseButton
           class="icon-btn icon-only"
@@ -507,6 +515,28 @@ onBeforeUnmount(() => {
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(8px);
   box-shadow: 0 6px 18px rgba(16, 23, 32, 0.08);
+}
+
+/* external 模式：将工具栏作为页面流的一部分渲染（位于父容器内，非 fixed/absolute） */
+.bottom-toolbar-container.external {
+  position: static;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  margin: 8px 8px 0 8px;
+  z-index: auto;
+  pointer-events: auto;
+}
+
+.bottom-toolbar-container.external .bottom-toolbar {
+  position: relative;
+  z-index: 1;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 6px 18px rgba(16, 23, 32, 0.04);
+}
+
+.bottom-toolbar-container.external .toolbar-handle {
+  display: none;
 }
 
 .bottom-toolbar.hidden {
