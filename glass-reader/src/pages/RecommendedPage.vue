@@ -433,37 +433,40 @@ function onMenuSelect(item) {
 .recommended-page {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   background: var(--page-surface);
+  padding: 6px;
 }
 .metrics .metric-grid {
   display: flex;
-  gap: 8px;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 .metric-card {
   background: var(--surface);
-  padding: 10px;
+  padding: 8px;
   border-radius: 8px;
-  min-width: 80px;
+  min-width: 72px;
   text-align: center;
+  box-sizing: border-box;
 }
 .spotlight,
 .history,
 .quicklinks {
   background: var(--surface);
-  padding: 12px;
+  padding: 10px;
   border-radius: 8px;
 }
 .grid {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 .card {
   display: flex;
   gap: 8px;
   align-items: center;
-  padding: 8px;
+  padding: 6px;
   border-radius: 6px;
   border: 1px solid #eee;
   background: var(--surface);
@@ -485,7 +488,7 @@ function onMenuSelect(item) {
 }
 .history-item {
   text-align: left;
-  padding: 8px;
+  padding: 6px;
   border-radius: 6px;
   border: 1px solid #f0f0f0;
   background: var(--surface);
@@ -509,7 +512,7 @@ function onMenuSelect(item) {
   display: flex;
   gap: 8px;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 .url-input {
   flex: 1;
@@ -531,22 +534,22 @@ function onMenuSelect(item) {
   position: relative;
 }
 
-/* 原型(pill) 风格 */
+/* 原型(pill) 风格（更紧凑） */
 .pills {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 .pill {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
+  gap: 8px;
+  padding: 6px 10px;
   border-radius: 999px;
   background: #fff;
   box-shadow: 0 1px 2px rgba(16, 23, 32, 0.04);
   border: 1px solid #f0f0f0;
-  min-width: 180px;
+  min-width: 140px;
 }
 .pill-left {
   flex: 0 0 auto;
@@ -572,7 +575,7 @@ function onMenuSelect(item) {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px;
+  padding: 6px;
   border-radius: 999px;
   background: linear-gradient(180deg, #fbfbfd, #fff);
   border: 1px dashed #dcdfe6;
@@ -595,20 +598,20 @@ function onMenuSelect(item) {
   align-items: center;
 }
 
-/* 加号卡片样式 */
+/* 加号卡片样式（紧凑） */
 .add-card {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 120px;
-  height: 64px;
+  width: 110px;
+  height: 56px;
   border: 1px dashed #d9d9d9;
   background: linear-gradient(180deg, #fbfbfd, #fff);
   border-radius: 8px;
   cursor: pointer;
 }
 .add-inner {
-  font-size: 28px;
+  font-size: 26px;
   color: #409eff;
   font-weight: 700;
 }
@@ -643,6 +646,15 @@ function onMenuSelect(item) {
 
 .el-button.danger {
   color: #f56c6c;
+}
+
+@media (max-width: 720px) {
+  .pills {
+    gap: 8px;
+  }
+  .pill {
+    min-width: 100%;
+  }
 }
 </style>
 

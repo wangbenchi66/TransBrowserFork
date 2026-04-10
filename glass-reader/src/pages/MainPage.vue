@@ -1403,7 +1403,7 @@ watch(
     try {
       // diagnostic: enumerate webview frames and report classes/sizes
       try {
-        const nodes = document.querySelectorAll && document.querySelectorAll('.webview-wrap .webview-frame');
+        const nodes = document.querySelectorAll && document.querySelectorAll('.webview-frame');
         if (nodes && nodes.length) {
           for (let i = 0; i < nodes.length; i++) {
             const n = nodes[i];
@@ -1467,21 +1467,18 @@ onMounted(() => {
           <div
             class="page-frame panel no-drag"
             :class="{ 'is-webview': activeTab?.kind === 'page' }">
-            <!-- 永远渲染 webview-wrap，使用叠放样式隐藏/显示 webviews，避免切换时销毁元素导致重载 -->
-            <div class="webview-wrap">
-              <webview
-                v-for="tab in pageTabs"
-                :key="tab.id"
-                :data-tab-id="tab.id"
-                :ref="getWebviewRefSetter(tab.id)"
-                :class="['webview-frame', { 'webview-active': String(tab.id) === String(activeTabId) }]"
-                :src="tab.url"
-                :useragent="userAgent"
-                nodeintegration="false"
-                enableblinkfeatures="ResizeObserver"
-                @dom-ready="handleWebviewDomReady"
-                allowpopups></webview>
-            </div>
+            <webview
+              v-for="tab in pageTabs"
+              :key="tab.id"
+              :data-tab-id="tab.id"
+              :ref="getWebviewRefSetter(tab.id)"
+              :class="['webview-frame', { 'webview-active': String(tab.id) === String(activeTabId) }]"
+              :src="tab.url"
+              :useragent="userAgent"
+              nodeintegration="false"
+              enableblinkfeatures="ResizeObserver"
+              @dom-ready="handleWebviewDomReady"
+              allowpopups></webview>
 
             <!-- 仪表盘与本地阅读视图作为覆盖层显示：改为 v-if 以在非活跃时从 DOM 中移除，避免遮挡问题 -->
             <recommended-page
@@ -1500,7 +1497,6 @@ onMounted(() => {
             </article>
             <!-- 底部工具栏（网页模式下显示） -->
             <BottomToolbar
-              v-if="!(activeTab?.kind === 'dashboard' || activeTab?.kind === 'local-text')"
               :settings="settings"
               :siteZoom="siteZoom"
               :patchSetting="patchSetting"
@@ -1537,8 +1533,8 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px;
-  border-radius: 8px;
+  padding: 4px 6px;
+  border-radius: 0;
   z-index: 60;
   transition:
     transform 0.18s ease,
@@ -1548,9 +1544,9 @@ onMounted(() => {
 /* overlay: positioned inside page frame, floats above webview */
 .bottom-toolbar.overlay {
   position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
   background: rgba(255, 255, 255, 0.86);
   backdrop-filter: blur(6px);
   box-shadow: 0 6px 18px rgba(16, 23, 32, 0.08);
@@ -1559,19 +1555,19 @@ onMounted(() => {
 /* docked: fixed to application bottom (outside webview), spans width */
 .bottom-toolbar-container.overlay {
   position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
 }
 
 /* docked: fixed to application bottom (outside webview), spans width */
 .bottom-toolbar-container.docked {
   position: fixed;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
   margin: 0 auto;
-  max-width: calc(100% - 24px);
+  max-width: calc(100% - 16px);
 }
 
 /* visual shell for the toolbar itself */
@@ -1593,10 +1589,10 @@ onMounted(() => {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  bottom: 6px;
+  bottom: 4px;
   width: 56px;
   height: 8px;
-  border-radius: 999px;
+  border-radius: 0;
   background: linear-gradient(90deg, rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.03));
   border: 1px solid rgba(0, 0, 0, 0.06);
   cursor: pointer;
@@ -1630,7 +1626,7 @@ onMounted(() => {
   width: 36px;
   height: 36px;
   padding: 6px;
-  border-radius: 10px;
+  border-radius: 2px;
   border: 1px solid rgba(224, 72, 66, 0.06);
   background: rgba(255, 255, 255, 0.92);
   color: #e04842;
@@ -1648,7 +1644,7 @@ onMounted(() => {
   border: 0;
   background: transparent;
   padding: 6px 8px;
-  border-radius: 8px;
+  border-radius: 0;
   cursor: pointer;
   font-size: 14px;
   transition:
@@ -1783,7 +1779,7 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 0;
   cursor: pointer;
   font-size: 14px;
   color: #444;
@@ -1863,7 +1859,7 @@ onMounted(() => {
 }
 .hover-pop {
   position: absolute;
-  bottom: calc(100% + 8px);
+  bottom: calc(100% + 4px);
   left: 50%;
   transform: translateX(-50%) translateY(6px);
   opacity: 0;
@@ -1872,8 +1868,8 @@ onMounted(() => {
     opacity 0.12s ease,
     transform 0.12s ease;
   background: rgba(255, 255, 255, 0.98);
-  padding: 8px;
-  border-radius: 8px;
+  padding: 6px;
+  border-radius: 0;
   box-shadow: 0 8px 24px rgba(16, 23, 32, 0.12);
   min-width: 140px;
   display: flex;
@@ -1950,7 +1946,7 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 0;
   box-shadow: none;
   transition:
     background 120ms ease,

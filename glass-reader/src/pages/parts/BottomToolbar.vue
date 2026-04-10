@@ -475,9 +475,9 @@ onBeforeUnmount(() => {
 /* toolbar container (overlay/docked) */
 .bottom-toolbar-container.overlay {
   position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
   /* 保证容器能接收 hover，并置于 webview 之上 */
   z-index: 10001;
   pointer-events: auto;
@@ -485,11 +485,11 @@ onBeforeUnmount(() => {
 
 .bottom-toolbar-container.docked {
   position: fixed;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
   margin: 0 auto;
-  max-width: calc(100% - 24px);
+  max-width: calc(100% - 16px);
   z-index: 10001;
   pointer-events: auto;
 }
@@ -499,8 +499,8 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px;
-  border-radius: 8px;
+  padding: 4px 6px;
+  border-radius: 0;
   /* 提升到较高层级，避免被 webview 或热区遮挡 */
   position: relative;
   z-index: 10002;
@@ -520,10 +520,10 @@ onBeforeUnmount(() => {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  bottom: 6px;
+  bottom: 4px;
   width: 56px;
   height: 8px;
-  border-radius: 999px;
+  border-radius: 0;
   background: linear-gradient(90deg, rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.03));
   border: 1px solid rgba(0, 0, 0, 0.06);
   cursor: pointer;
@@ -579,8 +579,8 @@ onBeforeUnmount(() => {
     opacity 0.12s ease,
     transform 0.12s ease;
   background: rgba(255, 255, 255, 0.98);
-  padding: 8px;
-  border-radius: 8px;
+  padding: 6px;
+  border-radius: 0;
   box-shadow: 0 8px 24px rgba(16, 23, 32, 0.12);
   z-index: 10004;
 }
@@ -607,7 +607,7 @@ onBeforeUnmount(() => {
   border: 0;
   background: transparent;
   padding: 6px 8px;
-  border-radius: 8px;
+  border-radius: 0;
   cursor: pointer;
   font-size: 14px;
   transition:
@@ -625,7 +625,7 @@ onBeforeUnmount(() => {
   width: 36px;
   height: 36px;
   padding: 6px;
-  border-radius: 10px;
+  border-radius: 2px;
   border: 1px solid rgba(224, 72, 66, 0.06);
   background: rgba(255, 255, 255, 0.92);
   color: #e04842;
@@ -647,7 +647,7 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 0;
   cursor: pointer;
   font-size: 14px;
   color: #444;

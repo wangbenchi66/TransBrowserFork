@@ -136,7 +136,7 @@ iframe {
   content: '';
   position: absolute;
   inset: 0;
-  border-radius: 14px;
+  border-radius: 0;
   /* background:
     radial-gradient(circle at top right, rgba(113, 188, 255, 0.32), transparent 32%),
     linear-gradient(180deg, rgba(255, 255, 255, var(--shell-alpha, 0.9)), rgba(236, 241, 247, calc(var(--shell-alpha, 0.9) - 0.08))); */
@@ -160,8 +160,6 @@ iframe {
 
 .panel {
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 14px;
   /* box-shadow: var(--shadow); */
 }
 
@@ -177,12 +175,11 @@ iframe {
 
 .topbar {
   min-height: var(--topbar-height, 46px);
-  padding: var(--topbar-padding-vertical, 8px) var(--topbar-padding-horizontal, 12px);
   display: flex;
   align-items: center;
   justify-content: space-between;
   background: linear-gradient(180deg, rgba(255, 255, 255, var(--shell-alpha, 0.9)), rgba(255, 255, 255, calc(var(--shell-alpha, 0.9) - 0.18)));
-  border-radius: 14px;
+  border-radius: 0;
 }
 
 /* Make topbar and tabbar visually merge when both present */
@@ -320,7 +317,6 @@ iframe {
 }
 
 .tabbar {
-  padding: 4px 6px;
   background: color-mix(in srgb, var(--header-tint) 22%, rgba(255, 255, 255, var(--shell-alpha, 0.92)));
 }
 
@@ -512,7 +508,6 @@ iframe {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px;
 }
 
 .url-input,
@@ -551,7 +546,6 @@ iframe {
   flex: 1;
   /* padding: 16px; */
   overflow: auto;
-  background: var(--page-surface);
   display: flex;
   flex-direction: column;
 }
@@ -859,13 +853,13 @@ iframe {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0;
 }
 
 .webview-meta {
   min-height: 38px;
-  padding: 8px 10px;
-  border-radius: 10px;
+  padding: 6px 8px;
+  border-radius: 0;
   background: var(--surface);
   border: 1px solid rgba(213, 219, 232, 0.85);
   display: flex;
@@ -888,7 +882,7 @@ iframe {
   width: 100%;
   min-height: 0;
   border: 1px solid rgba(213, 219, 232, 0.85);
-  border-radius: 12px;
+  border-radius: 0;
   overflow: hidden;
   background: var(--page-surface);
 }
@@ -901,7 +895,6 @@ iframe {
 .webview-wrap {
   position: relative;
   width: 100%;
-  height: 100%;
 }
 
 .webview-wrap .webview-frame {
@@ -910,7 +903,7 @@ iframe {
   width: 100%;
   height: 100%;
   border: 1px solid rgba(213, 219, 232, 0.85);
-  border-radius: 12px;
+  border-radius: 0;
   overflow: hidden;
   background: var(--page-surface);
   transition: opacity 140ms ease;
@@ -938,7 +931,7 @@ iframe {
   z-index: 3;
   width: 100%;
   height: 100%;
-  padding: 18px 20px;
+  padding: 12px 12px;
   box-sizing: border-box;
   overflow: auto;
   background: transparent;
@@ -1115,7 +1108,6 @@ iframe {
 }
 
 .metric-grid {
-  margin-top: 14px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;

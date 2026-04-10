@@ -513,3 +513,41 @@ onBeforeUnmount(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Settings modal: 更紧凑的内间距与控件高度，保持原有圆角与投影 */
+.settings-modal {
+  width: min(640px, 96%);
+  padding: 12px 14px;
+  box-sizing: border-box;
+}
+.settings-modal .settings-header {
+  padding-bottom: 8px;
+}
+.section-panel {
+  padding: 10px;
+}
+.toggle-row {
+  min-height: 42px;
+  padding: 8px 10px;
+}
+.text-field {
+  height: 36px;
+  padding: 6px 8px;
+}
+/* 快捷键编辑区域在窄屏下换行显示，避免按钮挤在一起 */
+@media (max-width: 720px) {
+  .settings-modal {
+    width: 94%;
+    padding: 10px;
+  }
+  .shortcut-grid label div {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .shortcut-grid label div input.text-field {
+    width: 100%;
+  }
+}
+</style>
