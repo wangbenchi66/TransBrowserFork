@@ -38,7 +38,9 @@ function setWebviewRef(el, id) {
         const listeners = webviewEventListeners[tid] || {};
         if (prev && typeof prev.removeEventListener === 'function') {
           for (const k in listeners) {
-            try { prev.removeEventListener(k, listeners[k]); } catch (e) {}
+            try {
+              prev.removeEventListener(k, listeners[k]);
+            } catch (e) {}
           }
         }
       } catch (e) {}
@@ -67,21 +69,45 @@ function setWebviewRef(el, id) {
     const prevListeners = webviewEventListeners[tid];
     if (prev && prevListeners && typeof prev.removeEventListener === 'function') {
       for (const k in prevListeners) {
-        try { prev.removeEventListener(k, prevListeners[k]); } catch (e) {}
+        try {
+          prev.removeEventListener(k, prevListeners[k]);
+        } catch (e) {}
       }
     }
 
     const listeners = {};
     // 仅保留关键事件的日志，减少噪声：did-finish-load / did-fail-load / did-navigate
-    listeners['did-finish-load'] = function(evt) { try { console.log('[webview.event] did-finish-load', { tid, src: (el && typeof el.getURL === 'function') ? (el.getURL() || el.src) : el && el.src }); } catch(e) {} };
-    listeners['did-navigate'] = function(evt) { try { console.log('[webview.event] did-navigate', { tid, url: evt && evt.url ? evt.url : (el && el.src) }); } catch(e) {} };
-    listeners['did-fail-load'] = function(evt) { try { console.warn('[webview.event] did-fail-load', { tid, details: evt }); } catch(e) {} };
+    listeners['did-finish-load'] = function (evt) {
+      try {
+        console.log('[webview.event] did-finish-load', { tid, src: el && typeof el.getURL === 'function' ? el.getURL() || el.src : el && el.src });
+      } catch (e) {}
+    };
+    listeners['did-navigate'] = function (evt) {
+      try {
+        console.log('[webview.event] did-navigate', { tid, url: evt && evt.url ? evt.url : el && el.src });
+      } catch (e) {}
+    };
+    listeners['did-fail-load'] = function (evt) {
+      try {
+        console.warn('[webview.event] did-fail-load', { tid, details: evt });
+      } catch (e) {}
+    };
     // 将较多输出的事件改为 debug 级别，开发时可在 DevTools 打开 Debug 过滤查看
-    listeners['console-message'] = function(evt) { try { console.debug('[webview.console]', evt && evt.message ? evt.message : evt); } catch (e) {} };
-    listeners['ipc-message'] = function(evt) { try { console.debug('[webview.ipc]', evt && evt.channel ? evt.channel : evt, evt && evt.args ? evt.args : undefined); } catch (e) {} };
+    listeners['console-message'] = function (evt) {
+      try {
+        console.debug('[webview.console]', evt && evt.message ? evt.message : evt);
+      } catch (e) {}
+    };
+    listeners['ipc-message'] = function (evt) {
+      try {
+        console.debug('[webview.ipc]', evt && evt.channel ? evt.channel : evt, evt && evt.args ? evt.args : undefined);
+      } catch (e) {}
+    };
 
     for (const k in listeners) {
-      try { el.addEventListener(k, listeners[k]); } catch (e) {}
+      try {
+        el.addEventListener(k, listeners[k]);
+      } catch (e) {}
     }
 
     // keep reference for later removal
@@ -265,7 +291,7 @@ function runWebviewJS(script, tabId) {
     const tab = tabs.value.find((t) => String(t.id) === String(tid));
     if (!tab || tab.kind === 'dashboard' || tab.kind === 'local-text') return Promise.resolve();
     if (!webviewReadyMap[String(tid)]) return Promise.resolve();
-    
+
     // 简单去重：避免在极短时间内对同一 tab 执行相同脚本两次（通常由重复挂载/ready 导致）
     try {
       const sig = String(script || '').slice(0, 512);
@@ -273,7 +299,9 @@ function runWebviewJS(script, tabId) {
       const lastMap = lastExecutedScripts[String(tid)];
       const now = Date.now();
       if (lastMap[sig] && now - lastMap[sig] < 1200) {
-        try { console.log('[runWebviewJS] skipped duplicate script for', tid); } catch(e) {}
+        try {
+          console.log('[runWebviewJS] skipped duplicate script for', tid);
+        } catch (e) {}
         return Promise.resolve();
       }
       lastMap[sig] = now;
@@ -323,7 +351,9 @@ function onWebviewNewWindow(e) {
     if (w && typeof w.loadURL === 'function') {
       w.loadURL(url);
     } else if (w) {
-      try { w.src = url; } catch (err) {}
+      try {
+        w.src = url;
+      } catch (err) {}
     }
   } catch (err) {
     // ignore
@@ -480,7 +510,7 @@ async function updateTabFromWebview(tabId) {
 function onPageTitleUpdated(e) {
   try {
     const w = (e && e.target) || null;
-    const tid = w && (w.getAttribute && w.getAttribute('data-tab-id')) ? w.getAttribute('data-tab-id') : activeTabId.value;
+    const tid = w && w.getAttribute && w.getAttribute('data-tab-id') ? w.getAttribute('data-tab-id') : activeTabId.value;
     updateTabFromWebview(tid);
   } catch (e) {}
 }
@@ -488,7 +518,7 @@ function onPageTitleUpdated(e) {
 function onDidNavigate(e) {
   try {
     const w = (e && e.target) || null;
-    const tid = w && (w.getAttribute && w.getAttribute('data-tab-id')) ? w.getAttribute('data-tab-id') : activeTabId.value;
+    const tid = w && w.getAttribute && w.getAttribute('data-tab-id') ? w.getAttribute('data-tab-id') : activeTabId.value;
     updateTabFromWebview(tid);
   } catch (e) {}
 }
@@ -548,7 +578,7 @@ async function runWebviewCss(styleId, css, tabId) {
 
     try {
       const prevMap = insertedCssKeysByTab[String(tid)] || {};
-      
+
       const prevKey = prevMap[styleId];
       // 去重：相同 styleId+css 在短时内不用重复注入
       try {
@@ -557,7 +587,9 @@ async function runWebviewCss(styleId, css, tabId) {
         const lastMap = lastExecutedScripts[String(tid)];
         const now = Date.now();
         if (lastMap[cssSig] && now - lastMap[cssSig] < 1200) {
-          try { console.log('[runWebviewCss] skipped duplicate css for', tid, styleId); } catch(e) {}
+          try {
+            console.log('[runWebviewCss] skipped duplicate css for', tid, styleId);
+          } catch (e) {}
           insertedCssKeysByTab[String(tid)] = prevMap;
           return;
         }
@@ -900,7 +932,7 @@ function onAutoScrollSpeedInput(e) {
 function handleWebviewDomReady(e) {
   const w = (e && e.target) || null;
   if (!w) return;
-  const tabId = w.getAttribute && w.getAttribute('data-tab-id') ? w.getAttribute('data-tab-id') : (w.dataset && w.dataset.tabId ? w.dataset.tabId : null);
+  const tabId = w.getAttribute && w.getAttribute('data-tab-id') ? w.getAttribute('data-tab-id') : w.dataset && w.dataset.tabId ? w.dataset.tabId : null;
   if (!tabId) return;
 
   // 去重：短时间内重复的 dom-ready 忽略（许多站点或内嵌导航会触发多次）
@@ -908,7 +940,9 @@ function handleWebviewDomReady(e) {
     const now = Date.now();
     const prevTs = webviewDomReadyTs[tabId];
     if (prevTs && now - prevTs < 1200) {
-      try { console.log('[webview] dom-ready skipped duplicate', { tabId, since: now - prevTs }); } catch (e) {}
+      try {
+        console.log('[webview] dom-ready skipped duplicate', { tabId, since: now - prevTs });
+      } catch (e) {}
       return;
     }
     webviewDomReadyTs[tabId] = now;
@@ -941,7 +975,9 @@ function handleWebviewDomReady(e) {
   try {
     console.log('[webview] dom-ready', { tabId, url: pageUrl, kind: tabObj?.kind, webviewRefPresent: !!w, webviewReady: webviewReady.value, mountCount: webviewMountCount[tabId] });
   } catch (e) {}
-  try { console.trace && console.trace('[webview] dom-ready trace', tabId); } catch (e) {}
+  try {
+    console.trace && console.trace('[webview] dom-ready trace', tabId);
+  } catch (e) {}
 
   // 对该 webview 同步注入 reader 效果（只针对刚准备好的 tab）
   try {
@@ -966,13 +1002,15 @@ function handleWebviewDomReady(e) {
         .catch(() => {});
     } else {
       try {
-        w.executeJavaScript && w.executeJavaScript('window.__glass_reader_zoom || 1')
-          .then((f) => {
-            try {
-              if (String(tabId) === String(activeTabId.value)) siteZoom.value = f || 1;
-            } catch (e) {}
-          })
-          .catch(() => {});
+        w.executeJavaScript &&
+          w
+            .executeJavaScript('window.__glass_reader_zoom || 1')
+            .then((f) => {
+              try {
+                if (String(tabId) === String(activeTabId.value)) siteZoom.value = f || 1;
+              } catch (e) {}
+            })
+            .catch(() => {});
       } catch (e) {}
     }
   } catch (e) {}
@@ -987,14 +1025,18 @@ function handleWebviewDomReady(e) {
     let combined = null;
     try {
       combined = ruleProviders && typeof ruleProviders.getCombinedRulesForUrl === 'function' ? ruleProviders.getCombinedRulesForUrl(pageUrl || '') : null;
-    } catch (e) { combined = null; }
+    } catch (e) {
+      combined = null;
+    }
 
     const siteRulesList = combined?.site || [];
     const toolbarRulesList = combined?.toolbar || [];
 
     const allowNewWindow = toolbarRulesList.some((r) => r.toolbarDisabled === false) || siteRulesList.some((r) => r.preventBlankTargets === false);
     if (!allowNewWindow) {
-      try { forceDisableBlankTargetsFor(tabId); } catch (e) {}
+      try {
+        forceDisableBlankTargetsFor(tabId);
+      } catch (e) {}
     }
 
     try {
@@ -1002,7 +1044,9 @@ function handleWebviewDomReady(e) {
         try {
           if (typeof r.apply === 'function') {
             try {
-              try { console.log('[site-rules] applying rule', r.id, r.pattern, 'tab', tabId); } catch (e) {}
+              try {
+                console.log('[site-rules] applying rule', r.id, r.pattern, 'tab', tabId);
+              } catch (e) {}
               const maybe = r.apply({
                 runWebviewCss: (idSuffix, css) => runWebviewCss(`site-custom-css-${r.id}${idSuffix ? `-${idSuffix}` : ''}`, css, tabId),
                 runWebviewJS: (js) => runWebviewJS(js, tabId),
@@ -1182,7 +1226,9 @@ onMounted(() => {
             </div>
 
             <!-- 仪表盘与本地阅读视图作为覆盖层显示（v-show 保留在 DOM 中，覆盖在 webview 之上） -->
-            <recommended-page v-show="activeTab?.kind === 'dashboard'" class="overlay-panel" />
+            <recommended-page
+              v-show="activeTab?.kind === 'dashboard'"
+              class="overlay-panel" />
 
             <article
               ref="localReaderRef"
