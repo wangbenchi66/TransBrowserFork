@@ -70,98 +70,180 @@ export default function main(helper) {
         //     try { console.error('[weread.rule] runCss error', e); } catch (err) { }
         // }
 
-        // // -------------------------
-        // // 2) JS 注入示例
-        // // - 使用 IIFE（自执行函数）封装，避免污染页面全局作用域
-        // // - 在需要等待 DOM 的场景中，使用 MutationObserver 或轮询
-        // // -------------------------
-        // try {
-        //     // A) 尝试立即移除已存在的广告/遮罩元素
-        //     runJs && runJs(`(() => {
-        //             try {
-        //                 console.log('[weread.rule] remove known overlays/ads');
-        //                 document.querySelectorAll('[id*=ad],[class*=ad],[class*=banner],[class*=mask],[class*=overlay]').forEach(n => { try { n.remove(); } catch(e){} });
-        //             } catch(e) {}
-        //             return true;
-        //         })();`);
+        // 参考 inject.js：注入页面函数以实现：切换下一章、监听选区、页面加载检测以及容器滚动监听
+        // 说明：此注入把一组函数挂载到页面 `window` 下，便于在页面内直接调用或从渲染器触发。
+        runJs && runJs(`(function(){
+            try {
+                if (window.__glassReaderInjected) return true;
+                window.__glassReaderInjected = true;
 
-        //     // B) 如果目标内容是异步加载的，使用 MutationObserver 等待并应用修复
-        //     runJs && runJs(`(() => {
-        //             try {
-        //                 function applyWhenReady() {
-        //                     const el = document.querySelector('.chapter-content') || document.querySelector('.reader-content');
-        //                     if (!el) return false;
-        //                     try {
-        //                         // 示例修改：确保段落有合适间距
-        //                         el.querySelectorAll && el.querySelectorAll('p').forEach(p => { p.style.marginBottom = '12px'; });
-        //                     } catch(e) {}
-        //                     return true;
-        //                 }
+                function isPageLoading() {
+                    try {
+                        if (document.readyState && document.readyState !== 'complete') return true;
+                        var spinner = document.querySelector('.chapter-loading, .loading, .spinner, .loading-mask, .reader-loading');
+                        if (spinner) return true;
+                        var bodyCl = (document.body && document.body.className) || '';
+                        if (/loading|is-loading|loading-mask/.test(bodyCl)) return true;
+                        return false;
+                    } catch (e) { return false; }
+                }
 
-        //                 if (!applyWhenReady()) {
-        //                     const mo = new MutationObserver((mutations, obs) => {
-        //                         if (applyWhenReady()) {
-        //                             try { obs.disconnect(); } catch(e) {}
-        //                         }
-        //                     });
-        //                     mo.observe(document.documentElement || document, { childList: true, subtree: true });
-        //                 }
-        //             } catch(e) {}
-        //             return true;
-        //         })();`);
+                function fireKeyEvent(code) {
+                    try {
+                        var key = (code === 39) ? 'ArrowRight' : (code === 37) ? 'ArrowLeft' : String.fromCharCode(code);
+                        var ev = new KeyboardEvent('keydown', { key: key, keyCode: code, which: code, bubbles: true, cancelable: true });
+                        var target = document.activeElement || document.body || document;
+                        try { target.dispatchEvent(ev); } catch (e) { document.dispatchEvent(ev); }
+                        return true;
+                    } catch (e) { return false; }
+                }
 
-        //     // C) 功能增强示例：添加键盘翻页（左右方向键）
-        //     runJs && runJs(`(() => {
-        //             try {
-        //                 if (window.__glassReaderKeybindsInstalled) return true;
-        //                 window.__glassReaderKeybindsInstalled = true;
-        //                 window.addEventListener('keydown', function(e) {
-        //                     try {
-        //                         if (e.key === 'ArrowLeft') {
-        //                             // 模拟上一页动作：此处仅示例，可替换为实际翻页逻辑
-        //                             const prev = document.querySelector('.pager-prev, .prev-chapter');
-        //                             if (prev && prev.click) prev.click();
-        //                         } else if (e.key === 'ArrowRight') {
-        //                             const next = document.querySelector('.pager-next, .next-chapter');
-        //                             if (next && next.click) next.click();
-        //                         }
-        //                     } catch(e) {}
-        //                 }, false);
-        //             } catch(e) {}
-        //             return true;
-        //         })();`);
-        // } catch (e) {
-        //     try { console.error('[weread.rule] runJs error', e); } catch (err) { }
-        // }
+                function __performNextNow() {
+                    try {
+                        if (window.__glassReaderPerformingNext) return false;
+                        window.__glassReaderPerformingNext = true;
+                        try { if (typeof isPageLoading === 'function' && isPageLoading()) return false; } catch (e) {}
 
-        // // -------------------------
-        // // 3) 直接通过 webview 调用（可选）：如果需要访问 webview 自身的 API
-        // //    注意：直接调用 webview.executeJavaScript 返回 Promise，可用于获得执行结果。
-        // // -------------------------
-        // try {
-        //     if (webview && typeof webview.executeJavaScript === 'function') {
-        //         try {
-        //             webview.executeJavaScript(`console.log('[weread.rule] direct webview.exec');`).catch(() => { });
-        //         } catch (e) { }
-        //     }
-        // } catch (e) { }
+                        var btn = document.querySelector('.readerFooter_button');
+                        if (btn) {
+                            try { if (typeof window.updateState === 'function') window.updateState('正在切换下一章'); } catch (e) {}
+                            try {
+                                if (typeof window.fireKeyEvent === 'function') {
+                                    window.fireKeyEvent(39);
+                                } else if (btn.click) {
+                                    btn.click();
+                                } else {
+                                    var ev = new KeyboardEvent('keydown', { key: 'ArrowRight', keyCode: 39, which: 39, bubbles: true });
+                                    document.dispatchEvent(ev);
+                                }
+                            } catch (e) {
+                                try { btn.click(); } catch (e) {}
+                            }
+                            try { window.Cache = window.Cache || {}; window.Cache.HasSelection = false; } catch (e) {}
+                            return true;
+                        }
 
-        // // -------------------------
-        // // 4) 调试辅助（建议：仅在开发时启用）
-        // // - 不建议在生产规则中使用 alert()。可改为 console.log 并在渲染器查看 `[webview.console]` 前缀日志。
-        // // - 如需快速校验注入是否到达页面：在上面的 runJs 中添加 console.log('[weread.rule] ...')，渲染器会显示。
-        // // -------------------------
-        // // 示例（已注释）：
-        //runJs && runJs(`(() => { try{ alert('weread rule injected'); }catch(e){}; return true; })();`);
+                        var ending = document.querySelector('.readerFooter_ending');
+                        if (ending) {
+                            try { if (typeof window.updateState === 'function') window.updateState('全书完.'); } catch (e) {}
+                            try { window.dispatchEvent(new CustomEvent('glassreader-reading-finished')); } catch (e) {}
+                            return false;
+                        }
 
-        // try { console.log('[weread.rule] apply finished'); } catch (e) { }
+                        var nextBtn = document.querySelector('.pager-next, .next-chapter');
+                        if (nextBtn) {
+                            try { nextBtn.click(); } catch (e) {}
+                            try { window.Cache = window.Cache || {}; window.Cache.HasSelection = false; } catch (e) {}
+                            return true;
+                        }
+                    } catch (e) {}
+                    finally { window.__glassReaderPerformingNext = false; }
+                    return false;
+                }
 
-        // 可选：返回 Promise（框架通常不会等待此 Promise 完成，但你可以在内部做异步逻辑）
-        // return Promise.resolve();
+                function nextChapter(opts) {
+                    try {
+                        if (window.__glassReaderNextPending) return false;
+                        var delay = (opts && typeof opts.delayMs === 'number') ? opts.delayMs : (window.__glassReaderNextDelayMs || 3000);
+                        if (delay && delay > 0) {
+                            window.__glassReaderNextPending = setTimeout(function() {
+                                try { __performNextNow(); } catch (e) {}
+                                finally { clearTimeout(window.__glassReaderNextPending); window.__glassReaderNextPending = null; window.__glassReaderAutoNextTimer = null; }
+                            }, delay);
+                        } else {
+                            try { __performNextNow(); } catch (e) {}
+                            finally { window.__glassReaderAutoNextTimer = null; }
+                        }
+                        return true;
+                    } catch (e) {}
+                    return false;
+                }
+
+                function installSelectionWatcher() {
+                    try {
+                        if (window.__glassReaderSelectionWatcherInstalled) return;
+                        window.__glassReaderSelectionWatcherInstalled = true;
+                        var lastHas = false;
+                        function check() {
+                            try {
+                                var s = '';
+                                if (window.getSelection) s = window.getSelection().toString();
+                                else if (document.selection && document.selection.createRange) s = document.selection.createRange().text;
+                                var has = !!s && s.trim().length > 0;
+                                if (has !== lastHas) {
+                                    lastHas = has;
+                                    try { window.Cache = window.Cache || {}; window.Cache.HasSelection = has; } catch (e) {}
+                                    try { window.dispatchEvent(new CustomEvent('glassreader-selection-change', { detail: { hasSelection: has } })); } catch (e) {}
+                                    try { console.log('[glassreader] selection', has); } catch (e) {}
+                                }
+                            } catch (e) {}
+                        }
+                        document.addEventListener('selectionchange', function(){ try{ check(); }catch(e){} }, false);
+                        document.addEventListener('mouseup', function(){ setTimeout(check, 10); }, false);
+                        document.addEventListener('keyup', function(){ setTimeout(check, 10); }, false);
+                        setTimeout(check, 50);
+                    } catch (e) {}
+                }
+
+                function getSelectionState() { try { return !!(window.Cache && window.Cache.HasSelection); } catch (e) { return false; } }
+
+                function attachAutoNext() {
+                    try {
+                        if (window.__glassReaderAutoNextAttached) return;
+                        var targets = [window];
+                        var selectors = ['.chapter-content', '.reader-content', '.read-content', '.reader-main', '.book-content', '.read_view', '.readerWrapper', '.content-scroll'];
+                        selectors.forEach(function(s){ try{ var el = document.querySelector(s); if (el && targets.indexOf(el) === -1) targets.push(el); }catch(e){} });
+                        if (targets.length === 1) {
+                            try {
+                                var found = Array.prototype.slice.call(document.querySelectorAll('body *')).find(function(n){ try{ var st = getComputedStyle(n); return (st.overflowY === 'auto' || st.overflowY === 'scroll') && (n.scrollHeight - n.clientHeight > 50); }catch(e){return false;} });
+                                if (found && targets.indexOf(found) === -1) targets.push(found);
+                            } catch (e) {}
+                        }
+
+                        var threshold = 10;
+                        targets.forEach(function(t){
+                            try {
+                                var handler = function(evt){
+                                    try {
+                                        var el = (t === window) ? (document.scrollingElement || document.documentElement || document.body) : t;
+                                        var scrollTop = (el === document.scrollingElement || el === document.documentElement || el === document.body) ? (window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop) : el.scrollTop;
+                                        var scrollHeight = (el === document.scrollingElement || el === document.documentElement || el === document.body) ? (document.documentElement.scrollHeight || document.body.scrollHeight) : el.scrollHeight;
+                                        var clientHeight = (el === document.scrollingElement || el === document.documentElement || el === document.body) ? (document.documentElement.clientHeight || window.innerHeight) : el.clientHeight;
+                                        if (scrollTop + clientHeight >= scrollHeight - threshold) {
+                                            if (window.__glassReaderAutoNextTimer) return;
+                                            window.__glassReaderAutoNextTimer = true;
+                                            try { if (typeof window.nextChapter === 'function') window.nextChapter(); } catch (e) {}
+                                        }
+                                    } catch (e) {}
+                                };
+                                if (t === window) window.addEventListener('scroll', handler, { passive: true }); else t.addEventListener('scroll', handler, { passive: true });
+                            } catch (e) {}
+                        });
+                        try { window.__glassReaderAutoNextTargets = targets; } catch (e) {}
+                        window.__glassReaderAutoNextAttached = true;
+                    } catch (e) {}
+                }
+
+                // 将函数暴露到页面全局（如已存在则不覆盖）
+                try { window.isPageLoading = window.isPageLoading || isPageLoading; } catch (e) {}
+                try { window.fireKeyEvent = window.fireKeyEvent || fireKeyEvent; } catch (e) {}
+                try { window.nextChapter = window.nextChapter || nextChapter; } catch (e) {}
+                try { window.installSelectionWatcher = window.installSelectionWatcher || installSelectionWatcher; } catch (e) {}
+                try { window.getSelectionState = window.getSelectionState || getSelectionState; } catch (e) {}
+                try { window.attachAutoNext = window.attachAutoNext || attachAutoNext; } catch (e) {}
+
+                // 自动启用
+                try { (window.installSelectionWatcher || function(){} )(); } catch (e) {}
+                try { (window.attachAutoNext || function(){} )(); } catch (e) {}
+
+                try { console.log('[glassreader] inject ok'); } catch (e) {}
+            } catch (e) {
+                try { console.error('[glassreader] inject error', e); } catch (e) {}
+            }
+            return true;
+        })();`);
 
     } catch (err) {
         try { console.error('[weread.rule] unexpected error', err); } catch (e) { }
     }
-
-    // end
 }
