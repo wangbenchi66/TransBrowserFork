@@ -1,6 +1,10 @@
 <template>
   <teleport to="body">
-    <div v-if="visible" class="context-menu" :style="style" @click.stop>
+    <div
+      v-if="visible"
+      class="context-menu"
+      :style="style"
+      @click.stop>
       <div
         v-for="item in items"
         :key="item.key || item.label"
@@ -8,8 +12,12 @@
         @click.prevent="select(item)">
         <span class="context-item-label">{{ item.label }}</span>
         <span class="context-item-icon">
-          <component v-if="item.iconKey && iconMap[item.iconKey]" :is="iconMap[item.iconKey]" />
-          <span v-else-if="item.icon" v-html="item.icon"></span>
+          <component
+            v-if="item.iconKey && iconMap[item.iconKey]"
+            :is="iconMap[item.iconKey]" />
+          <span
+            v-else-if="item.icon"
+            v-html="item.icon"></span>
           <span v-else-if="item.emoji">{{ item.emoji }}</span>
         </span>
       </div>
@@ -18,44 +26,44 @@
 </template>
 
 <script setup>
-import { onMounted, onBeforeUnmount, computed } from 'vue'
-import { ArrowLeft, ArrowRight, Close, View } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, Close, View } from '@element-plus/icons-vue';
+import { computed, onBeforeUnmount, onMounted } from 'vue';
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
   x: { type: Number, default: 0 },
   y: { type: Number, default: 0 },
-  items: { type: Array, default: () => [] },
-})
-const emit = defineEmits(['select', 'close'])
+  items: { type: Array, default: () => [] }
+});
+const emit = defineEmits(['select', 'close']);
 
 // 支持的图标映射（使用简短 key）
 const iconMap = {
   left: ArrowLeft,
   right: ArrowRight,
   close: Close,
-  view: View,
-}
+  view: View
+};
 
 function select(item) {
-  emit('select', item)
+  emit('select', item);
 }
 
 function onDocClick() {
-  emit('close')
+  emit('close');
 }
 
 onMounted(() => {
-  document.addEventListener('click', onDocClick)
-})
+  document.addEventListener('click', onDocClick);
+});
 onBeforeUnmount(() => {
-  document.removeEventListener('click', onDocClick)
-})
+  document.removeEventListener('click', onDocClick);
+});
 
 const style = computed(() => ({
   left: `${props.x}px`,
-  top: `${props.y}px`,
-}))
+  top: `${props.y}px`
+}));
 </script>
 
 <style scoped>
@@ -65,7 +73,7 @@ const style = computed(() => ({
   -webkit-app-region: no-drag;
   pointer-events: auto;
   background: #ffffff;
-  border: 1px solid rgba(0,0,0,0.06);
+  border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 6px;
   box-shadow: 0 8px 24px rgba(16, 23, 32, 0.12);
   min-width: 140px;
