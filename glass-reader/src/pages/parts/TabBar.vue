@@ -15,9 +15,9 @@ const props = defineProps({
   createPageTab: Function,
   closeTabsToLeft: Function,
   closeTabsToRight: Function,
-  closeAllTabs: Function,
-  updateTabMetadata: Function
+  closeAllTabs: Function
 });
+// updateTabMetadata prop removed since tab-pin feature is removed
 
 const menuVisible = ref(false);
 const menuX = ref(0);
@@ -27,7 +27,6 @@ const menuTarget = ref(null);
 const menuItems = computed(() => getMenuItems(menuTarget.value));
 
 function getMenuItems(tab) {
-  const pinned = !!(tab && tab.pinned);
   return [
     { key: 'copy', label: '复制链接', iconKey: 'view' },
     { key: 'copy_title', label: '复制标题', iconKey: 'view' },
@@ -127,12 +126,7 @@ function onMenuSelect(item) {
         @click="props.selectTab(tab.id)"
         @contextmenu.prevent.stop="showMenu($event, tab)">
         <span class="tab-title">{{ props.formatTabTitle(tab.title) }}</span>
-        <span
-          v-if="tab.pinned"
-          class="pin-mark"
-          title="已固定"
-          >📌</span
-        >
+
         <span
           class="close-mark"
           @click.stop="props.closeTab(tab.id)">
@@ -158,9 +152,5 @@ function onMenuSelect(item) {
 
 <style scoped>
 /* 仅用于 tabbar 的局部样式（应用已有样式表为主） */
-.pin-mark {
-  margin-left: 6px;
-  font-size: 12px;
-  opacity: 0.9;
-}
+/* pin-mark removed (pin tab feature removed) */
 </style>
