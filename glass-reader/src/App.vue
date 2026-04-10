@@ -1,11 +1,11 @@
 <script setup>
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { onBeforeUnmount, onMounted, ref, computed } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useDesktopApp } from './composables/useDesktopApp';
 import TopBar from './layouts/TopBar.vue';
 import MainPage from './pages/MainPage.vue';
-import TabBar from './pages/parts/TabBar.vue';
 import BottomToolbar from './pages/parts/BottomToolbar.vue';
+import TabBar from './pages/parts/TabBar.vue';
 import defaultSettings from './shared/defaultSettings.js';
 
 const {

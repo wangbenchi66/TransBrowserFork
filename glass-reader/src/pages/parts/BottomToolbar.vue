@@ -20,8 +20,7 @@ const props = defineProps({
   toolbarDisabled: Boolean,
   toolbarIconOnly: Boolean,
   toolbarDocked: Boolean,
-  hideHandle: Boolean
-  ,
+  hideHandle: Boolean,
   external: { type: Boolean, default: false }
 });
 
@@ -236,7 +235,9 @@ onBeforeUnmount(() => {
     hideTimeout = null;
   }
   if (_pmHandler) {
-    try { window.removeEventListener('pointermove', _pmHandler); } catch (e) {}
+    try {
+      window.removeEventListener('pointermove', _pmHandler);
+    } catch (e) {}
     _pmHandler = null;
   }
 });
