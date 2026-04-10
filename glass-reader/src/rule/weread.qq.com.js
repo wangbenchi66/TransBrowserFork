@@ -77,160 +77,13 @@ export default function main(helper) {
                 if (window.__glassReaderInjected) return true;
                 window.__glassReaderInjected = true;
 
-                function isPageLoading() {
-                    try {
-                        if (document.readyState && document.readyState !== 'complete') return true;
-                        var spinner = document.querySelector('.chapter-loading, .loading, .spinner, .loading-mask, .reader-loading');
-                        if (spinner) return true;
-                        var bodyCl = (document.body && document.body.className) || '';
-                        if (/loading|is-loading|loading-mask/.test(bodyCl)) return true;
-                        return false;
-                    } catch (e) { return false; }
-                }
-
-                function fireKeyEvent(code) {
-                    try {
-                        var key = (code === 39) ? 'ArrowRight' : (code === 37) ? 'ArrowLeft' : String.fromCharCode(code);
-                        var ev = new KeyboardEvent('keydown', { key: key, keyCode: code, which: code, bubbles: true, cancelable: true });
-                        var target = document.activeElement || document.body || document;
-                        try { target.dispatchEvent(ev); } catch (e) { document.dispatchEvent(ev); }
-                        return true;
-                    } catch (e) { return false; }
-                }
-
-                function __performNextNow() {
-                    try {
-                        if (window.__glassReaderPerformingNext) return false;
-                        window.__glassReaderPerformingNext = true;
-                        try { if (typeof isPageLoading === 'function' && isPageLoading()) return false; } catch (e) {}
-
-                        var btn = document.querySelector('.readerFooter_button');
-                        if (btn) {
-                            try { if (typeof window.updateState === 'function') window.updateState('正在切换下一章'); } catch (e) {}
-                            try {
-                                if (typeof window.fireKeyEvent === 'function') {
-                                    window.fireKeyEvent(39);
-                                } else if (btn.click) {
-                                    btn.click();
-                                } else {
-                                    var ev = new KeyboardEvent('keydown', { key: 'ArrowRight', keyCode: 39, which: 39, bubbles: true });
-                                    document.dispatchEvent(ev);
-                                }
-                            } catch (e) {
-                                try { btn.click(); } catch (e) {}
-                            }
-                            try { window.Cache = window.Cache || {}; window.Cache.HasSelection = false; } catch (e) {}
-                            return true;
-                        }
-
-                        var ending = document.querySelector('.readerFooter_ending');
-                        if (ending) {
-                            try { if (typeof window.updateState === 'function') window.updateState('全书完.'); } catch (e) {}
-                            try { window.dispatchEvent(new CustomEvent('glassreader-reading-finished')); } catch (e) {}
-                            return false;
-                        }
-
-                        var nextBtn = document.querySelector('.pager-next, .next-chapter');
-                        if (nextBtn) {
-                            try { nextBtn.click(); } catch (e) {}
-                            try { window.Cache = window.Cache || {}; window.Cache.HasSelection = false; } catch (e) {}
-                            return true;
-                        }
-                    } catch (e) {}
-                    finally { window.__glassReaderPerformingNext = false; }
-                    return false;
-                }
-
-                function nextChapter(opts) {
-                    try {
-                        if (window.__glassReaderNextPending) return false;
-                        var delay = (opts && typeof opts.delayMs === 'number') ? opts.delayMs : (window.__glassReaderNextDelayMs || 3000);
-                        if (delay && delay > 0) {
-                            window.__glassReaderNextPending = setTimeout(function() {
-                                try { __performNextNow(); } catch (e) {}
-                                finally { clearTimeout(window.__glassReaderNextPending); window.__glassReaderNextPending = null; window.__glassReaderAutoNextTimer = null; }
-                            }, delay);
-                        } else {
-                            try { __performNextNow(); } catch (e) {}
-                            finally { window.__glassReaderAutoNextTimer = null; }
-                        }
-                        return true;
-                    } catch (e) {}
-                    return false;
-                }
-
-                function installSelectionWatcher() {
-                    try {
-                        if (window.__glassReaderSelectionWatcherInstalled) return;
-                        window.__glassReaderSelectionWatcherInstalled = true;
-                        var lastHas = false;
-                        function check() {
-                            try {
-                                var s = '';
-                                if (window.getSelection) s = window.getSelection().toString();
-                                else if (document.selection && document.selection.createRange) s = document.selection.createRange().text;
-                                var has = !!s && s.trim().length > 0;
-                                if (has !== lastHas) {
-                                    lastHas = has;
-                                    try { window.Cache = window.Cache || {}; window.Cache.HasSelection = has; } catch (e) {}
-                                    try { window.dispatchEvent(new CustomEvent('glassreader-selection-change', { detail: { hasSelection: has } })); } catch (e) {}
-                                    try { console.log('[glassreader] selection', has); } catch (e) {}
-                                }
-                            } catch (e) {}
-                        }
-                        document.addEventListener('selectionchange', function(){ try{ check(); }catch(e){} }, false);
-                        document.addEventListener('mouseup', function(){ setTimeout(check, 10); }, false);
-                        document.addEventListener('keyup', function(){ setTimeout(check, 10); }, false);
-                        setTimeout(check, 50);
-                    } catch (e) {}
-                }
-
-                function getSelectionState() { try { return !!(window.Cache && window.Cache.HasSelection); } catch (e) { return false; } }
-
-                function attachAutoNext() {
-                    try {
-                        if (window.__glassReaderAutoNextAttached) return;
-                        var targets = [window];
-                        var selectors = ['.chapter-content', '.reader-content', '.read-content', '.reader-main', '.book-content', '.read_view', '.readerWrapper', '.content-scroll'];
-                        selectors.forEach(function(s){ try{ var el = document.querySelector(s); if (el && targets.indexOf(el) === -1) targets.push(el); }catch(e){} });
-                        if (targets.length === 1) {
-                            try {
-                                var found = Array.prototype.slice.call(document.querySelectorAll('body *')).find(function(n){ try{ var st = getComputedStyle(n); return (st.overflowY === 'auto' || st.overflowY === 'scroll') && (n.scrollHeight - n.clientHeight > 50); }catch(e){return false;} });
-                                if (found && targets.indexOf(found) === -1) targets.push(found);
-                            } catch (e) {}
-                        }
-
-                        var threshold = 10;
-                        targets.forEach(function(t){
-                            try {
-                                var handler = function(evt){
-                                    try {
-                                        var el = (t === window) ? (document.scrollingElement || document.documentElement || document.body) : t;
-                                        var scrollTop = (el === document.scrollingElement || el === document.documentElement || el === document.body) ? (window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop) : el.scrollTop;
-                                        var scrollHeight = (el === document.scrollingElement || el === document.documentElement || el === document.body) ? (document.documentElement.scrollHeight || document.body.scrollHeight) : el.scrollHeight;
-                                        var clientHeight = (el === document.scrollingElement || el === document.documentElement || el === document.body) ? (document.documentElement.clientHeight || window.innerHeight) : el.clientHeight;
-                                        if (scrollTop + clientHeight >= scrollHeight - threshold) {
-                                            if (window.__glassReaderAutoNextTimer) return;
-                                            window.__glassReaderAutoNextTimer = true;
-                                            try { if (typeof window.nextChapter === 'function') window.nextChapter(); } catch (e) {}
-                                        }
-                                    } catch (e) {}
-                                };
-                                if (t === window) window.addEventListener('scroll', handler, { passive: true }); else t.addEventListener('scroll', handler, { passive: true });
-                            } catch (e) {}
-                        });
-                        try { window.__glassReaderAutoNextTargets = targets; } catch (e) {}
-                        window.__glassReaderAutoNextAttached = true;
-                    } catch (e) {}
-                }
-
                 // 将函数暴露到页面全局（如已存在则不覆盖）
-                try { window.isPageLoading = window.isPageLoading || isPageLoading; } catch (e) {}
-                try { window.fireKeyEvent = window.fireKeyEvent || fireKeyEvent; } catch (e) {}
-                try { window.nextChapter = window.nextChapter || nextChapter; } catch (e) {}
-                try { window.installSelectionWatcher = window.installSelectionWatcher || installSelectionWatcher; } catch (e) {}
-                try { window.getSelectionState = window.getSelectionState || getSelectionState; } catch (e) {}
-                try { window.attachAutoNext = window.attachAutoNext || attachAutoNext; } catch (e) {}
+                try { window.isPageLoading = window.isPageLoading || ${fnToStr(isPageLoading)}; } catch (e) {}
+                try { window.fireKeyEvent = window.fireKeyEvent || ${fnToStr(fireKeyEvent)}; } catch (e) {}
+                try { window.nextChapter = window.nextChapter || ${fnToStr(nextChapter)}; } catch (e) {}
+                try { window.installSelectionWatcher = window.installSelectionWatcher || ${fnToStr(installSelectionWatcher)}; } catch (e) {}
+                try { window.getSelectionState = window.getSelectionState || ${fnToStr(getSelectionState)}; } catch (e) {}
+                try { window.attachAutoNext = window.attachAutoNext || ${fnToStr(attachAutoNext)}; } catch (e) {}
 
                 // 自动启用
                 try { (window.installSelectionWatcher || function(){} )(); } catch (e) {}
@@ -246,4 +99,162 @@ export default function main(helper) {
     } catch (err) {
         try { console.error('[weread.rule] unexpected error', err); } catch (e) { }
     }
+}
+
+function fnToStr(fn) {
+    let str = fn.toString().trim();
+    if (!str.startsWith('(')) {
+        str = '(' + str + ')';
+    }
+    return str;
+}
+
+
+
+
+function isPageLoading() {
+    try {
+        if (document.readyState && document.readyState !== 'complete') return true;
+        var spinner = document.querySelector('.chapter-loading, .loading, .spinner, .loading-mask, .reader-loading');
+        if (spinner) return true;
+        var bodyCl = (document.body && document.body.className) || '';
+        if (/loading|is-loading|loading-mask/.test(bodyCl)) return true;
+        return false;
+    } catch (e) { return false; }
+}
+
+function fireKeyEvent(code) {
+    try {
+        var key = (code === 39) ? 'ArrowRight' : (code === 37) ? 'ArrowLeft' : String.fromCharCode(code);
+        var ev = new KeyboardEvent('keydown', { key: key, keyCode: code, which: code, bubbles: true, cancelable: true });
+        var target = document.activeElement || document.body || document;
+        try { target.dispatchEvent(ev); } catch (e) { document.dispatchEvent(ev); }
+        return true;
+    } catch (e) { return false; }
+}
+
+function __performNextNow() {
+    try {
+        if (window.__glassReaderPerformingNext) return false;
+        window.__glassReaderPerformingNext = true;
+        try { if (typeof isPageLoading === 'function' && isPageLoading()) return false; } catch (e) { }
+
+        var btn = document.querySelector('.readerFooter_button');
+        if (btn) {
+            try { if (typeof window.updateState === 'function') window.updateState('正在切换下一章'); } catch (e) { }
+            try {
+                if (typeof window.fireKeyEvent === 'function') {
+                    window.fireKeyEvent(39);
+                } else if (btn.click) {
+                    btn.click();
+                } else {
+                    var ev = new KeyboardEvent('keydown', { key: 'ArrowRight', keyCode: 39, which: 39, bubbles: true });
+                    document.dispatchEvent(ev);
+                }
+            } catch (e) {
+                try { btn.click(); } catch (e) { }
+            }
+            try { window.Cache = window.Cache || {}; window.Cache.HasSelection = false; } catch (e) { }
+            return true;
+        }
+
+        var ending = document.querySelector('.readerFooter_ending');
+        if (ending) {
+            try { if (typeof window.updateState === 'function') window.updateState('全书完.'); } catch (e) { }
+            try { window.dispatchEvent(new CustomEvent('glassreader-reading-finished')); } catch (e) { }
+            return false;
+        }
+
+        var nextBtn = document.querySelector('.pager-next, .next-chapter');
+        if (nextBtn) {
+            try { nextBtn.click(); } catch (e) { }
+            try { window.Cache = window.Cache || {}; window.Cache.HasSelection = false; } catch (e) { }
+            return true;
+        }
+    } catch (e) { }
+    finally { window.__glassReaderPerformingNext = false; }
+    return false;
+}
+
+function nextChapter(opts) {
+    try {
+        if (window.__glassReaderNextPending) return false;
+        var delay = (opts && typeof opts.delayMs === 'number') ? opts.delayMs : (window.__glassReaderNextDelayMs || 3000);
+        if (delay && delay > 0) {
+            window.__glassReaderNextPending = setTimeout(function () {
+                try { __performNextNow(); } catch (e) { }
+                finally { clearTimeout(window.__glassReaderNextPending); window.__glassReaderNextPending = null; window.__glassReaderAutoNextTimer = null; }
+            }, delay);
+        } else {
+            try { __performNextNow(); } catch (e) { }
+            finally { window.__glassReaderAutoNextTimer = null; }
+        }
+        return true;
+    } catch (e) { }
+    return false;
+}
+
+function installSelectionWatcher() {
+    try {
+        if (window.__glassReaderSelectionWatcherInstalled) return;
+        window.__glassReaderSelectionWatcherInstalled = true;
+        var lastHas = false;
+        function check() {
+            try {
+                var s = '';
+                if (window.getSelection) s = window.getSelection().toString();
+                else if (document.selection && document.selection.createRange) s = document.selection.createRange().text;
+                var has = !!s && s.trim().length > 0;
+                if (has !== lastHas) {
+                    lastHas = has;
+                    try { window.Cache = window.Cache || {}; window.Cache.HasSelection = has; } catch (e) { }
+                    try { window.dispatchEvent(new CustomEvent('glassreader-selection-change', { detail: { hasSelection: has } })); } catch (e) { }
+                    try { console.log('[glassreader] selection', has); } catch (e) { }
+                }
+            } catch (e) { }
+        }
+        document.addEventListener('selectionchange', function () { try { check(); } catch (e) { } }, false);
+        document.addEventListener('mouseup', function () { setTimeout(check, 10); }, false);
+        document.addEventListener('keyup', function () { setTimeout(check, 10); }, false);
+        setTimeout(check, 50);
+    } catch (e) { }
+}
+
+function getSelectionState() { try { return !!(window.Cache && window.Cache.HasSelection); } catch (e) { return false; } }
+
+function attachAutoNext() {
+    try {
+        if (window.__glassReaderAutoNextAttached) return;
+        var targets = [window];
+        var selectors = ['.chapter-content', '.reader-content', '.read-content', '.reader-main', '.book-content', '.read_view', '.readerWrapper', '.content-scroll'];
+        selectors.forEach(function (s) { try { var el = document.querySelector(s); if (el && targets.indexOf(el) === -1) targets.push(el); } catch (e) { } });
+        if (targets.length === 1) {
+            try {
+                var found = Array.prototype.slice.call(document.querySelectorAll('body *')).find(function (n) { try { var st = getComputedStyle(n); return (st.overflowY === 'auto' || st.overflowY === 'scroll') && (n.scrollHeight - n.clientHeight > 50); } catch (e) { return false; } });
+                if (found && targets.indexOf(found) === -1) targets.push(found);
+            } catch (e) { }
+        }
+
+        var threshold = 10;
+        targets.forEach(function (t) {
+            try {
+                var handler = function (evt) {
+                    try {
+                        var el = (t === window) ? (document.scrollingElement || document.documentElement || document.body) : t;
+                        var scrollTop = (el === document.scrollingElement || el === document.documentElement || el === document.body) ? (window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop) : el.scrollTop;
+                        var scrollHeight = (el === document.scrollingElement || el === document.documentElement || el === document.body) ? (document.documentElement.scrollHeight || document.body.scrollHeight) : el.scrollHeight;
+                        var clientHeight = (el === document.scrollingElement || el === document.documentElement || el === document.body) ? (document.documentElement.clientHeight || window.innerHeight) : el.clientHeight;
+                        if (scrollTop + clientHeight >= scrollHeight - threshold) {
+                            if (window.__glassReaderAutoNextTimer) return;
+                            window.__glassReaderAutoNextTimer = true;
+                            try { if (typeof window.nextChapter === 'function') window.nextChapter(); } catch (e) { }
+                        }
+                    } catch (e) { }
+                };
+                if (t === window) window.addEventListener('scroll', handler, { passive: true }); else t.addEventListener('scroll', handler, { passive: true });
+            } catch (e) { }
+        });
+        try { window.__glassReaderAutoNextTargets = targets; } catch (e) { }
+        window.__glassReaderAutoNextAttached = true;
+    } catch (e) { }
 }
