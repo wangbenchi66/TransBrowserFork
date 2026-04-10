@@ -32,6 +32,10 @@ const fontRangeRef = ref(null);
 const autoRangeRef = ref(null);
 let hideTimeout = null;
 let hidePopTimeout = null;
+// container ref and dynamic hotzone height (measured from DOM)
+const containerRef = ref(null);
+const hotzoneHeight = ref(260);
+let _resizeObserver = null;
 
 function clearHidePopTimeout() {
   if (hidePopTimeout) {
@@ -42,16 +46,48 @@ function clearHidePopTimeout() {
 // 全局 pointermove 相关，用于检测鼠标靠近窗口底部时显示工具栏
 let _lastNear = false;
 let _pmHandler = null;
-const HOTZONE_HEIGHT = 220; // 与 toolbar-hotzone 保持一致
+// NOTE: 不再使用静态 HOTZONE_HEIGHT，使用 `hotzoneHeight` 动态测量
+
+function clearHideTimeout() {
+  if (hideTimeout) {
+    clearTimeout(hideTimeout);
+    hideTimeout = null;
+  }
+}
+
+function onContainerMouseEnter() {
+  try {
+    clearHideTimeout();
+    // 当进入容器时确保可见
+    try {
+      props.patchSetting('toolbarVisible', true);
+    } catch (e) {}
+  } catch (e) {}
+}
+
+function updateHotzoneFromDOM() {
+  try {
+    const el = containerRef.value;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const h = rect && rect.height ? rect.height : el.offsetHeight || 0;
+    // 加上少量缓冲区，保证手柄与弹层也被包含
+    hotzoneHeight.value = Math.max(48, Math.round(h + 40));
+  } catch (e) {}
+}
+
+function toggleHandle() {
+  try {
+    props.patchSetting('toolbarVisible', !props.toolbarVisible);
+  } catch (e) {}
+}
 
 function _onPointerMove(e) {
   try {
-    // external 模式由父组件作为页面流的一部分渲染，不使用自动隐藏逻辑
-    if (props.external) return;
     if (props.toolbarDisabled || props.toolbarPinned || props.hideHandle) return;
     const y = e && typeof e.clientY === 'number' ? e.clientY : (window.event && window.event.clientY) || 0;
     const winH = window.innerHeight || document.documentElement.clientHeight || 0;
-    const near = y >= winH - HOTZONE_HEIGHT;
+    const near = y >= winH - (hotzoneHeight.value || 260);
     if (near && !_lastNear) {
       _lastNear = true;
       try {
@@ -65,13 +101,13 @@ function _onPointerMove(e) {
       _lastNear = false;
       // 只有在没有拖拽或弹出时才自动隐藏
       if (!draggingKey.value && !popActiveKey.value && !props.toolbarPinned) {
-        if (hideTimeout) clearTimeout(hideTimeout);
+        clearHideTimeout();
         hideTimeout = setTimeout(() => {
           try {
             props.patchSetting('toolbarVisible', false);
           } catch (e) {}
           hideTimeout = null;
-        }, 180);
+        }, 360);
       }
     }
   } catch (e) {}
@@ -154,7 +190,6 @@ function onToggleMouseLeave(e) {
 
 function onContainerMouseLeave(e) {
   try {
-    if (props.external) return;
     if (props.toolbarPinned || props.toolbarDisabled || props.hideHandle) return;
     const to = e && e.relatedTarget;
     const el = e && e.currentTarget;
@@ -222,10 +257,20 @@ function onAutoScrollSpeedInput(e) {
 onMounted(() => {
   window.addEventListener('pointerup', onRangePointerUp);
   _pmHandler = _onPointerMove;
-  // 仅在非 external 模式下监听全局 pointermove 自动显示/隐藏逻辑
-  if (!props.external) {
-    window.addEventListener('pointermove', _pmHandler);
-  }
+  window.addEventListener('pointermove', _pmHandler);
+  // pointerdown 可以更快响应触摸/点击场景
+  window.addEventListener('pointerdown', _pmHandler);
+  // 初次测量并监听大小变化以保持热区与工具栏高度一致
+  updateHotzoneFromDOM();
+  try {
+    if (typeof ResizeObserver !== 'undefined') {
+      _resizeObserver = new ResizeObserver(updateHotzoneFromDOM);
+      if (containerRef.value) _resizeObserver.observe(containerRef.value);
+      const tb = containerRef.value && containerRef.value.querySelector ? containerRef.value.querySelector('.bottom-toolbar') : null;
+      if (tb) _resizeObserver.observe(tb);
+    }
+  } catch (e) {}
+  window.addEventListener('resize', updateHotzoneFromDOM);
 });
 
 onBeforeUnmount(() => {
@@ -238,23 +283,39 @@ onBeforeUnmount(() => {
     try {
       window.removeEventListener('pointermove', _pmHandler);
     } catch (e) {}
+    try {
+      window.removeEventListener('pointerdown', _pmHandler);
+    } catch (e) {}
     _pmHandler = null;
   }
+  try {
+    if (_resizeObserver) {
+      try {
+        _resizeObserver.disconnect();
+      } catch (e) {}
+      _resizeObserver = null;
+    }
+  } catch (e) {}
+  try {
+    window.removeEventListener('resize', updateHotzoneFromDOM);
+  } catch (e) {}
 });
 </script>
 
 <template>
   <div
     :class="['bottom-toolbar-container', props.toolbarDocked ? 'docked' : 'overlay', props.toolbarDisabled ? 'no-hover' : '', props.external ? 'external' : '']"
-    @mouseleave="onContainerMouseLeave">
+    ref="containerRef"
+    @mouseleave="onContainerMouseLeave"
+    @mouseenter="onContainerMouseEnter">
     <div
       v-if="!props.toolbarPinned && !props.toolbarVisible && !props.toolbarDisabled && !props.hideHandle"
       class="toolbar-handle"
-      @click="props.patchSetting('toolbarVisible', true)"></div>
+      @click="toggleHandle"></div>
 
     <div
       class="bottom-toolbar"
-      :class="{ hidden: !props.external && !props.toolbarVisible, 'icon-mode': props.toolbarIconOnly }">
+      :class="{ hidden: !props.toolbarVisible, 'icon-mode': props.toolbarIconOnly }">
       <div class="toolbar-left">
         <BaseButton
           class="icon-btn icon-only"
@@ -513,7 +574,7 @@ onBeforeUnmount(() => {
   /* 提升到较高层级，避免被 webview 或热区遮挡 */
   position: relative;
   z-index: 10002;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--surface);
   backdrop-filter: blur(8px);
   box-shadow: 0 6px 18px rgba(16, 23, 32, 0.08);
 }
@@ -532,7 +593,7 @@ onBeforeUnmount(() => {
 .bottom-toolbar-container.external .bottom-toolbar {
   position: relative;
   z-index: 1;
-  background: rgba(255, 255, 255, 0.98);
+  background: var(--surface);
   box-shadow: 0 6px 18px rgba(16, 23, 32, 0.04);
 }
 
@@ -551,23 +612,23 @@ onBeforeUnmount(() => {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  bottom: 4px;
-  width: 56px;
-  height: 8px;
-  border-radius: 0;
-  background: linear-gradient(90deg, rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.03));
+  bottom: 6px;
+  width: 64px;
+  height: 10px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.04));
   border: 1px solid rgba(0, 0, 0, 0.06);
   cursor: pointer;
   /* 确保手柄始终在最上层，能被鼠标触达 */
-  z-index: 10003;
-  box-shadow: 0 6px 18px rgba(16, 23, 32, 0.06);
+  z-index: 10005;
+  box-shadow: 0 10px 24px rgba(16, 23, 32, 0.08);
   transition:
     transform 150ms ease,
     opacity 150ms;
 }
 .toolbar-handle:hover {
-  transform: translateX(-50%) translateY(-3px);
-  opacity: 0.98;
+  transform: translateX(-50%) translateY(-4px);
+  opacity: 1;
 }
 
 .bottom-toolbar-container:hover .bottom-toolbar.hidden {
@@ -609,7 +670,7 @@ onBeforeUnmount(() => {
   transition:
     opacity 0.12s ease,
     transform 0.12s ease;
-  background: rgba(255, 255, 255, 0.98);
+  background: var(--surface);
   padding: 6px;
   border-radius: 0;
   box-shadow: 0 8px 24px rgba(16, 23, 32, 0.12);
@@ -658,7 +719,7 @@ onBeforeUnmount(() => {
   padding: 6px;
   border-radius: 2px;
   border: 1px solid rgba(224, 72, 66, 0.06);
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--surface);
   color: #e04842;
   box-shadow: 0 2px 6px rgba(16, 23, 32, 0.04);
   transition:

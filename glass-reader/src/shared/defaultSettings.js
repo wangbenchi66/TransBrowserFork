@@ -107,7 +107,7 @@ const defaultSettings = {
     fullWindowTransparent: false,
 
     // 工具栏是否固定（固定=true 始终显示）
-    toolbarPinned: false,
+    toolbarPinned: true,
 
     // 工具栏是否可见（UI 状态控制）
     toolbarVisible: true,
