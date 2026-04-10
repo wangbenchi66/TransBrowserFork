@@ -152,7 +152,7 @@ export default function main(helper) {
         // // - 如需快速校验注入是否到达页面：在上面的 runJs 中添加 console.log('[weread.rule] ...')，渲染器会显示。
         // // -------------------------
         // // 示例（已注释）：
-        // // runJs && runJs(`(() => { try{ alert('weread rule injected'); }catch(e){}; return true; })();`);
+        //runJs && runJs(`(() => { try{ alert('weread rule injected'); }catch(e){}; return true; })();`);
 
         // try { console.log('[weread.rule] apply finished'); } catch (e) { }
 

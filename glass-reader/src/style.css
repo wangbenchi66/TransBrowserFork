@@ -551,6 +551,11 @@ iframe {
   flex-direction: column;
 }
 
+/* 使 page-frame 成为定位父容器，方便覆盖层放置于 webview 之上 */
+.page-frame {
+  position: relative;
+}
+
 .page-frame.is-webview {
   /* padding: 10px; */
   overflow: hidden;
@@ -885,6 +890,53 @@ iframe {
 
 .mode-transparent-page .webview-frame {
   background: transparent;
+}
+
+/* 将 webview 叠放以避免使用 display:none 导致某些 Electron 版本重载 webview */
+.webview-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.webview-wrap .webview-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgba(213, 219, 232, 0.85);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--page-surface);
+  transition: opacity 140ms ease;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.webview-wrap .webview-frame.webview-active {
+  opacity: 1;
+  pointer-events: auto;
+  z-index: 2;
+}
+
+/* 覆盖面板（仪表盘 / 本地阅读视图）位于 webview 之上 */
+.overlay-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  padding: 18px 20px;
+  box-sizing: border-box;
+  overflow: auto;
+  background: transparent;
+}
+
+/* 当 overlay-panel 显示时，确保其内部 panel/卡片样式仍然可视 */
+.overlay-panel > .panel,
+.overlay-panel.panel {
+  background: var(--surface);
 }
 
 /* 当 page-frame 用于承载真实网页时，允许网页自身决定背景颜色（非仪表盘/本地阅读视图） */

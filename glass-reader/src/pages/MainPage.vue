@@ -6,8 +6,97 @@ import BottomToolbar from './parts/BottomToolbar.vue';
 
 const { settings, activeTab, activeTabId, tabs, addNewTab, selectTab, closeTab, patchSetting, updateTabMetadata, siteRules, ruleProviders } = useDesktopApp();
 
-const webviewRef = ref(null);
-const webviewReady = ref(false);
+// 多个 tab 对应多份 webview：使用映射以保留每个 webview 实例，避免切换时重载
+const webviewRefs = {}; // tabId (string) -> webview element
+const webviewReadyMap = {}; // tabId (string) -> boolean
+const webviewDomReadyTs = {}; // tabId -> last dom-ready timestamp (ms)
+const webviewReady = ref(false); // 当前激活 tab 的 ready 状态
+const insertedCssKeysByTab = {}; // tabId -> { styleId: insertedKey }
+const webviewMountCount = {}; // tabId -> number of times ref assigned (mounts)
+const lastExecutedScripts = {}; // tabId -> Set of script signatures (simple dedupe aid)
+const webviewRefSetters = {}; // cache stable ref setter functions per tab id
+const webviewEventListeners = {}; // tabId -> { eventName: handler }
+
+function getWebviewRefSetter(id) {
+  const k = String(id);
+  if (!webviewRefSetters[k]) {
+    webviewRefSetters[k] = (el) => setWebviewRef(el, id);
+  }
+  return webviewRefSetters[k];
+}
+
+function setWebviewRef(el, id) {
+  const tid = String(id);
+  const prev = webviewRefs[tid];
+  if (!el) {
+    try {
+      if (prev) {
+        webviewMountCount[tid] = Math.max(0, (webviewMountCount[tid] || 1) - 1);
+      }
+      // remove any attached event listeners for this tab
+      try {
+        const listeners = webviewEventListeners[tid] || {};
+        if (prev && typeof prev.removeEventListener === 'function') {
+          for (const k in listeners) {
+            try { prev.removeEventListener(k, listeners[k]); } catch (e) {}
+          }
+        }
+      } catch (e) {}
+
+      delete webviewRefs[tid];
+      delete webviewReadyMap[tid];
+      delete webviewDomReadyTs[tid];
+      delete insertedCssKeysByTab[tid];
+      delete webviewEventListeners[tid];
+    } catch (e) {}
+    return;
+  }
+
+  // 如果 ref 指向相同元素，则忽略（避免因渲染多次重复计数）
+  if (prev === el) return;
+
+  webviewRefs[tid] = el;
+  webviewMountCount[tid] = (webviewMountCount[tid] || 0) + 1;
+  try {
+    console.log('[webview-ref] set', { tid, present: !!el, mountCount: webviewMountCount[tid] });
+  } catch (e) {}
+
+  // 统一在此处附加常用生命周期/导航事件，用于诊断重复加载/导航
+  try {
+    // 先清理旧的（如果存在）
+    const prevListeners = webviewEventListeners[tid];
+    if (prev && prevListeners && typeof prev.removeEventListener === 'function') {
+      for (const k in prevListeners) {
+        try { prev.removeEventListener(k, prevListeners[k]); } catch (e) {}
+      }
+    }
+
+    const listeners = {};
+    // 仅保留关键事件的日志，减少噪声：did-finish-load / did-fail-load / did-navigate
+    listeners['did-finish-load'] = function(evt) { try { console.log('[webview.event] did-finish-load', { tid, src: (el && typeof el.getURL === 'function') ? (el.getURL() || el.src) : el && el.src }); } catch(e) {} };
+    listeners['did-navigate'] = function(evt) { try { console.log('[webview.event] did-navigate', { tid, url: evt && evt.url ? evt.url : (el && el.src) }); } catch(e) {} };
+    listeners['did-fail-load'] = function(evt) { try { console.warn('[webview.event] did-fail-load', { tid, details: evt }); } catch(e) {} };
+    // 将较多输出的事件改为 debug 级别，开发时可在 DevTools 打开 Debug 过滤查看
+    listeners['console-message'] = function(evt) { try { console.debug('[webview.console]', evt && evt.message ? evt.message : evt); } catch (e) {} };
+    listeners['ipc-message'] = function(evt) { try { console.debug('[webview.ipc]', evt && evt.channel ? evt.channel : evt, evt && evt.args ? evt.args : undefined); } catch (e) {} };
+
+    for (const k in listeners) {
+      try { el.addEventListener(k, listeners[k]); } catch (e) {}
+    }
+
+    // keep reference for later removal
+    webviewEventListeners[tid] = listeners;
+  } catch (e) {}
+}
+
+function getWebview(tabId) {
+  if (tabId === undefined || tabId === null) tabId = activeTabId.value;
+  return webviewRefs[String(tabId)];
+}
+
+function getActiveWebview() {
+  return getWebview(activeTabId.value);
+}
 // 覆盖 webview 的 User-Agent，部分站点会屏蔽 Electron UA 导致连接被关闭
 const userAgent = ref('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36');
 const localReaderRef = ref(null);
@@ -21,6 +110,16 @@ const currentHost = computed(() => {
     return (u.hostname || '').replace(/^www\./i, '');
   } catch (e) {
     return '';
+  }
+});
+
+// 仅包含网页类型的 tab 列表（用于渲染保留的 webview 实例）
+const pageTabs = computed(() => {
+  try {
+    const arr = Array.isArray(tabs.value) ? tabs.value : [];
+    return arr.filter((t) => t && t.kind === 'page');
+  } catch (e) {
+    return [];
   }
 });
 
@@ -160,18 +259,27 @@ function disableToolbar() {
 }
 
 // 原始的 JS 注入方法（用于自动滚动等需要执行脚本的场景）
-function runWebviewJS(script) {
-  const webview = webviewRef.value;
-  if (!webview || activeTab.value.kind === 'dashboard' || activeTab.value.kind === 'local-text') {
-    return Promise.resolve();
-  }
-
-  if (!webviewReady.value) return;
-
-  try {
-    // 返回 executeJavaScript 的 Promise 并记录错误，便于调试注入失败的原因
+function runWebviewJS(script, tabId) {
+  const execOn = async (w, tid) => {
+    if (!w) return Promise.resolve();
+    const tab = tabs.value.find((t) => String(t.id) === String(tid));
+    if (!tab || tab.kind === 'dashboard' || tab.kind === 'local-text') return Promise.resolve();
+    if (!webviewReadyMap[String(tid)]) return Promise.resolve();
+    
+    // 简单去重：避免在极短时间内对同一 tab 执行相同脚本两次（通常由重复挂载/ready 导致）
     try {
-      const p = webview.executeJavaScript(script);
+      const sig = String(script || '').slice(0, 512);
+      lastExecutedScripts[String(tid)] = lastExecutedScripts[String(tid)] || {};
+      const lastMap = lastExecutedScripts[String(tid)];
+      const now = Date.now();
+      if (lastMap[sig] && now - lastMap[sig] < 1200) {
+        try { console.log('[runWebviewJS] skipped duplicate script for', tid); } catch(e) {}
+        return Promise.resolve();
+      }
+      lastMap[sig] = now;
+    } catch (e) {}
+    try {
+      const p = w.executeJavaScript(script);
       if (p && typeof p.then === 'function') {
         return p.catch((err) => {
           try {
@@ -186,12 +294,18 @@ function runWebviewJS(script) {
       } catch (e) {}
       return Promise.resolve();
     }
-  } catch (e) {
-    try {
-      console.error('[runWebviewJS] unexpected error', e);
-    } catch (err) {}
-    return Promise.resolve();
+  };
+
+  if (tabId !== undefined && tabId !== null) {
+    const w = getWebview(tabId);
+    return execOn(w, tabId);
   }
+
+  const promises = [];
+  for (const tid in webviewRefs) {
+    promises.push(execOn(webviewRefs[tid], tid));
+  }
+  return Promise.all(promises);
 }
 
 // 拦截 webview 尝试打开新窗口的事件，强制在当前 webview 中打开链接
@@ -203,13 +317,13 @@ function onWebviewNewWindow(e) {
   const url = (e && (e.url || (e.detail && e.detail.url))) || '';
   if (!url) return;
 
-  const w = webviewRef.value;
+  // 尝试从事件 target 获取对应 webview，否则使用当前激活 webview
+  const w = (e && e.target) || getActiveWebview();
   try {
-    // 优先使用 loadURL（若可用），否则回退到设置 src
     if (w && typeof w.loadURL === 'function') {
       w.loadURL(url);
     } else if (w) {
-      w.src = url;
+      try { w.src = url; } catch (err) {}
     }
   } catch (err) {
     // ignore
@@ -284,51 +398,118 @@ function forceDisableBlankTargets() {
   runWebviewJS(script);
 }
 
+// 支持可选的 tabId，针对单个 webview 禁用 _blank 打开行为
+function forceDisableBlankTargetsFor(tabId) {
+  const script = `(() => {
+    try {
+      // 覆盖 window.open，避免通过脚本打开新窗口
+      window.open = function(url) {
+        if (!url) return null;
+        try { location.assign(url); } catch(e) {}
+        return null;
+      };
+
+      // 捕获点击，优先处理 target="_blank" 的锚点
+      document.addEventListener('click', function(evt) {
+        try {
+          const el = evt.target && evt.target.closest && evt.target.closest('a');
+          if (!el) return;
+          const href = el.getAttribute && (el.getAttribute('href') || el.href);
+          if (!href) return;
+          const targ = (el.getAttribute && el.getAttribute('target') || el.target || '').toLowerCase();
+          if (targ === '_blank') {
+            evt.preventDefault();
+            try { el.removeAttribute('target'); } catch(e) {}
+            try { location.assign(href); } catch(e) {}
+          }
+        } catch(e) {}
+      }, true);
+
+      // 初始移除已有的 target="_blank"
+      try {
+        document.querySelectorAll && document.querySelectorAll('a[target="_blank"]').forEach(a => { try { a.removeAttribute('target'); } catch(e) {} });
+      } catch(e) {}
+
+      // 监听动态插入或修改的元素，移除 target 属性
+      try {
+        const mo = new MutationObserver(function(muts) {
+          try {
+            muts.forEach(m => {
+              if (m.addedNodes && m.addedNodes.length) {
+                m.addedNodes.forEach(n => {
+                  if (n && n.nodeType === 1) {
+                    try {
+                      if (n.tagName === 'A' && (n.target || '').toLowerCase() === '_blank') n.removeAttribute('target');
+                      const inner = n.querySelectorAll && n.querySelectorAll('a[target="_blank"]');
+                      inner && inner.forEach(a => { try { a.removeAttribute('target'); } catch(e) {} });
+                    } catch(e) {}
+                  }
+                });
+              }
+              if (m.type === 'attributes' && m.target && m.target.tagName === 'A' && m.attributeFilter && m.attributeFilter.indexOf && m.attributeFilter.indexOf('target') !== -1) {
+                try { if ((m.target.getAttribute('target') || '').toLowerCase() === '_blank') m.target.removeAttribute('target'); } catch(e) {}
+              }
+            });
+          } catch(e) {}
+        });
+        mo.observe(document.documentElement || document, { childList: true, subtree: true, attributes: true, attributeFilter: ['target'] });
+      } catch(e) {}
+    } catch(e) {}
+    return true;
+  })();`;
+
+  runWebviewJS(script, tabId);
+}
+
 // 从当前 webview 读取页面元数据并更新对应 tab（标题 / 副标题）
-async function updateTabFromWebview() {
-  const w = webviewRef.value;
-  const tabId = activeTabId.value;
-  if (!w || !webviewReady.value) return;
+async function updateTabFromWebview(tabId) {
+  const tid = tabId !== undefined && tabId !== null ? tabId : activeTabId.value;
+  const w = getWebview(tid);
+  if (!w || !webviewReadyMap[String(tid)]) return;
   try {
     if (typeof w.executeJavaScript !== 'function') return;
     const script = `(function(){try{return {title:document.title||'',desc:(document.querySelector('meta[name="description"]')&&document.querySelector('meta[name="description"]').getAttribute('content'))||''}}catch(e){return {title:'',desc:''}}})();`;
     const res = await w.executeJavaScript(script);
     if (!res) return;
     try {
-      updateTabMetadata(tabId, { title: res.title || undefined, subtitle: res.desc || undefined });
+      updateTabMetadata(tid, { title: res.title || undefined, subtitle: res.desc || undefined });
     } catch (e) {}
   } catch (e) {}
 }
 
 function onPageTitleUpdated(e) {
   try {
-    updateTabFromWebview();
+    const w = (e && e.target) || null;
+    const tid = w && (w.getAttribute && w.getAttribute('data-tab-id')) ? w.getAttribute('data-tab-id') : activeTabId.value;
+    updateTabFromWebview(tid);
   } catch (e) {}
 }
 
 function onDidNavigate(e) {
   try {
-    updateTabFromWebview();
+    const w = (e && e.target) || null;
+    const tid = w && (w.getAttribute && w.getAttribute('data-tab-id')) ? w.getAttribute('data-tab-id') : activeTabId.value;
+    updateTabFromWebview(tid);
   } catch (e) {}
 }
 
 // 简单的 webview 导航与缩放辅助
 function webviewBack() {
-  const w = webviewRef.value;
+  const w = getActiveWebview();
   try {
     if (w && typeof w.goBack === 'function') w.goBack();
   } catch (e) {}
 }
 
 function webviewForward() {
-  const w = webviewRef.value;
+  const w = getActiveWebview();
   try {
     if (w && typeof w.goForward === 'function') w.goForward();
   } catch (e) {}
 }
 
 function webviewReload() {
-  const w = webviewRef.value;
+  const w = getActiveWebview();
   try {
     if (w && typeof w.reload === 'function') w.reload();
   } catch (e) {}
@@ -336,7 +517,7 @@ function webviewReload() {
 
 async function setSiteZoom(factor) {
   siteZoom.value = Math.max(0.3, Math.min(3, Number(factor) || 1));
-  const w = webviewRef.value;
+  const w = getActiveWebview();
   try {
     if (w && typeof w.setZoomFactor === 'function') {
       await w.setZoomFactor(siteZoom.value);
@@ -357,70 +538,96 @@ function resetZoom() {
   setSiteZoom(1);
 }
 
-// 存储通过 insertCSS 注入后返回的 key，便于后续移除和替换
-const insertedCssKeys = {};
-
 // 向 webview 注入或替换样式，优先使用 insertCSS（可绕过 CSP），无法使用时回退到 style 标签注入
-async function runWebviewCss(styleId, css) {
-  const webview = webviewRef.value;
-  if (!webview || activeTab.value.kind === 'dashboard' || activeTab.value.kind === 'local-text') {
+async function runWebviewCss(styleId, css, tabId) {
+  const applyTo = async (w, tid) => {
+    if (!w) return;
+    const tab = tabs.value.find((t) => String(t.id) === String(tid));
+    if (!tab || tab.kind === 'dashboard' || tab.kind === 'local-text') return;
+    if (!webviewReadyMap[String(tid)]) return;
+
+    try {
+      const prevMap = insertedCssKeysByTab[String(tid)] || {};
+      
+      const prevKey = prevMap[styleId];
+      // 去重：相同 styleId+css 在短时内不用重复注入
+      try {
+        const cssSig = `${styleId}::${String(css || '').slice(0, 512)}`;
+        lastExecutedScripts[String(tid)] = lastExecutedScripts[String(tid)] || {};
+        const lastMap = lastExecutedScripts[String(tid)];
+        const now = Date.now();
+        if (lastMap[cssSig] && now - lastMap[cssSig] < 1200) {
+          try { console.log('[runWebviewCss] skipped duplicate css for', tid, styleId); } catch(e) {}
+          insertedCssKeysByTab[String(tid)] = prevMap;
+          return;
+        }
+        lastMap[cssSig] = now;
+      } catch (e) {}
+      if (prevKey && typeof w.removeInsertedCSS === 'function') {
+        try {
+          await w.removeInsertedCSS(prevKey);
+        } catch (e) {}
+        prevMap[styleId] = null;
+      }
+
+      if (!css) {
+        try {
+          const rmScript = `(function(){ const n=document.getElementById(${JSON.stringify(styleId)}); if(n) n.remove(); })();`;
+          await w.executeJavaScript(rmScript);
+        } catch (e) {}
+        insertedCssKeysByTab[String(tid)] = prevMap;
+        return;
+      }
+
+      if (typeof w.insertCSS === 'function') {
+        try {
+          const key = await w.insertCSS(css);
+          prevMap[styleId] = key;
+          insertedCssKeysByTab[String(tid)] = prevMap;
+          return;
+        } catch (e) {
+          // fallback to style injection
+        }
+      }
+
+      const script = buildStyleScript(styleId, true, css);
+      try {
+        await w.executeJavaScript(script);
+      } catch (e) {}
+      insertedCssKeysByTab[String(tid)] = prevMap;
+    } catch (e) {}
+  };
+
+  if (tabId !== undefined && tabId !== null) {
+    const w = getWebview(tabId);
+    await applyTo(w, String(tabId));
     return;
   }
-  try {
-    // 如果 webview 未准备好，跳过所有对 webview API 的调用，避免在 dom-ready 前触发错误
-    if (!webviewReady.value) return;
 
-    // 如果之前注入过，尝试移除旧样式
-    const prevKey = insertedCssKeys[styleId];
-    if (prevKey && typeof webview.removeInsertedCSS === 'function') {
-      try {
-        await webview.removeInsertedCSS(prevKey);
-      } catch (e) {
-        // ignore
-      }
-      insertedCssKeys[styleId] = null;
-    }
-
-    if (!css) {
-      // css 为空意味着只需移除旧样式
-      // 作为回退，也移除可能存在的 style 标签
-      try {
-        const rmScript = `(function(){ const n=document.getElementById(${JSON.stringify(styleId)}); if(n) n.remove(); })();`;
-        await webview.executeJavaScript(rmScript);
-      } catch (e) {}
-      return;
-    }
-
-    // 优先通过 insertCSS 注入样式
-    if (typeof webview.insertCSS === 'function') {
-      try {
-        const key = await webview.insertCSS(css);
-        insertedCssKeys[styleId] = key;
-        return;
-      } catch (e) {
-        // 回退到 style 注入
-      }
-    }
-
-    // 回退：通过在页面中插入/替换 style 标签（可能受 CSP 限制）
-    const script = buildStyleScript(styleId, true, css);
-    try {
-      await webview.executeJavaScript(script);
-    } catch (e) {
-      // ignore
-    }
-  } catch (e) {
-    // ignore overall
+  const promises = [];
+  for (const tid in webviewRefs) {
+    promises.push(applyTo(webviewRefs[tid], tid));
   }
+  await Promise.all(promises);
+}
+
+// webview 加载失败处理（记录以便调试）
+function onWebviewFailLoad(e) {
+  try {
+    console.warn('[webview] did-fail-load', e);
+  } catch (err) {}
 }
 
 function syncWebviewTransparency() {
   const enabled = settings.pageTransparentMode || settings.forcePageTransparent || settings.fullWindowTransparent;
   const css = settings.forcePageTransparent || settings.fullWindowTransparent ? transparentPageCssAggressive : transparentPageCss;
-  runWebviewCss('glass-transparent-style', enabled ? css : '');
+  // 若传入 tabId 则会只针对该 webview 注入
+  const tabId = arguments.length ? arguments[0] : undefined;
+  runWebviewCss('glass-transparent-style', enabled ? css : '', tabId);
 }
 function syncWebviewNoImage() {
-  runWebviewCss('glass-no-image-style', settings.noImageMode ? noImageCss : '');
+  const tabId = arguments.length ? arguments[0] : undefined;
+  runWebviewCss('glass-no-image-style', settings.noImageMode ? noImageCss : '', tabId);
 }
 
 function syncWebviewScrollbars() {
@@ -435,12 +642,14 @@ function syncWebviewScrollbars() {
     ::-webkit-scrollbar { display: none !important; }
   `;
 
-  runWebviewCss('glass-scrollbar-style', settings.showScrollbars ? css : hideCss);
+  const tabId = arguments.length ? arguments[0] : undefined;
+  runWebviewCss('glass-scrollbar-style', settings.showScrollbars ? css : hideCss, tabId);
 }
 
 function syncWebviewTextColor() {
   if (!settings.forceReaderTextColor) {
-    runWebviewCss('glass-force-text-color', '');
+    const tabId = arguments.length ? arguments[0] : undefined;
+    runWebviewCss('glass-force-text-color', '', tabId);
     return;
   }
 
@@ -450,12 +659,14 @@ function syncWebviewTextColor() {
     a, a * { color: inherit !important; }
   `;
 
-  runWebviewCss('glass-force-text-color', css);
+  const tabId = arguments.length ? arguments[0] : undefined;
+  runWebviewCss('glass-force-text-color', css, tabId);
 }
 
 function syncWebviewFontSize() {
   if (!settings.forceReaderFont) {
-    runWebviewCss('glass-force-font-size', '');
+    const tabId = arguments.length ? arguments[0] : undefined;
+    runWebviewCss('glass-force-font-size', '', tabId);
     return;
   }
 
@@ -464,11 +675,13 @@ function syncWebviewFontSize() {
     html, body, body * { font-size: ${scale}% !important; }
   `;
 
-  runWebviewCss('glass-force-font-size', css);
+  const tabId = arguments.length ? arguments[0] : undefined;
+  runWebviewCss('glass-force-font-size', css, tabId);
 }
 
 function syncWebviewAutoScroll() {
-  runWebviewJS(buildAutoScrollScript(settings.autoScrollEnabled, settings.autoScrollSpeed));
+  const tabId = arguments.length ? arguments[0] : undefined;
+  runWebviewJS(buildAutoScrollScript(settings.autoScrollEnabled, settings.autoScrollSpeed), tabId);
 }
 
 function stopLocalReaderAutoScroll() {
@@ -481,7 +694,7 @@ function stopLocalReaderAutoScroll() {
 function syncLocalReaderAutoScroll() {
   stopLocalReaderAutoScroll();
 
-  if (!settings.autoScrollEnabled || activeTab.value.kind !== 'local-text' || !localReaderRef.value) {
+  if (!settings.autoScrollEnabled || activeTab.value?.kind !== 'local-text' || !localReaderRef.value) {
     return;
   }
 
@@ -494,13 +707,13 @@ function syncLocalReaderAutoScroll() {
   }, interval);
 }
 
-function syncReaderEffects() {
-  syncWebviewTransparency();
-  syncWebviewNoImage();
-  syncWebviewScrollbars();
-  syncWebviewTextColor();
-  syncWebviewFontSize();
-  syncWebviewAutoScroll();
+function syncReaderEffects(tabId) {
+  syncWebviewTransparency(tabId);
+  syncWebviewNoImage(tabId);
+  syncWebviewScrollbars(tabId);
+  syncWebviewTextColor(tabId);
+  syncWebviewFontSize(tabId);
+  syncWebviewAutoScroll(tabId);
   syncLocalReaderAutoScroll();
   // 同步本地阅读器样式以保证立即可见
   applyLocalReaderStyles();
@@ -684,15 +897,33 @@ function onAutoScrollSpeedInput(e) {
   updatePopPosition(v, 5, 80);
 }
 
-function handleWebviewDomReady() {
-  webviewReady.value = true;
-  const w = webviewRef.value;
-  // 优先使用 activeTab.url；若不存在则回退到 webview 的 URL（getURL 或 src）
-  let pageUrl = '';
+function handleWebviewDomReady(e) {
+  const w = (e && e.target) || null;
+  if (!w) return;
+  const tabId = w.getAttribute && w.getAttribute('data-tab-id') ? w.getAttribute('data-tab-id') : (w.dataset && w.dataset.tabId ? w.dataset.tabId : null);
+  if (!tabId) return;
+
+  // 去重：短时间内重复的 dom-ready 忽略（许多站点或内嵌导航会触发多次）
   try {
-    if (activeTab && activeTab.url) {
-      pageUrl = activeTab.url;
-    } else if (w) {
+    const now = Date.now();
+    const prevTs = webviewDomReadyTs[tabId];
+    if (prevTs && now - prevTs < 1200) {
+      try { console.log('[webview] dom-ready skipped duplicate', { tabId, since: now - prevTs }); } catch (e) {}
+      return;
+    }
+    webviewDomReadyTs[tabId] = now;
+  } catch (e) {}
+
+  try {
+    setWebviewRef(w, tabId);
+    webviewReadyMap[String(tabId)] = true;
+    if (String(tabId) === String(activeTabId.value)) webviewReady.value = true;
+  } catch (e) {}
+
+  const tabObj = tabs.value.find((t) => String(t.id) === String(tabId));
+  let pageUrl = tabObj?.url || '';
+  try {
+    if (!pageUrl) {
       if (typeof w.getURL === 'function') {
         try {
           pageUrl = w.getURL() || '';
@@ -704,122 +935,86 @@ function handleWebviewDomReady() {
       }
     }
   } catch (e) {
-    pageUrl = activeTab?.url || '';
+    pageUrl = tabObj?.url || '';
   }
 
   try {
-    console.log('[webview] dom-ready', { url: pageUrl, kind: activeTab?.kind, webviewRefPresent: !!webviewRef.value, webviewReady: webviewReady.value });
+    console.log('[webview] dom-ready', { tabId, url: pageUrl, kind: tabObj?.kind, webviewRefPresent: !!w, webviewReady: webviewReady.value, mountCount: webviewMountCount[tabId] });
   } catch (e) {}
-  syncReaderEffects();
-  // 尝试读取并同步当前页面缩放比例
+  try { console.trace && console.trace('[webview] dom-ready trace', tabId); } catch (e) {}
+
+  // 对该 webview 同步注入 reader 效果（只针对刚准备好的 tab）
+  try {
+    syncWebviewTransparency(tabId);
+    syncWebviewNoImage(tabId);
+    syncWebviewScrollbars(tabId);
+    syncWebviewTextColor(tabId);
+    syncWebviewFontSize(tabId);
+    syncWebviewAutoScroll(tabId);
+    syncLocalReaderAutoScroll();
+  } catch (e) {}
+
+  // 尝试读取并同步当前页面缩放比例（如果是激活 tab，则更新全局 siteZoom）
   try {
     if (w && typeof w.getZoomFactor === 'function') {
       w.getZoomFactor()
         .then((f) => {
-          siteZoom.value = f || 1;
+          try {
+            if (String(tabId) === String(activeTabId.value)) siteZoom.value = f || 1;
+          } catch (e) {}
         })
         .catch(() => {});
     } else {
-      // 回退到页面变量
-      w.executeJavaScript('window.__glass_reader_zoom || 1')
-        .then((f) => {
-          siteZoom.value = f || 1;
-        })
-        .catch(() => {});
-    }
-  } catch (e) {}
-  // 注册拦截新窗口事件，防止在外部打开新窗口
-  try {
-    if (w && typeof w.addEventListener === 'function') {
       try {
-        w.removeEventListener('new-window', onWebviewNewWindow);
-      } catch (e) {}
-      try {
-        w.removeEventListener('will-navigate', onWebviewWillNavigate);
-      } catch (e) {}
-      try {
-        w.removeEventListener('page-title-updated', onPageTitleUpdated);
-      } catch (e) {}
-      try {
-        w.removeEventListener('did-navigate', onDidNavigate);
-      } catch (e) {}
-      try {
-        w.removeEventListener('did-navigate-in-page', onDidNavigate);
-      } catch (e) {}
-      w.addEventListener('new-window', onWebviewNewWindow);
-      w.addEventListener('will-navigate', onWebviewWillNavigate);
-      w.addEventListener('page-title-updated', onPageTitleUpdated);
-      w.addEventListener('did-navigate', onDidNavigate);
-      w.addEventListener('did-navigate-in-page', onDidNavigate);
-      try {
-        w.addEventListener('console-message', (evt) => {
-          try {
-            console.log('[webview.console]', evt && evt.message ? evt.message : evt);
-          } catch (e) {}
-        });
-      } catch (e) {}
-      try {
-        w.addEventListener('ipc-message', (evt) => {
-          try {
-            console.log('[webview.ipc]', evt && evt.channel ? evt.channel : evt, evt && evt.args ? evt.args : undefined);
-          } catch (e) {}
-        });
+        w.executeJavaScript && w.executeJavaScript('window.__glass_reader_zoom || 1')
+          .then((f) => {
+            try {
+              if (String(tabId) === String(activeTabId.value)) siteZoom.value = f || 1;
+            } catch (e) {}
+          })
+          .catch(() => {});
       } catch (e) {}
     }
   } catch (e) {}
 
-  // 根据各类规则决定是否注入拦截 _blank 的脚本，以及应用站点自定义 CSS/JS
+  // 注册事件监听器（每个 webview 单独绑定）
+  try {
+    // 事件监听统一在 setWebviewRef 中处理，避免在 dom-ready 时重复附加
+  } catch (e) {}
+
+  // 处理站点规则：仅对当前 tab 的规则进行应用
   try {
     let combined = null;
     try {
       combined = ruleProviders && typeof ruleProviders.getCombinedRulesForUrl === 'function' ? ruleProviders.getCombinedRulesForUrl(pageUrl || '') : null;
-    } catch (e) {
-      combined = null;
-    }
+    } catch (e) { combined = null; }
 
     const siteRulesList = combined?.site || [];
     const toolbarRulesList = combined?.toolbar || [];
 
     const allowNewWindow = toolbarRulesList.some((r) => r.toolbarDisabled === false) || siteRulesList.some((r) => r.preventBlankTargets === false);
-
     if (!allowNewWindow) {
-      try {
-        forceDisableBlankTargets();
-      } catch (e) {}
+      try { forceDisableBlankTargetsFor(tabId); } catch (e) {}
     }
 
-    // 应用站点自定义样式/脚本：仅支持规则的 apply(helper) 单一方法
     try {
       for (const r of siteRulesList) {
         try {
           if (typeof r.apply === 'function') {
             try {
-              try {
-                console.log('[site-rules] applying rule', r.id, r.pattern);
-              } catch (e) {}
+              try { console.log('[site-rules] applying rule', r.id, r.pattern, 'tab', tabId); } catch (e) {}
               const maybe = r.apply({
-                runWebviewCss: (idSuffix, css) => runWebviewCss(`site-custom-css-${r.id}${idSuffix ? `-${idSuffix}` : ''}`, css),
-                runWebviewJS: (js) => runWebviewJS(js),
+                runWebviewCss: (idSuffix, css) => runWebviewCss(`site-custom-css-${r.id}${idSuffix ? `-${idSuffix}` : ''}`, css, tabId),
+                runWebviewJS: (js) => runWebviewJS(js, tabId),
                 webview: w,
                 settings,
-                activeTab: activeTab,
+                activeTab: tabObj,
                 rule: r
               });
               if (maybe && typeof maybe.then === 'function') maybe.catch(() => {});
             } catch (e) {}
           }
         } catch (e) {}
-      }
-    } catch (e) {}
-
-    // 记录加载失败以便排查网络错误（例如 ERR_CONNECTION_CLOSED）
-    try {
-      if (w && typeof w.addEventListener === 'function') {
-        try {
-          w.removeEventListener('did-fail-load', onWebviewFailLoad);
-        } catch (e) {}
-
-        w.addEventListener('did-fail-load', onWebviewFailLoad);
       }
     } catch (e) {}
   } catch (e) {}
@@ -839,7 +1034,7 @@ const effectiveToolbar = ref({
 
 function updateEffectiveToolbar() {
   try {
-    const w = webviewRef.value;
+    const w = getActiveWebview();
     let pageUrl = '';
     try {
       if (activeTab && activeTab.url) pageUrl = activeTab.url;
@@ -911,10 +1106,10 @@ watch(
 watch(
   () => activeTabId.value,
   async () => {
-    // 切换 tab 时重置 ready 状态，等待新的 webview dom-ready
-    webviewReady.value = false;
+    // 切换 tab 时根据目标 tab 的 readyMap 更新状态，并同步该 tab 的 reader 效果
+    webviewReady.value = !!webviewReadyMap[String(activeTabId.value)];
     await nextTick();
-    syncReaderEffects();
+    syncReaderEffects(activeTabId.value);
     try {
       updateEffectiveToolbar();
     } catch (e) {}
@@ -969,44 +1164,39 @@ onMounted(() => {
 
           <div
             class="page-frame panel no-drag"
-            :class="{ 'is-webview': activeTab.kind === 'page' }">
-            <template v-if="activeTab.kind === 'dashboard'">
-              <recommended-page />
-            </template>
+            :class="{ 'is-webview': activeTab?.kind === 'page' }">
+            <!-- 永远渲染 webview-wrap，使用叠放样式隐藏/显示 webviews，避免切换时销毁元素导致重载 -->
+            <div class="webview-wrap">
+              <webview
+                v-for="tab in pageTabs"
+                :key="tab.id"
+                :data-tab-id="tab.id"
+                :ref="getWebviewRefSetter(tab.id)"
+                :class="['webview-frame', { 'webview-active': tab.id === activeTabId }]"
+                :src="tab.url"
+                :useragent="userAgent"
+                nodeintegration="false"
+                enableblinkfeatures="ResizeObserver"
+                @dom-ready="handleWebviewDomReady"
+                allowpopups></webview>
+            </div>
 
-            <template v-else-if="activeTab.kind === 'local-text'">
-              <article
-                ref="localReaderRef"
-                class="local-reader">
-                <header class="local-reader-head">
-                  <strong>{{ activeTab.fileName }}</strong>
-                  <span>本地文本阅读视图</span>
-                </header>
-                <pre class="local-reader-content">{{ activeTab.content }}</pre>
-              </article>
-            </template>
+            <!-- 仪表盘与本地阅读视图作为覆盖层显示（v-show 保留在 DOM 中，覆盖在 webview 之上） -->
+            <recommended-page v-show="activeTab?.kind === 'dashboard'" class="overlay-panel" />
 
-            <template v-else>
-              <div class="webview-wrap">
-                <!-- <div class="webview-meta">
-                  <strong>{{ activeTab.title }}</strong>
-                  <span>{{ activeTab.url }}</span>
-                </div> -->
-                <webview
-                  :key="activeTab.id"
-                  ref="webviewRef"
-                  class="webview-frame"
-                  :src="activeTab.url"
-                  :useragent="userAgent"
-                  nodeintegration="false"
-                  enableblinkfeatures="ResizeObserver"
-                  @dom-ready="handleWebviewDomReady"
-                  allowpopups></webview>
-              </div>
-            </template>
+            <article
+              ref="localReaderRef"
+              v-show="activeTab?.kind === 'local-text'"
+              class="local-reader overlay-panel">
+              <header class="local-reader-head">
+                <strong>{{ activeTab?.fileName }}</strong>
+                <span>本地文本阅读视图</span>
+              </header>
+              <pre class="local-reader-content">{{ activeTab?.content }}</pre>
+            </article>
             <!-- 底部工具栏（网页模式下显示） -->
             <BottomToolbar
-              v-if="activeTab.kind !== 'dashboard' && activeTab.kind !== 'local-text'"
+              v-if="!(activeTab?.kind === 'dashboard' || activeTab?.kind === 'local-text')"
               :settings="settings"
               :siteZoom="siteZoom"
               :patchSetting="patchSetting"

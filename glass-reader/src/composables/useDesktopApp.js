@@ -6,7 +6,7 @@ import defaultSettings from '../shared/defaultSettings.js'
 const desktopApi = typeof window !== 'undefined' ? window.desktop : null
 
 const recommendedSites = ref([
-    { id: 1, name: '1', url: 'https://weread.qq.com', system: true },
+    { id: 1, name: '2', url: 'https://weread.qq.com', system: true },
     //{ id: 1, name: '微信读书', url: 'https://weread.qq.com', system: true },
     // { id: 2, name: '番茄小说', url: 'https://fanqienovel.com', system: true },
     // { id: 3, name: 'Bilibili', url: 'https://www.bilibili.com', system: true },
@@ -108,7 +108,6 @@ const filteredRecommendedSites = computed(() => {
 
 const dashboardMetrics = computed(() => ([
     { label: '推荐站点', value: String(recommendedSites.value.length).padStart(2, '0') },
-    { label: '本地文档', value: String(localDocuments.value.length).padStart(2, '0') },
     { label: '最近访问', value: String(recentVisits.value.length).padStart(2, '0') },
 ]))
 
@@ -229,6 +228,21 @@ function displayInputUrlForUI(url) {
     return url === 'about:blank' ? '' : url
 }
 
+// 生成不会与现有 tabs 冲突的唯一 id
+function generateUniqueTabId() {
+    let id
+    let attempts = 0
+    do {
+        id = Date.now() + Math.floor(Math.random() * 1000)
+        attempts++
+        if (attempts > 50) {
+            // 兜底，扩大随机范围以避免极端重复
+            id = Date.now() + Math.floor(Math.random() * 1000000)
+        }
+    } while (tabs.value.some((t) => t && t.id === id))
+    return id
+}
+
 function syncSettingsNow() {
     if (!desktopApi?.updateSettings) {
         return Promise.resolve()
@@ -343,8 +357,23 @@ function pushRecentVisit(entry) {
 }
 
 function openTab(tab) {
-    tabs.value.push(tab)
-    activeTabId.value = tab.id
+    // 确保插入的 tab.id 唯一，避免 v-for key 冲突导致 DOM 重用/错误行为
+    const next = Object.assign({}, tab)
+    if (next.id === undefined || next.id === null) {
+        next.id = generateUniqueTabId()
+    } else {
+        // 若已存在相同 id，则重新分配并记录日志
+        if (tabs.value.some((t) => t && t.id === next.id)) {
+            //try { console.warn('[tabs] duplicate id detected, reassigning', next.id) } catch (e) { }
+            console.log('存在重复的 tab.id，正在重新分配...', next.id)
+            next.id = generateUniqueTabId()
+        }
+    }
+
+    tabs.value.push(next)
+    //输出所有tabs信息
+    console.log('All tabs:', tabs.value)
+    activeTabId.value = next.id
 }
 
 function createPageTab(url, options = {}) {
