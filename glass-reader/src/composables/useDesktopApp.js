@@ -539,13 +539,13 @@ function closeTabsToLeft(tabId) {
         const toClose = tabs.value.slice(0, idx)
         // 回收 objectUrl
         for (const t of toClose) {
-            try { if (t && t.objectUrl) URL.revokeObjectURL(t.objectUrl) } catch (e) {}
+            try { if (t && t.objectUrl) URL.revokeObjectURL(t.objectUrl) } catch (e) { }
         }
         tabs.value = tabs.value.slice(idx)
         if (!tabs.value.some((t) => t.id === activeTabId.value)) {
             activeTabId.value = tabs.value[0]?.id ?? 0
         }
-    } catch (e) {}
+    } catch (e) { }
 }
 
 function closeTabsToRight(tabId) {
@@ -555,25 +555,25 @@ function closeTabsToRight(tabId) {
         if (idx >= tabs.value.length - 1) return
         const toClose = tabs.value.slice(idx + 1)
         for (const t of toClose) {
-            try { if (t && t.objectUrl) URL.revokeObjectURL(t.objectUrl) } catch (e) {}
+            try { if (t && t.objectUrl) URL.revokeObjectURL(t.objectUrl) } catch (e) { }
         }
         tabs.value = tabs.value.slice(0, idx + 1)
         if (!tabs.value.some((t) => t.id === activeTabId.value)) {
             activeTabId.value = tabs.value[0]?.id ?? 0
         }
-    } catch (e) {}
+    } catch (e) { }
 }
 
 function closeAllTabs() {
     try {
         // 回收所有对象 URL
         for (const t of tabs.value) {
-            try { if (t && t.objectUrl) URL.revokeObjectURL(t.objectUrl) } catch (e) {}
+            try { if (t && t.objectUrl) URL.revokeObjectURL(t.objectUrl) } catch (e) { }
         }
         tabs.value = [{ id: 0, title: '工作台', url: 'about:blank', subtitle: '新标签页', kind: 'dashboard' }]
         activeTabId.value = 0
         urlInput.value = ''
-    } catch (e) {}
+    } catch (e) { }
 }
 
 

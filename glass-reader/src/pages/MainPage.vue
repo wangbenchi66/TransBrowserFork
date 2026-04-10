@@ -99,14 +99,16 @@ function setWebviewRef(el, id) {
         // 尝试读取页面标题并记录 visit
         if (el && typeof el.executeJavaScript === 'function') {
           try {
-            el.executeJavaScript('document.title || ""').then((t) => {
-              try {
-                const title = (t && String(t).trim()) || url;
-                if (typeof pushRecentVisit === 'function') pushRecentVisit({ title, url, type: 'site' });
-              } catch (e) {}
-            }).catch(() => {
-              if (typeof pushRecentVisit === 'function') pushRecentVisit({ title: url, url, type: 'site' });
-            });
+            el.executeJavaScript('document.title || ""')
+              .then((t) => {
+                try {
+                  const title = (t && String(t).trim()) || url;
+                  if (typeof pushRecentVisit === 'function') pushRecentVisit({ title, url, type: 'site' });
+                } catch (e) {}
+              })
+              .catch(() => {
+                if (typeof pushRecentVisit === 'function') pushRecentVisit({ title: url, url, type: 'site' });
+              });
           } catch (e) {
             if (typeof pushRecentVisit === 'function') pushRecentVisit({ title: url, url, type: 'site' });
           }
@@ -127,14 +129,16 @@ function setWebviewRef(el, id) {
 
         if (el && typeof el.executeJavaScript === 'function') {
           try {
-            el.executeJavaScript('document.title || ""').then((t) => {
-              try {
-                const title = (t && String(t).trim()) || url;
-                if (typeof pushRecentVisit === 'function') pushRecentVisit({ title, url, type: 'site' });
-              } catch (e) {}
-            }).catch(() => {
-              if (typeof pushRecentVisit === 'function') pushRecentVisit({ title: url, url, type: 'site' });
-            });
+            el.executeJavaScript('document.title || ""')
+              .then((t) => {
+                try {
+                  const title = (t && String(t).trim()) || url;
+                  if (typeof pushRecentVisit === 'function') pushRecentVisit({ title, url, type: 'site' });
+                } catch (e) {}
+              })
+              .catch(() => {
+                if (typeof pushRecentVisit === 'function') pushRecentVisit({ title: url, url, type: 'site' });
+              });
           } catch (e) {
             if (typeof pushRecentVisit === 'function') pushRecentVisit({ title: url, url, type: 'site' });
           }
@@ -1037,9 +1041,14 @@ function handleWebviewDomReady(e) {
 
   // Diagnostic: report element size and active tab info to help trace visibility issues
   try {
-    const rect = (typeof w.getBoundingClientRect === 'function') ? w.getBoundingClientRect() : { width: w.clientWidth || 0, height: w.clientHeight || 0 };
-    const cls = (w.className && typeof w.className === 'string') ? w.className : (w.classList ? Array.from(w.classList).join(' ') : '');
-    console.log('[webview.debug] dom-ready rect/class', { tabId, rect: { w: rect.width, h: rect.height }, classList: cls, activeTabId: activeTabId && activeTabId.value !== undefined ? activeTabId.value : activeTabId });
+    const rect = typeof w.getBoundingClientRect === 'function' ? w.getBoundingClientRect() : { width: w.clientWidth || 0, height: w.clientHeight || 0 };
+    const cls = w.className && typeof w.className === 'string' ? w.className : w.classList ? Array.from(w.classList).join(' ') : '';
+    console.log('[webview.debug] dom-ready rect/class', {
+      tabId,
+      rect: { w: rect.width, h: rect.height },
+      classList: cls,
+      activeTabId: activeTabId && activeTabId.value !== undefined ? activeTabId.value : activeTabId
+    });
   } catch (e) {}
 
   // 对该 webview 同步注入 reader 效果（只针对刚准备好的 tab）

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, shell, Menu, nativeImage, nativeTheme, screen, Tray } from 'electron'
+import { app, BrowserWindow, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, screen, shell, Tray } from 'electron'
 import Store from 'electron-store'
 import fs from 'node:fs'
 import path from 'node:path'

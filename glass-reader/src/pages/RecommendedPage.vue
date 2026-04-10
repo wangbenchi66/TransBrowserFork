@@ -1,8 +1,8 @@
 <script setup>
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { computed, reactive, ref, onMounted } from 'vue';
-import { useDesktopApp } from '../composables/useDesktopApp';
+import { computed, onMounted, reactive, ref } from 'vue';
 import ContextMenu from '../components/ContextMenu.vue';
+import { useDesktopApp } from '../composables/useDesktopApp';
 
 const {
   filteredRecentVisits,
@@ -94,12 +94,12 @@ const loadingMore = ref(false);
 
 function formatTime(t) {
   try {
-    if (!t) return ''
-    const d = new Date(t)
-    if (isNaN(d.getTime())) return String(t)
-    return d.toLocaleString()
+    if (!t) return '';
+    const d = new Date(t);
+    if (isNaN(d.getTime())) return String(t);
+    return d.toLocaleString();
   } catch (e) {
-    return t || ''
+    return t || '';
   }
 }
 
@@ -116,18 +116,23 @@ async function handleFileChange(event) {
 onMounted(() => {
   try {
     if (!historyEndRef.value) return;
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach((ent) => {
-        if (ent.isIntersecting && hasMoreRecentVisits.value && !loadingMore.value) {
-          loadingMore.value = true;
-          try {
-            loadMoreRecentVisits();
-          } catch (e) {}
-          // 给渲染一点时间
-          setTimeout(() => { loadingMore.value = false }, 300);
-        }
-      });
-    }, { root: null, rootMargin: '200px', threshold: 0.1 });
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((ent) => {
+          if (ent.isIntersecting && hasMoreRecentVisits.value && !loadingMore.value) {
+            loadingMore.value = true;
+            try {
+              loadMoreRecentVisits();
+            } catch (e) {}
+            // 给渲染一点时间
+            setTimeout(() => {
+              loadingMore.value = false;
+            }, 300);
+          }
+        });
+      },
+      { root: null, rootMargin: '200px', threshold: 0.1 }
+    );
     io.observe(historyEndRef.value);
   } catch (e) {}
 });
@@ -147,58 +152,68 @@ function avatarText(site) {
   return host ? host.charAt(0).toUpperCase() : '?';
 }
 
-const menuVisible = ref(false)
-const menuX = ref(0)
-const menuY = ref(0)
-const menuTarget = ref(null)
+const menuVisible = ref(false);
+const menuX = ref(0);
+const menuY = ref(0);
+const menuTarget = ref(null);
 
 const menuItems = [
   { key: 'open', label: '打开链接' },
   { key: 'copy', label: '复制链接' }
-]
+];
 
 function copyToClipboard(text) {
-  if (!text) return Promise.reject(new Error('empty'))
+  if (!text) return Promise.reject(new Error('empty'));
   if (navigator && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-    return navigator.clipboard.writeText(text)
+    return navigator.clipboard.writeText(text);
   }
   return new Promise((resolve, reject) => {
     try {
-      const ta = document.createElement('textarea')
-      ta.style.position = 'fixed'
-      ta.style.left = '-9999px'
-      ta.value = text
-      document.body.appendChild(ta)
-      ta.select()
-      const ok = document.execCommand('copy')
-      document.body.removeChild(ta)
-      if (ok) resolve()
-      else reject(new Error('execCopyFailed'))
+      const ta = document.createElement('textarea');
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (ok) resolve();
+      else reject(new Error('execCopyFailed'));
     } catch (e) {
-      reject(e)
+      reject(e);
     }
-  })
+  });
 }
 
 function showMenuForItem(e, item) {
-  try { e.preventDefault(); e.stopPropagation(); } catch (e) {}
-  menuTarget.value = item
-  menuX.value = e.clientX || 0
-  menuY.value = e.clientY || 0
-  menuVisible.value = true
+  try {
+    e.preventDefault();
+    e.stopPropagation();
+  } catch (e) {}
+  menuTarget.value = item;
+  menuX.value = e.clientX || 0;
+  menuY.value = e.clientY || 0;
+  menuVisible.value = true;
 }
 
 function onMenuSelect(item) {
-  const target = menuTarget.value
-  menuVisible.value = false
-  menuTarget.value = null
-  if (!item || !target) return
+  const target = menuTarget.value;
+  menuVisible.value = false;
+  menuTarget.value = null;
+  if (!item || !target) return;
   if (item.key === 'open') {
-    try { openRecentVisit(target) } catch (e) {}
+    try {
+      openRecentVisit(target);
+    } catch (e) {}
   } else if (item.key === 'copy') {
-    const url = target.url || ''
-    if (!url) { ElMessage({ message: '没有可复制的链接', type: 'warning' }); return }
-    copyToClipboard(url).then(() => ElMessage({ message: '已复制链接', type: 'success' })).catch(() => ElMessage({ message: '复制失败', type: 'error' }))
+    const url = target.url || '';
+    if (!url) {
+      ElMessage({ message: '没有可复制的链接', type: 'warning' });
+      return;
+    }
+    copyToClipboard(url)
+      .then(() => ElMessage({ message: '已复制链接', type: 'success' }))
+      .catch(() => ElMessage({ message: '复制失败', type: 'error' }));
   }
 }
 
@@ -394,10 +409,13 @@ function onMenuSelect(item) {
           @contextmenu.prevent.stop="showMenuForItem($event, item)">
           <strong>{{ item.title }}</strong>
           <span class="url">{{ item.url }}</span>
-          <small style="display:block;color:var(--muted);font-size:12px">{{ formatTime(item.time) }}</small>
+          <small style="display: block; color: var(--muted); font-size: 12px">{{ formatTime(item.time) }}</small>
         </BaseButton>
-        <div ref="historyEndRef" class="load-more-sentinel" v-if="hasMoreRecentVisits">
-          <small style="color:var(--muted)">下滑加载更多…</small>
+        <div
+          ref="historyEndRef"
+          class="load-more-sentinel"
+          v-if="hasMoreRecentVisits">
+          <small style="color: var(--muted)">下滑加载更多…</small>
         </div>
       </div>
     </section>
