@@ -25,6 +25,10 @@ const {
   selectTab,
   closeTab,
   addNewTab,
+  createPageTab,
+  closeTabsToLeft,
+  closeTabsToRight,
+  closeAllTabs,
   toggleSetting,
   urlInput,
   handleOpenUrl
@@ -303,7 +307,11 @@ onBeforeUnmount(() => {
       :formatTabTitle="formatTabTitle"
       :selectTab="selectTab"
       :closeTab="closeTab"
-      :addNewTab="addNewTab" />
+      :addNewTab="addNewTab"
+      :createPageTab="createPageTab"
+      :closeTabsToLeft="closeTabsToLeft"
+      :closeTabsToRight="closeTabsToRight"
+      :closeAllTabs="closeAllTabs" />
 
     <main class="page-host">
       <MainPage />

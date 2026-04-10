@@ -1,7 +1,8 @@
 <script setup>
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { computed, reactive, ref } from 'vue';
+import { computed, reactive, ref, onMounted } from 'vue';
 import { useDesktopApp } from '../composables/useDesktopApp';
+import ContextMenu from '../components/ContextMenu.vue';
 
 const {
   filteredRecentVisits,
@@ -15,7 +16,9 @@ const {
   addRecommendedSite,
   editRecommendedSite,
   removeRecommendedSite,
-  recommendedSites
+  recommendedSites,
+  loadMoreRecentVisits,
+  hasMoreRecentVisits
 } = useDesktopApp();
 
 // 添加弹出表单状态
@@ -86,6 +89,19 @@ function confirmDeleteSite(site) {
 const recommendedPreview = computed(() => recommendedSites.value.slice(0, 8));
 
 const fileInputRef = ref(null);
+const historyEndRef = ref(null);
+const loadingMore = ref(false);
+
+function formatTime(t) {
+  try {
+    if (!t) return ''
+    const d = new Date(t)
+    if (isNaN(d.getTime())) return String(t)
+    return d.toLocaleString()
+  } catch (e) {
+    return t || ''
+  }
+}
 
 function triggerFileSelect() {
   fileInputRef.value?.click();
@@ -95,6 +111,26 @@ async function handleFileChange(event) {
   await uploadLocalFiles(event.target.files);
   event.target.value = '';
 }
+
+// 下滑加载更多（IntersectionObserver）
+onMounted(() => {
+  try {
+    if (!historyEndRef.value) return;
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((ent) => {
+        if (ent.isIntersecting && hasMoreRecentVisits.value && !loadingMore.value) {
+          loadingMore.value = true;
+          try {
+            loadMoreRecentVisits();
+          } catch (e) {}
+          // 给渲染一点时间
+          setTimeout(() => { loadingMore.value = false }, 300);
+        }
+      });
+    }, { root: null, rootMargin: '200px', threshold: 0.1 });
+    io.observe(historyEndRef.value);
+  } catch (e) {}
+});
 
 function getHost(rawUrl) {
   try {
@@ -110,6 +146,63 @@ function avatarText(site) {
   const host = getHost(site?.url || '');
   return host ? host.charAt(0).toUpperCase() : '?';
 }
+
+const menuVisible = ref(false)
+const menuX = ref(0)
+const menuY = ref(0)
+const menuTarget = ref(null)
+
+const menuItems = [
+  { key: 'open', label: '打开链接' },
+  { key: 'copy', label: '复制链接' }
+]
+
+function copyToClipboard(text) {
+  if (!text) return Promise.reject(new Error('empty'))
+  if (navigator && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    return navigator.clipboard.writeText(text)
+  }
+  return new Promise((resolve, reject) => {
+    try {
+      const ta = document.createElement('textarea')
+      ta.style.position = 'fixed'
+      ta.style.left = '-9999px'
+      ta.value = text
+      document.body.appendChild(ta)
+      ta.select()
+      const ok = document.execCommand('copy')
+      document.body.removeChild(ta)
+      if (ok) resolve()
+      else reject(new Error('execCopyFailed'))
+    } catch (e) {
+      reject(e)
+    }
+  })
+}
+
+function showMenuForItem(e, item) {
+  try { e.preventDefault(); e.stopPropagation(); } catch (e) {}
+  menuTarget.value = item
+  menuX.value = e.clientX || 0
+  menuY.value = e.clientY || 0
+  menuVisible.value = true
+}
+
+function onMenuSelect(item) {
+  const target = menuTarget.value
+  menuVisible.value = false
+  menuTarget.value = null
+  if (!item || !target) return
+  if (item.key === 'open') {
+    try { openRecentVisit(target) } catch (e) {}
+  } else if (item.key === 'copy') {
+    const url = target.url || ''
+    if (!url) { ElMessage({ message: '没有可复制的链接', type: 'warning' }); return }
+    copyToClipboard(url).then(() => ElMessage({ message: '已复制链接', type: 'success' })).catch(() => ElMessage({ message: '复制失败', type: 'error' }))
+  }
+}
+
+// copyToClipboard / copyUrl 已在上方定义并用于菜单处理
 </script>
 
 <template>
@@ -293,16 +386,29 @@ function avatarText(site) {
 
       <div class="list">
         <BaseButton
-          v-for="item in filteredRecentVisits"
-          :key="`${item.type}-${item.url}`"
+          v-for="(item, idx) in filteredRecentVisits"
+          :key="`${item.type}-${item.time || ''}-${idx}`"
           class="history-item"
-          @click="openRecentVisit(item)">
+          :title="item.url"
+          @click="openRecentVisit(item)"
+          @contextmenu.prevent.stop="showMenuForItem($event, item)">
           <strong>{{ item.title }}</strong>
           <span class="url">{{ item.url }}</span>
+          <small style="display:block;color:var(--muted);font-size:12px">{{ formatTime(item.time) }}</small>
         </BaseButton>
+        <div ref="historyEndRef" class="load-more-sentinel" v-if="hasMoreRecentVisits">
+          <small style="color:var(--muted)">下滑加载更多…</small>
+        </div>
       </div>
     </section>
   </div>
+  <ContextMenu
+    :visible="menuVisible"
+    :x="menuX"
+    :y="menuY"
+    :items="menuItems"
+    @select="onMenuSelect"
+    @close="menuVisible = false" />
 </template>
 
 <style scoped>
@@ -519,5 +625,14 @@ function avatarText(site) {
 
 .el-button.danger {
   color: #f56c6c;
+}
+</style>
+
+<style scoped>
+.load-more-sentinel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0;
 }
 </style>

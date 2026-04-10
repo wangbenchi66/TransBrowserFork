@@ -147,7 +147,11 @@ iframe {
 }
 
 .topbar,
-.tabbar,
+.tabbar {
+  position: relative;
+  z-index: 60; /* 保证标题栏与标签栏位于 webview 之上，避免被网页覆盖 */
+}
+
 .page-host,
 .workspace {
   position: relative;
@@ -918,6 +922,12 @@ iframe {
   opacity: 1;
   pointer-events: auto;
   z-index: 2;
+}
+
+/* DEBUG: 高亮活跃 webview 边界，便于排查被覆盖问题；调试完成后可移除 */
+.webview-wrap .webview-frame.webview-active {
+  box-shadow: 0 8px 30px rgba(34, 197, 94, 0.12);
+  outline: 2px solid rgba(34, 197, 94, 0.12);
 }
 
 /* 覆盖面板（仪表盘 / 本地阅读视图）位于 webview 之上 */

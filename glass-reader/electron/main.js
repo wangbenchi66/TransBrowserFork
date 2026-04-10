@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, screen, Tray } from 'electron'
+import { app, BrowserWindow, globalShortcut, ipcMain, shell, Menu, nativeImage, nativeTheme, screen, Tray } from 'electron'
 import Store from 'electron-store'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -144,6 +144,18 @@ ipcMain.on('preload:loaded', (event, info) => {
         console.log('[preload] loaded in webContents id=', event.sender.id, 'info=', info)
     } catch (e) {
         console.warn('[preload] log failed', e)
+    }
+})
+
+// 在主进程中处理请求在外部浏览器打开链接
+ipcMain.handle('shell:open-external', async (_, url) => {
+    try {
+        if (!url) return { success: false, error: 'empty url' }
+        await shell.openExternal(String(url))
+        return { success: true }
+    } catch (err) {
+        console.warn('[ipc] shell:open-external failed', err)
+        return { success: false, error: String(err) }
     }
 })
 

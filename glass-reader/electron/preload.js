@@ -30,6 +30,8 @@ contextBridge.exposeInMainWorld('desktop', {
             ipcRenderer.removeListener('ui:open-settings', handler)
         }
     },
+    // 在外部浏览器中打开链接
+    openExternal: (url) => ipcRenderer.invoke('shell:open-external', url),
 })
 
 // 在 preload 加载时通知主进程，便于确认 preload 是否注入到渲染器

@@ -6,12 +6,12 @@ import defaultSettings from '../shared/defaultSettings.js'
 const desktopApi = typeof window !== 'undefined' ? window.desktop : null
 
 const recommendedSites = ref([
-    { id: 1, name: '2', url: 'https://weread.qq.com', system: true },
-    //{ id: 1, name: '微信读书', url: 'https://weread.qq.com', system: true },
-    // { id: 2, name: '番茄小说', url: 'https://fanqienovel.com', system: true },
-    // { id: 3, name: 'Bilibili', url: 'https://www.bilibili.com', system: true },
-    // { id: 4, name: '抖音', url: 'https://www.douyin.com', system: true },
-    // { id: 5, name: '小红书', url: 'https://www.xiaohongshu.com', system: true },
+    //{ id: 1, name: '2', url: 'https://weread.qq.com', system: true },
+    { id: 1, name: '微信读书', url: 'https://weread.qq.com', system: true },
+    { id: 2, name: '番茄小说', url: 'https://fanqienovel.com', system: true },
+    { id: 3, name: 'Bilibili', url: 'https://www.bilibili.com', system: true },
+    { id: 4, name: '抖音', url: 'https://www.douyin.com', system: true },
+    { id: 5, name: '小红书', url: 'https://www.xiaohongshu.com', system: true },
 ])
 
 const RECOMMENDED_STORAGE_KEY = 'glass_reader_recommended_sites'
@@ -33,6 +33,31 @@ const localDocuments = ref([])
 
 // 初始最近访问保持空，使用真实浏览行为填充
 const recentVisits = ref([])
+const RECENT_STORAGE_KEY = 'glass_reader_recent_visits'
+const RECENT_MAX = 50
+const RECENT_PAGE_SIZE = 10
+const recentVisibleCount = ref(RECENT_PAGE_SIZE)
+
+// 从 localStorage 恢复最近访问（限制为 RECENT_MAX）
+try {
+    const raw = localStorage.getItem(RECENT_STORAGE_KEY)
+    if (raw) {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed) && parsed.length) {
+            recentVisits.value = parsed.slice(0, RECENT_MAX)
+        }
+    }
+} catch (e) {
+    // ignore
+}
+
+function persistRecentVisits() {
+    try {
+        localStorage.setItem(RECENT_STORAGE_KEY, JSON.stringify(recentVisits.value.slice(0, RECENT_MAX)))
+    } catch (e) {
+        // ignore
+    }
+}
 
 // 使用共享默认配置（由 electron/main.js 与渲染端共同维护）
 
@@ -44,7 +69,7 @@ const statusMessage = ref('Alt+Q 可快速隐藏或恢复窗口')
 const activeTabId = ref(1)
 const tabs = ref([
     {
-        id: 1,
+        id: 0,
         title: '工作台',
         url: 'about:blank',
         subtitle: '新标签页',
@@ -89,12 +114,23 @@ const rightToggleKeys = [
 const activeTab = computed(() => tabs.value.find((tab) => tab.id === activeTabId.value) ?? tabs.value[0])
 
 const filteredRecentVisits = computed(() => {
-    const keyword = searchKeyword.value.trim()
+    const keyword = (searchKeyword.value || '').trim()
     if (!keyword) {
-        return recentVisits.value
+        // 非搜索状态下使用分页（初始 10 条，滚动加载更多）
+        return recentVisits.value.slice(0, recentVisibleCount.value)
     }
 
-    return recentVisits.value.filter((item) => item.title.includes(keyword) || item.url.includes(keyword))
+    const k = keyword.toLowerCase()
+    const matches = recentVisits.value.filter((item) => {
+        try {
+            return (String(item.title || '').toLowerCase().includes(k) || String(item.url || '').toLowerCase().includes(k))
+        } catch (e) {
+            return false
+        }
+    })
+
+    // 搜索情况下返回匹配结果（限制到 RECENT_MAX）
+    return matches.slice(0, RECENT_MAX)
 })
 
 const filteredRecommendedSites = computed(() => {
@@ -104,6 +140,14 @@ const filteredRecommendedSites = computed(() => {
     }
 
     return recommendedSites.value.filter((site) => [site.name, site.url].join(' ').toLowerCase().includes(keyword))
+})
+
+const hasMoreRecentVisits = computed(() => {
+    try {
+        return recentVisits.value.length > recentVisibleCount.value && recentVisibleCount.value < RECENT_MAX
+    } catch (e) {
+        return false
+    }
 })
 
 const dashboardMetrics = computed(() => ([
@@ -341,19 +385,31 @@ function toggleSetting(key) {
 }
 
 function pushRecentVisit(entry) {
-    recentVisits.value.unshift(entry)
-    const deduped = []
-    const seen = new Set()
-
-    recentVisits.value.forEach((item) => {
-        const dedupeKey = `${item.type ?? 'site'}:${item.url}`
-        if (!seen.has(dedupeKey)) {
-            seen.add(dedupeKey)
-            deduped.push(item)
+    // 将新访问放到最前面，允许重复地址重复记录，记录时间，保留最新 RECENT_MAX 条
+    try {
+        const now = new Date().toISOString()
+        const rec = Object.assign({}, entry || {})
+        if (!rec.time) rec.time = now
+        recentVisits.value.unshift(rec)
+        if (recentVisits.value.length > RECENT_MAX) {
+            recentVisits.value = recentVisits.value.slice(0, RECENT_MAX)
         }
-    })
+        persistRecentVisits()
+    } catch (e) {
+        // ignore
+    }
+}
 
-    recentVisits.value = deduped.slice(0, 12)
+function loadMoreRecentVisits() {
+    try {
+        if (recentVisibleCount.value < RECENT_MAX) {
+            recentVisibleCount.value = Math.min(RECENT_MAX, recentVisibleCount.value + RECENT_PAGE_SIZE)
+        }
+    } catch (e) { }
+}
+
+function resetRecentVisible() {
+    recentVisibleCount.value = RECENT_PAGE_SIZE
 }
 
 function openTab(tab) {
@@ -453,6 +509,7 @@ function updateTabMetadata(tabId, meta = {}) {
     if (meta.title !== undefined && meta.title !== null) tab.title = String(meta.title)
     if (meta.subtitle !== undefined && meta.subtitle !== null) tab.subtitle = String(meta.subtitle)
     if (meta.url !== undefined && meta.url !== null) tab.url = String(meta.url)
+    if (meta.pinned !== undefined) tab.pinned = !!meta.pinned
 }
 
 function closeTab(tabId) {
@@ -462,8 +519,8 @@ function closeTab(tabId) {
     }
 
     if (tabs.value.length === 1) {
-        tabs.value = [{ id: 1, title: '工作台', url: 'about:blank', subtitle: '新标签页', kind: 'dashboard' }]
-        activeTabId.value = 1
+        tabs.value = [{ id: 0, title: '工作台', url: 'about:blank', subtitle: '新标签页', kind: 'dashboard' }]
+        activeTabId.value = 0
         urlInput.value = ''
         return
     }
@@ -473,6 +530,50 @@ function closeTab(tabId) {
         activeTabId.value = tabs.value[0].id
         urlInput.value = displayInputUrlForUI(tabs.value[0].url)
     }
+}
+
+function closeTabsToLeft(tabId) {
+    try {
+        const idx = tabs.value.findIndex((t) => t.id === tabId)
+        if (idx <= 0) return
+        const toClose = tabs.value.slice(0, idx)
+        // 回收 objectUrl
+        for (const t of toClose) {
+            try { if (t && t.objectUrl) URL.revokeObjectURL(t.objectUrl) } catch (e) {}
+        }
+        tabs.value = tabs.value.slice(idx)
+        if (!tabs.value.some((t) => t.id === activeTabId.value)) {
+            activeTabId.value = tabs.value[0]?.id ?? 0
+        }
+    } catch (e) {}
+}
+
+function closeTabsToRight(tabId) {
+    try {
+        const idx = tabs.value.findIndex((t) => t.id === tabId)
+        if (idx === -1) return
+        if (idx >= tabs.value.length - 1) return
+        const toClose = tabs.value.slice(idx + 1)
+        for (const t of toClose) {
+            try { if (t && t.objectUrl) URL.revokeObjectURL(t.objectUrl) } catch (e) {}
+        }
+        tabs.value = tabs.value.slice(0, idx + 1)
+        if (!tabs.value.some((t) => t.id === activeTabId.value)) {
+            activeTabId.value = tabs.value[0]?.id ?? 0
+        }
+    } catch (e) {}
+}
+
+function closeAllTabs() {
+    try {
+        // 回收所有对象 URL
+        for (const t of tabs.value) {
+            try { if (t && t.objectUrl) URL.revokeObjectURL(t.objectUrl) } catch (e) {}
+        }
+        tabs.value = [{ id: 0, title: '工作台', url: 'about:blank', subtitle: '新标签页', kind: 'dashboard' }]
+        activeTabId.value = 0
+        urlInput.value = ''
+    } catch (e) {}
 }
 
 
@@ -567,8 +668,8 @@ function removeLocalDocument(documentId) {
     tabs.value = tabs.value.filter((tab) => tab.documentId !== documentId)
 
     if (!tabs.value.length) {
-        tabs.value = [{ id: 1, title: '工作台', url: 'about:blank', subtitle: '新标签页', kind: 'dashboard' }]
-        activeTabId.value = 1
+        tabs.value = [{ id: 0, title: '工作台', url: 'about:blank', subtitle: '新标签页', kind: 'dashboard' }]
+        activeTabId.value = 0
     } else if (!tabs.value.some((tab) => tab.id === activeTabId.value)) {
         activeTabId.value = tabs.value[0].id
     }
@@ -758,6 +859,10 @@ export function useDesktopApp() {
         rightToggleKeys,
         activeTab,
         filteredRecentVisits,
+        recentVisibleCount,
+        loadMoreRecentVisits,
+        resetRecentVisible,
+        hasMoreRecentVisits,
         dashboardMetrics,
         shellClasses,
         themeVars,
@@ -769,6 +874,7 @@ export function useDesktopApp() {
         closeTab,
         useRecommendedSite,
         openRecentVisit,
+        pushRecentVisit,
         uploadLocalFiles,
         openLocalDocument,
         addRecommendedSite,
@@ -777,9 +883,13 @@ export function useDesktopApp() {
         handleMinimize,
         handleMaximize,
         handleClose,
+        closeTabsToLeft,
+        closeTabsToRight,
+        closeAllTabs,
         initializeDesktopApp,
         disposeDesktopApp,
         updateTabMetadata,
+        createPageTab,
         siteRules: {
             getRules: siteRules.getRules,
             getRulesForUrl: siteRules.getRulesForUrl,

@@ -4,7 +4,7 @@ import { useDesktopApp } from '../composables/useDesktopApp';
 import recommendedPage from './RecommendedPage.vue';
 import BottomToolbar from './parts/BottomToolbar.vue';
 
-const { settings, activeTab, activeTabId, tabs, addNewTab, selectTab, closeTab, patchSetting, updateTabMetadata, siteRules, ruleProviders } = useDesktopApp();
+const { settings, activeTab, activeTabId, tabs, addNewTab, selectTab, closeTab, patchSetting, updateTabMetadata, siteRules, ruleProviders, pushRecentVisit } = useDesktopApp();
 
 // 多个 tab 对应多份 webview：使用映射以保留每个 webview 实例，避免切换时重载
 const webviewRefs = {}; // tabId (string) -> webview element
@@ -16,6 +16,7 @@ const webviewMountCount = {}; // tabId -> number of times ref assigned (mounts)
 const lastExecutedScripts = {}; // tabId -> Set of script signatures (simple dedupe aid)
 const webviewRefSetters = {}; // cache stable ref setter functions per tab id
 const webviewEventListeners = {}; // tabId -> { eventName: handler }
+const webviewLastRecordedUrl = {}; // tabId -> last recorded url for history
 
 function getWebviewRefSetter(id) {
   const k = String(id);
@@ -50,6 +51,7 @@ function setWebviewRef(el, id) {
       delete webviewDomReadyTs[tid];
       delete insertedCssKeysByTab[tid];
       delete webviewEventListeners[tid];
+      delete webviewLastRecordedUrl[tid];
     } catch (e) {}
     return;
   }
@@ -84,7 +86,61 @@ function setWebviewRef(el, id) {
     };
     listeners['did-navigate'] = function (evt) {
       try {
-        console.log('[webview.event] did-navigate', { tid, url: evt && evt.url ? evt.url : el && el.src });
+        const url = (evt && evt.url) || (el && (typeof el.getURL === 'function' ? el.getURL() : el.src)) || '';
+        if (!url) return;
+        const tabObj = tabs.value.find((t) => String(t.id) === String(tid));
+        if (!tabObj || tabObj.kind === 'dashboard' || tabObj.kind === 'local-text') return;
+        // 忽略内部 scheme
+        if (String(url).startsWith('about:') || String(url).startsWith('local:')) return;
+        // 避免短时相同 url 重复记录
+        if (webviewLastRecordedUrl[tid] === url) return;
+        webviewLastRecordedUrl[tid] = url;
+
+        // 尝试读取页面标题并记录 visit
+        if (el && typeof el.executeJavaScript === 'function') {
+          try {
+            el.executeJavaScript('document.title || ""').then((t) => {
+              try {
+                const title = (t && String(t).trim()) || url;
+                if (typeof pushRecentVisit === 'function') pushRecentVisit({ title, url, type: 'site' });
+              } catch (e) {}
+            }).catch(() => {
+              if (typeof pushRecentVisit === 'function') pushRecentVisit({ title: url, url, type: 'site' });
+            });
+          } catch (e) {
+            if (typeof pushRecentVisit === 'function') pushRecentVisit({ title: url, url, type: 'site' });
+          }
+        } else {
+          if (typeof pushRecentVisit === 'function') pushRecentVisit({ title: url, url, type: 'site' });
+        }
+      } catch (e) {}
+    };
+    listeners['did-navigate-in-page'] = function (evt) {
+      try {
+        const url = (evt && evt.url) || (el && (typeof el.getURL === 'function' ? el.getURL() : el.src)) || '';
+        if (!url) return;
+        const tabObj2 = tabs.value.find((t) => String(t.id) === String(tid));
+        if (!tabObj2 || tabObj2.kind === 'dashboard' || tabObj2.kind === 'local-text') return;
+        if (String(url).startsWith('about:') || String(url).startsWith('local:')) return;
+        if (webviewLastRecordedUrl[tid] === url) return;
+        webviewLastRecordedUrl[tid] = url;
+
+        if (el && typeof el.executeJavaScript === 'function') {
+          try {
+            el.executeJavaScript('document.title || ""').then((t) => {
+              try {
+                const title = (t && String(t).trim()) || url;
+                if (typeof pushRecentVisit === 'function') pushRecentVisit({ title, url, type: 'site' });
+              } catch (e) {}
+            }).catch(() => {
+              if (typeof pushRecentVisit === 'function') pushRecentVisit({ title: url, url, type: 'site' });
+            });
+          } catch (e) {
+            if (typeof pushRecentVisit === 'function') pushRecentVisit({ title: url, url, type: 'site' });
+          }
+        } else {
+          if (typeof pushRecentVisit === 'function') pushRecentVisit({ title: url, url, type: 'site' });
+        }
       } catch (e) {}
     };
     listeners['did-fail-load'] = function (evt) {
@@ -979,6 +1035,13 @@ function handleWebviewDomReady(e) {
     console.trace && console.trace('[webview] dom-ready trace', tabId);
   } catch (e) {}
 
+  // Diagnostic: report element size and active tab info to help trace visibility issues
+  try {
+    const rect = (typeof w.getBoundingClientRect === 'function') ? w.getBoundingClientRect() : { width: w.clientWidth || 0, height: w.clientHeight || 0 };
+    const cls = (w.className && typeof w.className === 'string') ? w.className : (w.classList ? Array.from(w.classList).join(' ') : '');
+    console.log('[webview.debug] dom-ready rect/class', { tabId, rect: { w: rect.width, h: rect.height }, classList: cls, activeTabId: activeTabId && activeTabId.value !== undefined ? activeTabId.value : activeTabId });
+  } catch (e) {}
+
   // 对该 webview 同步注入 reader 效果（只针对刚准备好的 tab）
   try {
     syncWebviewTransparency(tabId);
@@ -1157,6 +1220,21 @@ watch(
     try {
       updateEffectiveToolbar();
     } catch (e) {}
+    try {
+      // diagnostic: enumerate webview frames and report classes/sizes
+      try {
+        const nodes = document.querySelectorAll && document.querySelectorAll('.webview-wrap .webview-frame');
+        if (nodes && nodes.length) {
+          for (let i = 0; i < nodes.length; i++) {
+            const n = nodes[i];
+            try {
+              const r = n.getBoundingClientRect ? n.getBoundingClientRect() : { width: n.clientWidth || 0, height: n.clientHeight || 0 };
+              console.log('[webview.debug] post-switch frame', { idx: i, class: n.className || (n.classList ? Array.from(n.classList).join(' ') : ''), size: { w: r.width, h: r.height } });
+            } catch (e) {}
+          }
+        }
+      } catch (e) {}
+    } catch (e) {}
   }
 );
 
@@ -1216,7 +1294,7 @@ onMounted(() => {
                 :key="tab.id"
                 :data-tab-id="tab.id"
                 :ref="getWebviewRefSetter(tab.id)"
-                :class="['webview-frame', { 'webview-active': tab.id === activeTabId }]"
+                :class="['webview-frame', { 'webview-active': String(tab.id) === String(activeTabId) }]"
                 :src="tab.url"
                 :useragent="userAgent"
                 nodeintegration="false"
@@ -1225,14 +1303,14 @@ onMounted(() => {
                 allowpopups></webview>
             </div>
 
-            <!-- 仪表盘与本地阅读视图作为覆盖层显示（v-show 保留在 DOM 中，覆盖在 webview 之上） -->
+            <!-- 仪表盘与本地阅读视图作为覆盖层显示：改为 v-if 以在非活跃时从 DOM 中移除，避免遮挡问题 -->
             <recommended-page
-              v-show="activeTab?.kind === 'dashboard'"
+              v-if="activeTab?.kind === 'dashboard'"
               class="overlay-panel" />
 
             <article
               ref="localReaderRef"
-              v-show="activeTab?.kind === 'local-text'"
+              v-if="activeTab?.kind === 'local-text'"
               class="local-reader overlay-panel">
               <header class="local-reader-head">
                 <strong>{{ activeTab?.fileName }}</strong>
