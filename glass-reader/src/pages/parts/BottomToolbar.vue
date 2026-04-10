@@ -27,6 +27,7 @@ const props = defineProps({
 const popActiveKey = ref(null);
 const popValue = ref(0);
 const popLeft = ref('50%');
+const POP_X_OFFSET = 30;
 const draggingKey = ref(null);
 const fontRangeRef = ref(null);
 const autoRangeRef = ref(null);
@@ -124,18 +125,23 @@ function computeLeftPct(value, min, max) {
 
 function computeLeftFromInput(key, value, min = 0, max = 100) {
   try {
-    const el = key === 'font' ? fontRangeRef.value : key === 'auto' ? autoRangeRef.value : null;
+    let el = key === 'font' ? fontRangeRef.value : key === 'auto' ? autoRangeRef.value : null;
+    // 如果 ref 指向的是组件实例，尝试使用其 $el
+    if (el && el.$el) el = el.$el;
     if (el && el instanceof HTMLElement) {
       const mn = Number(min || 0);
       const mx = Number(max || 100);
       let v = Number(value);
       if (Number.isNaN(v)) v = mn + (mx - mn) / 2;
       const ratio = mx === mn ? 0.5 : Math.max(0, Math.min(1, (v - mn) / (mx - mn)));
-      const leftPx = el.offsetLeft + ratio * el.clientWidth;
-      const parent = el.offsetParent || el.parentElement || el;
-      const parentWidth = parent && parent.clientWidth ? parent.clientWidth : el.clientWidth || 1;
-      const pct = Math.round((leftPx / parentWidth) * 100);
-      return `${pct}%`;
+      const elRect = el.getBoundingClientRect();
+      // 寻找最近的 hover-pop 作为定位参考，如果没有则退回到 offsetParent
+      let parent = el.closest && el.closest('.hover-pop');
+      if (!parent) parent = el.offsetParent || el.parentElement || document.body;
+      const parentRect = parent.getBoundingClientRect();
+      const centerX = elRect.left + ratio * elRect.width;
+      const leftPx = Math.round(centerX - parentRect.left + POP_X_OFFSET);
+      return `${leftPx}px`;
     }
   } catch (e) {
     // fallback
@@ -241,14 +247,20 @@ function onReaderColorInput(e) {
 }
 
 function onFontScaleInput(e) {
-  const v = Number(e.target.value || 100);
+  let v;
+  if (e === undefined || e === null) v = 100;
+  else if (typeof e === 'number' || !e.target) v = Number(e);
+  else v = Number(e.target.value || 100);
   props.patchSetting('readerFontScale', v);
   if (!props.settings.forceReaderFont) props.patchSetting('forceReaderFont', true);
   updatePopPosition(v, 80, 160);
 }
 
 function onAutoScrollSpeedInput(e) {
-  const v = Number(e.target.value || 22);
+  let v;
+  if (e === undefined || e === null) v = 22;
+  else if (typeof e === 'number' || !e.target) v = Number(e);
+  else v = Number(e.target.value || 22);
   props.patchSetting('autoScrollSpeed', v);
   if (!props.settings.autoScrollEnabled) props.patchSetting('autoScrollEnabled', true);
   updatePopPosition(v, 5, 80);
@@ -376,6 +388,7 @@ onBeforeUnmount(() => {
             title="字号"
             >字</BaseButton
           >
+          <!-- 数值标签改为在弹出层与滑块同行显示（见下方 range-row 内的标签） -->
 
           <div
             class="hover-pop"
@@ -383,15 +396,16 @@ onBeforeUnmount(() => {
             @mouseenter="onPopMouseEnter"
             @mouseleave="onPopMouseLeave">
             <div class="range-row">
-              <input
+              <el-slider
                 ref="fontRangeRef"
                 data-test="font-range"
                 class="mini-range"
-                type="range"
-                min="80"
-                max="160"
-                :value="props.settings.readerFontScale"
+                :model-value="props.settings.readerFontScale"
+                :min="80"
+                :max="160"
                 @input="onFontScaleInput"
+                @change="onFontScaleInput"
+                @update:modelValue="onFontScaleInput"
                 @pointerdown="() => onRangePointerDown('font')" />
               <div
                 class="range-anchor"
@@ -404,12 +418,8 @@ onBeforeUnmount(() => {
                 @click="setFontDefault"
                 >⟲</BaseButton
               >
-              <div class="range-default">默认 100</div>
-              <div
-                class="range-current"
-                v-if="popActiveKey === 'font' || draggingKey === 'font'">
-                当前 {{ popValue }}
-              </div>
+              <span class="slider-inline-value">默认 100</span>
+              <span class="slider-inline-value">当前 {{ Math.round(props.settings.readerFontScale) }}</span>
             </div>
             <div
               v-if="popActiveKey === 'font' || draggingKey === 'font'"
@@ -446,22 +456,23 @@ onBeforeUnmount(() => {
             :title="props.settings.autoScrollEnabled ? '关闭自动滚动' : '开启自动滚动'"
             >⇳</BaseButton
           >
-
+          <!-- 数值标签改为在弹出层与滑块同行显示（见下方 range-row 内的标签） -->
           <div
             class="hover-pop"
             :class="{ visible: popActiveKey === 'auto' || draggingKey === 'auto' }"
             @mouseenter="onPopMouseEnter"
             @mouseleave="onPopMouseLeave">
             <div class="range-row">
-              <input
+              <el-slider
                 ref="autoRangeRef"
                 data-test="auto-range"
                 class="mini-range"
-                type="range"
-                min="5"
-                max="80"
-                :value="props.settings.autoScrollSpeed"
+                :model-value="props.settings.autoScrollSpeed"
+                :min="5"
+                :max="80"
                 @input="onAutoScrollSpeedInput"
+                @change="onAutoScrollSpeedInput"
+                @update:modelValue="onAutoScrollSpeedInput"
                 @pointerdown="() => onRangePointerDown('auto')" />
               <div
                 class="range-anchor"
@@ -474,12 +485,8 @@ onBeforeUnmount(() => {
                 @click="setAutoDefault"
                 >⟲</BaseButton
               >
-              <div class="range-default">默认 22</div>
-              <div
-                class="range-current"
-                v-if="popActiveKey === 'auto' || draggingKey === 'auto'">
-                当前 {{ popValue }}
-              </div>
+              <span class="slider-inline-value">默认 22</span>
+              <span class="slider-inline-value">当前 {{ Math.round(props.settings.autoScrollSpeed) }}</span>
             </div>
             <div
               v-if="popActiveKey === 'auto' || draggingKey === 'auto'"
@@ -658,6 +665,20 @@ onBeforeUnmount(() => {
   width: 110px;
   height: 28px;
 }
+.slider-inline-values {
+  display: none;
+}
+.slider-inline-value {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.72);
+  margin-left: 6px;
+  min-width: 40px;
+  text-align: center;
+  display: inline-block;
+}
+.bottom-toolbar.icon-mode .slider-inline-value {
+  display: none;
+}
 .hover-pop {
   position: absolute;
   /* 重叠：让弹层底部下移到超出按钮顶部 8px，实现视觉重合 */
@@ -676,11 +697,16 @@ onBeforeUnmount(() => {
   box-shadow: 0 8px 24px rgba(16, 23, 32, 0.12);
   z-index: 10004;
 }
+.toggle-with-pop {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
 .hover-pop.visible,
 .toggle-with-pop:hover .hover-pop {
   opacity: 1;
   pointer-events: auto;
-  transform: translateX(-50%) translateY(0);
+  transform: translateX(-26%) translateY(0);
 }
 .pop-value {
   position: absolute;
