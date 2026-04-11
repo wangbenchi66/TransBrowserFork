@@ -1,5 +1,5 @@
 <script setup>
-import { ArrowLeft, ArrowRight, Close, Hide, Refresh, View } from '@element-plus/icons-vue';
+import { ArrowLeft, ArrowRight, Close, Hide, Refresh, View, ZoomIn } from '@element-plus/icons-vue';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import BaseButton from '../../components/BaseButton.vue';
 
@@ -10,6 +10,7 @@ const props = defineProps({
   webviewBack: Function,
   webviewForward: Function,
   webviewReload: Function,
+  zoomOut: Function,
   zoomIn: Function,
   resetZoom: Function,
   toggleToolbarPinned: Function,
@@ -670,22 +671,13 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="toolbar-right">
-        <BaseButton
-          data-test="zoom-out"
-          class="icon-btn icon-only overflow-candidate"
-          data-id="zoomOut"
-          data-priority="2"
-          @click="props.zoomOut"
-          title="缩小"
-          >-</BaseButton
-        >
         <div class="toggle-with-pop">
           <BaseButton
             class="icon-btn"
-            title="缩放百分比"
+            title="缩放"
             @mouseenter="() => showPop('zoom', Math.round(props.siteZoom * 100))"
             @mouseleave="hidePopIfNotDragging">
-            <span class="zoom-label">{{ Math.round(props.siteZoom * 100) }}%</span>
+            <el-icon><ZoomIn /></el-icon>
           </BaseButton>
           <div
             class="hover-pop"
@@ -722,24 +714,6 @@ onBeforeUnmount(() => {
             </div>
           </div>
         </div>
-        <BaseButton
-          data-test="zoom-in"
-          class="icon-btn icon-only overflow-candidate"
-          data-id="zoomIn"
-          data-priority="2"
-          @click="props.zoomIn"
-          title="放大"
-          >+</BaseButton
-        >
-        <BaseButton
-          data-test="reset-zoom"
-          class="icon-btn icon-only overflow-candidate"
-          data-id="resetZoom"
-          data-priority="2"
-          @click="props.resetZoom"
-          title="重置"
-          >1x</BaseButton
-        >
 
         <BaseButton
           v-if="overflowIds.length"
@@ -1007,10 +981,8 @@ onBeforeUnmount(() => {
   height: 36px;
   padding: 6px;
   border-radius: 2px;
-  border: 1px solid rgba(224, 72, 66, 0.06);
   background: var(--surface);
   color: #e04842;
-  box-shadow: 0 2px 6px rgba(16, 23, 32, 0.04);
   transition:
     background 150ms ease,
     transform 120ms ease;
