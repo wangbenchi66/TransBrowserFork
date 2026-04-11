@@ -189,31 +189,59 @@ function openSettingsModal() {
 
 async function restoreDefaults() {
   try {
-    await ElMessageBox.confirm('恢复默认配置将重置所有设置并应用。是否继续？', '恢复默认设置', {
+    await ElMessageBox.confirm('恢复默认配置将重置各种开关与快捷键为默认值（不会清空浏览器缓存）。是否继续？', '恢复默认设置', {
+      confirmButtonText: '继续',
+      cancelButtonText: '取消',
+      type: 'warning'
+    });
+
+    // 二次确认
+    await ElMessageBox.confirm('再次确认：将仅恢复各种开关与全局快捷键到默认值。是否立即应用？', '请再次确认', {
       confirmButtonText: '恢复',
       cancelButtonText: '取消',
       type: 'warning'
     });
 
     const defaults = defaultSettings || {};
+    // 收集需要恢复的开关键（来源于 leftToggleKeys / rightToggleKeys）
+    const toggleKeys = [];
+    for (const it of leftToggleKeys) toggleKeys.push(it.key);
+    for (const it of rightToggleKeys) toggleKeys.push(it.key);
+    // 补充 UI 中存在但不在两个数组里的开关
+    const extraToggleKeys = ['toolbarPinned', 'toolbarDisabled'];
+    for (const k of extraToggleKeys) if (!toggleKeys.includes(k)) toggleKeys.push(k);
+
+    // 全局快捷键列表（仅恢复这些快捷键）
+    const shortcutKeys = ['bossKey', 'decreaseTransparencyShortcut', 'increaseTransparencyShortcut', 'clickThroughShortcut', 'autoToggleShortcut', 'autoSpeedDownShortcut', 'autoSpeedUpShortcut'];
+
+    const keysToRestore = Array.from(new Set([...toggleKeys, ...shortcutKeys]));
+
+    // 构建仅包含待恢复键的默认设置对象
+    const subset = {};
+    for (const k of keysToRestore) {
+      if (Object.prototype.hasOwnProperty.call(defaults, k)) {
+        subset[k] = defaults[k];
+      }
+    }
+
     // 优先通过主进程批量写入（如果可用），否则逐项 patch
     if (typeof window !== 'undefined' && window.desktop && window.desktop.updateSettings) {
       try {
-        const ns = await window.desktop.updateSettings({ ...defaults });
+        const ns = await window.desktop.updateSettings({ ...subset });
         if (ns && settings) Object.assign(settings, ns);
-        ElMessage({ message: '已恢复默认设置', type: 'success' });
+        ElMessage({ message: '已恢复默认设置（仅开关与快捷键）', type: 'success' });
       } catch (err) {
         ElMessage({ message: '恢复默认设置失败', type: 'error' });
       }
     } else {
       // 回退：通过 patchSetting 更新每一项
-      for (const [k, v] of Object.entries(defaults)) {
+      for (const [k, v] of Object.entries(subset)) {
         patchSetting(k, v);
       }
-      ElMessage({ message: '已恢复默认设置（本地）', type: 'success' });
+      ElMessage({ message: '已恢复默认设置（本地，仅开关与快捷键）', type: 'success' });
     }
 
-    closeSettingsModal();
+    // 不自动关闭设置面板，保留当前页面以便用户查看结果
   } catch (err) {
     // 用户取消或出错，什么也不做
   }
@@ -384,7 +412,7 @@ onBeforeUnmount(() => {
           </div>
 
           <section class="settings-block slider-block section-panel">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display: flex; justify-content: space-between; align-items: center">
               <label class="field-label">透明度</label>
               <span class="slider-value">{{ settings.transparency }}% 透明度</span>
             </div>
@@ -524,11 +552,12 @@ onBeforeUnmount(() => {
           <section class="settings-block section-panel">
             <div class="field-label">恢复</div>
             <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center">
-              <BaseButton
-                class="toggle-row"
-                @click="restoreDefaults">
-                <span>恢复默认配置</span>
-              </BaseButton>
+              <el-button
+                type="danger"
+                @click="restoreDefaults"
+                style="padding: 6px 12px; height: 32px; width: 100%"
+                >恢复默认配置</el-button
+              >
             </div>
           </section>
         </section>
