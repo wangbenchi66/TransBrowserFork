@@ -251,7 +251,9 @@ function onMenuSelect(item) {
         multiple
         @change="handleFileChange" />
     </div>
-    <section class="metrics">
+
+    <!-- 站点统计 -->
+    <!-- <section class="metrics">
       <div class="metric-grid">
         <article
           v-for="metric in dashboardMetrics"
@@ -261,9 +263,7 @@ function onMenuSelect(item) {
           <span>{{ metric.label }}</span>
         </article>
       </div>
-    </section>
-
-    <!-- 快速入口已移除，使用推荐与最近访问作为入口 -->
+    </section> -->
 
     <section class="spotlight">
       <h2>推荐站点</h2>

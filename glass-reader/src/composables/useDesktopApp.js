@@ -34,7 +34,9 @@ const localDocuments = ref([])
 // 初始最近访问保持空，使用真实浏览行为填充
 const recentVisits = ref([])
 const RECENT_STORAGE_KEY = 'glass_reader_recent_visits'
-const RECENT_MAX = 50
+// 最近访问记录的最大条数，以及分页加载的页大小
+const RECENT_MAX = 200
+// 最近访问列表初始显示条数，滚动加载更多，每次增加 RECENT_PAGE_SIZE 条
 const RECENT_PAGE_SIZE = 10
 const recentVisibleCount = ref(RECENT_PAGE_SIZE)
 
