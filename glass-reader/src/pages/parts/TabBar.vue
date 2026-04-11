@@ -217,7 +217,7 @@ async function computeVisibleTabs() {
   });
 
   const total = widths.reduce((acc, w, i) => acc + w + (i > 0 ? gap : 0), 0);
-  // if all fit without more button
+  // if all fit with space reserved for add button, show all
   if (total + addWidth + gap <= containerWidth) {
     visibleCount.value = tabs.length;
     return;
@@ -237,6 +237,14 @@ async function computeVisibleTabs() {
     } else break;
   }
   if (fit < 1 && tabs.length > 0) fit = 1;
+  // 如果剩余空间不足以容纳另一个完整的 tab（minWidth），则不要把该 tab 放入可见列，改为放入溢出
+  const minTab = minWidth;
+  const remainingForTabs = cap - used; // cap 是可用于 tabs 的空间（已扣除 reserved）
+  if (remainingForTabs < minTab && fit > 0 && fit < tabs.length) {
+    // 把最后一个可见 tab 移到溢出以给更多按钮/新增按钮留出空间
+    fit = Math.max(1, fit - 1);
+  }
+
   visibleCount.value = fit;
 }
 
@@ -301,7 +309,8 @@ onBeforeUnmount(() => {
           v-model:visible="showOverflowMenu"
           placement="bottom-start"
           trigger="click"
-          :append-to-body="true">
+          :append-to-body="true"
+          popper-class="tabbar-overflow-popper">
           <div
             class="overflow-pop"
             ref="overflowPopRef">
@@ -360,6 +369,9 @@ onBeforeUnmount(() => {
   /* 允许缩小以适应父容器 */
   min-width: 0;
   gap: 6px;
+  /* 为右侧的 更多/新增 按钮预留空间，避免被标签挤出 */
+  padding-right: 92px;
+  position: relative; /* 使内部的绝对定位按钮相对于此容器定位 */
 }
 
 .tabbar .tabs::-webkit-scrollbar {
@@ -376,12 +388,35 @@ onBeforeUnmount(() => {
   min-width: var(--tab-chip-min-width, 64px);
   max-width: 220px;
   box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+}
+
+.tabbar .tab-chip .tab-title {
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* 保证关闭按钮有空间 */
+  max-width: calc(100% - 36px);
+}
+
+.tabbar .tab-chip .close-mark {
+  flex: 0 0 auto;
+  margin-left: 6px;
 }
 
 .more-wrap {
-  position: relative;
+  position: absolute;
+  right: 36px; /* 留出给 tab-add 的空间 */
+  top: 50%;
+  transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
+  z-index: 70;
+  background: transparent;
 }
 
 .tab-more {
@@ -393,14 +428,13 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
-.overflow-pop {
-  background: var(--surface);
-  padding: 6px;
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(16, 23, 32, 0.12);
-  min-width: 160px;
-  max-height: 320px;
-  overflow: auto;
+.tab-add {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 72;
+  background: transparent;
 }
 
 .overflow-item {
@@ -408,9 +442,9 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 6px 8px;
   cursor: pointer;
   border-radius: 6px;
+  min-width: 140px;
 }
 .overflow-item:hover {
   background: rgba(0, 0, 0, 0.04);
@@ -420,7 +454,16 @@ onBeforeUnmount(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
   display: inline-block;
-  max-width: 200px;
+  /* 使用弹性布局让标题占满可用空间，关闭按钮固定宽度 */
+  flex: 1 1 auto;
+  max-width: calc(100% - 40px);
+}
+
+.overflow-item .close-mark {
+  flex: 0 0 28px;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
 }
 
 .tabbar .tab-chip .tab-title {
@@ -435,5 +478,23 @@ onBeforeUnmount(() => {
 .tabbar .tab-chip .close-mark {
   margin-left: 8px;
   flex: 0 0 auto;
+}
+</style>
+
+/* 全局（非 scoped）样式：仅用于本页面的 el-popover 弹窗自定义 */
+<style>
+.tabbar-overflow-popper {
+  background: var(--el-popover-bg-color);
+  border-radius: var(--el-popover-border-radius);
+  border: 1px solid var(--el-popover-border-color);
+  min-width: 150px;
+  padding: var(--el-popover-padding);
+  z-index: var(--el-index-popper);
+  color: var(--el-text-color-regular);
+  line-height: 1.4;
+  font-size: var(--el-popover-font-size);
+  box-shadow: var(--el-box-shadow-light);
+  overflow-wrap: break-word;
+  box-sizing: border-box;
 }
 </style>
