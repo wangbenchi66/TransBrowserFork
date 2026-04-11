@@ -437,14 +437,36 @@ onBeforeUnmount(() => {
   background: transparent;
 }
 
+.overflow-pop {
+  max-height: 420px; /* 在多数屏幕上一次性显示足够项 */
+  overflow-y: auto; /* 允许滚动但隐藏滚动条视觉 */
+  -ms-overflow-style: none; /* IE/Edge */
+  scrollbar-width: none; /* Firefox */
+  padding: 0 6px 0 0; /* 仅为右侧留出少量空间，避免关闭图标被裁切 */
+  display: flex;
+  flex-direction: column;
+  gap: 0; /* 项之间无额外间距 */
+  box-sizing: border-box;
+}
+.overflow-pop::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
 .overflow-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   cursor: pointer;
   border-radius: 6px;
-  min-width: 140px;
+  min-width: 150px;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease;
+  box-sizing: border-box;
+  background: transparent;
+}
+.overflow-item + .overflow-item {
+  margin-top: 0; /* 不要额外的项间距 */
 }
 .overflow-item:hover {
   background: rgba(0, 0, 0, 0.04);
@@ -454,16 +476,34 @@ onBeforeUnmount(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
   display: inline-block;
-  /* 使用弹性布局让标题占满可用空间，关闭按钮固定宽度 */
   flex: 1 1 auto;
-  max-width: calc(100% - 40px);
+  /* 给关闭按钮留更多空间，避免被遮挡 */
+  max-width: calc(100% - 70px);
+  color: var(--el-text-color-regular);
+  font-size: 13.5px;
 }
-
 .overflow-item .close-mark {
-  flex: 0 0 28px;
+  flex: 0 0 36px;
   display: inline-flex;
   align-items: center;
-  margin-left: 8px;
+  justify-content: center;
+  width: 36px;
+  height: 28px;
+  border-radius: 6px;
+  color: rgba(0, 0, 0, 0.75); /* 提高对比度，便于识别 */
+  box-shadow: none;
+}
+.overflow-item .close-mark:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.85);
+}
+
+/* 放大并突出 el-icon 的视觉 */
+.overflow-item .close-mark .el-icon {
+  font-size: 16px;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
 }
 
 .tabbar .tab-chip .tab-title {
@@ -487,7 +527,7 @@ onBeforeUnmount(() => {
   background: var(--el-popover-bg-color);
   border-radius: var(--el-popover-border-radius);
   border: 1px solid var(--el-popover-border-color);
-  min-width: 150px;
+  min-width: 200px; /* 略宽以避免内容被截断，给关闭按钮留出空间 */
   padding: var(--el-popover-padding);
   z-index: var(--el-index-popper);
   color: var(--el-text-color-regular);
