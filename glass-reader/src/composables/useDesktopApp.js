@@ -255,6 +255,15 @@ const immediateSyncKeys = new Set([
     'clickThroughShortcut',
 ])
 
+/**
+ * 对用户输入的 URL 进行规范化处理，支持以下几种情况：
+ * - 以 http:// 或 https:// 开头的完整 URL，直接使用
+ * - 以其他协议开头的 URL（如 file://、ftp:// 等），直接使用
+ * - 纯 IP 地址，自动加上 http:// 前缀
+ * - 其他文本，视为搜索关键词，使用必应搜索
+ * @param {*} rawUrl 
+ * @returns 
+ */
 function normalizeUrl(rawUrl) {
     const trimmed = rawUrl.trim()
     if (!trimmed) {
@@ -265,7 +274,20 @@ function normalizeUrl(rawUrl) {
         return trimmed
     }
 
-    return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+    //return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+    //如果不是http或https的链接或者网址就当做搜索关键词处理，默认使用必应搜索
+    if (/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(trimmed)) {
+        return trimmed
+    }
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(trimmed)) {
+        return `http://${trimmed}`
+    }
+    if (/^[\w-]+(\.[\w-]+)+/.test(trimmed)) {
+        return `https://${trimmed}`
+    }
+    // 其他情况当做搜索关键词处理，默认使用必应搜索
+    return `https://www.bing.com/search?q=${encodeURIComponent(trimmed)}`
+
 }
 
 function getTitleFromUrl(url) {
