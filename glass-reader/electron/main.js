@@ -506,7 +506,7 @@ function createWindow() {
         })(),
         width: initialW,
         height: initialH,
-        minWidth: 240,
+        minWidth: 280,
         minHeight: 280,
         frame: false,
         // 创建为透明窗口，页面透明区域将透出桌面（CSS 控制具体显示效果）

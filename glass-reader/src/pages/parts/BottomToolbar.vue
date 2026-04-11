@@ -11,7 +11,6 @@ const props = defineProps({
   webviewForward: Function,
   webviewReload: Function,
   zoomIn: Function,
-  zoomOut: Function,
   resetZoom: Function,
   toggleToolbarPinned: Function,
   disableToolbar: Function,
@@ -37,6 +36,103 @@ let hidePopTimeout = null;
 const containerRef = ref(null);
 const hotzoneHeight = ref(260);
 let _resizeObserver = null;
+let _overflowObserver = null;
+
+// overflow handling
+const toolbarRef = ref(null);
+const overflowIds = ref([]);
+const showOverflowMenu = ref(false);
+
+function overflowLabel(id) {
+  try {
+    switch (id) {
+      case 'back':
+        return '后退';
+      case 'forward':
+        return '前进';
+      case 'reload':
+        return '刷新';
+      case 'color':
+        return props.settings.forceReaderTextColor ? `文字颜色 (${props.settings.readerTextColor})` : '文字颜色';
+      case 'font':
+        return `字号 ${Math.round(props.settings.readerFontScale)}`;
+      case 'noImage':
+        return props.settings.noImageMode ? '显示图片' : '隐藏图片';
+      case 'showScrollbars':
+        return props.settings.showScrollbars ? '隐藏滚动条' : '显示滚动条';
+      case 'auto':
+        return props.settings.autoScrollEnabled ? `自动滚动 ${Math.round(props.settings.autoScrollSpeed)}` : '自动滚动';
+      case 'zoomOut':
+        return '缩小';
+      case 'zoomIn':
+        return '放大';
+      case 'resetZoom':
+        return '重置缩放';
+      case 'pin':
+        return props.settings.toolbarPinned ? '切换显示模式' : '固定工具栏';
+      case 'close':
+        return '关闭工具栏';
+      default:
+        return id;
+    }
+  } catch (e) {
+    return id;
+  }
+}
+
+function onOverflowClick(id) {
+  try {
+    const map = {
+      back: () => props.webviewBack && props.webviewBack(),
+      forward: () => props.webviewForward && props.webviewForward(),
+      reload: () => props.webviewReload && props.webviewReload(),
+      color: () => props.patchSetting('forceReaderTextColor', !props.settings.forceReaderTextColor),
+      font: () => props.patchSetting('forceReaderFont', !props.settings.forceReaderFont),
+      noImage: () => props.patchSetting('noImageMode', !props.settings.noImageMode),
+      showScrollbars: () => props.patchSetting('showScrollbars', !props.settings.showScrollbars),
+      auto: () => props.patchSetting('autoScrollEnabled', !props.settings.autoScrollEnabled),
+      zoomOut: () => props.zoomOut && props.zoomOut(),
+      zoomIn: () => props.zoomIn && props.zoomIn(),
+      resetZoom: () => props.resetZoom && props.resetZoom(),
+      pin: () => props.toggleToolbarPinned && props.toggleToolbarPinned(),
+      close: () =>
+        props.disableToolbar ? props.disableToolbar() : (props.patchSetting('toolbarDisabled', true), props.patchSetting('toolbarVisible', false), props.patchSetting('toolbarPinned', false))
+    };
+    if (map[id]) map[id]();
+  } catch (e) {}
+  showOverflowMenu.value = false;
+}
+
+function computeOverflow() {
+  try {
+    const tb = toolbarRef.value;
+    if (!tb) return;
+    // ensure all candidates visible first
+    const candidates = Array.from(tb.querySelectorAll('.overflow-candidate'));
+    candidates.forEach((el) => el.classList.remove('overflow-hidden'));
+
+    const toolbarWidth = tb.clientWidth || 0;
+    const children = Array.from(tb.children || []);
+    let totalWidth = children.reduce((sum, ch) => sum + (ch.offsetWidth || 0), 0);
+    const overflowBtn = tb.querySelector('.overflow-btn');
+    const overflowBtnWidth = overflowBtn ? overflowBtn.offsetWidth : 40;
+    const hidden = [];
+
+    if (totalWidth > toolbarWidth) {
+      const candInfos = candidates.map((el) => ({ el, id: el.dataset.id, pr: Number(el.dataset.priority || 10) })).sort((a, b) => b.pr - a.pr);
+      for (const c of candInfos) {
+        if (!c.el) continue;
+        c.el.classList.add('overflow-hidden');
+        hidden.push(c.id);
+        // recompute width
+        const children2 = Array.from(tb.children || []);
+        totalWidth = children2.reduce((sum, ch) => sum + (ch.offsetWidth || 0), 0);
+        if (totalWidth + overflowBtnWidth <= toolbarWidth) break;
+      }
+    }
+    overflowIds.value = hidden;
+  } catch (e) {}
+}
 
 function clearHidePopTimeout() {
   if (hidePopTimeout) {
@@ -283,6 +379,30 @@ onMounted(() => {
     }
   } catch (e) {}
   window.addEventListener('resize', updateHotzoneFromDOM);
+
+  // overflow observer and listeners
+  try {
+    if (typeof ResizeObserver !== 'undefined') {
+      _overflowObserver = new ResizeObserver(computeOverflow);
+      const tb2 = containerRef.value && containerRef.value.querySelector ? containerRef.value.querySelector('.bottom-toolbar') : null;
+      if (tb2) _overflowObserver.observe(tb2);
+    }
+  } catch (e) {}
+  window.addEventListener('resize', computeOverflow);
+  // click outside to close overflow menu
+  const onWindowClick = (ev) => {
+    try {
+      const tbEl = toolbarRef.value || (containerRef.value && containerRef.value.querySelector && containerRef.value.querySelector('.bottom-toolbar'));
+      if (!tbEl) return;
+      if (!tbEl.contains(ev.target)) showOverflowMenu.value = false;
+    } catch (e) {}
+  };
+  window.addEventListener('click', onWindowClick);
+  // store handler so we can remove later
+  window.__bottomToolbar_onWindowClick = onWindowClick;
+
+  // initial compute
+  computeOverflow();
 });
 
 onBeforeUnmount(() => {
@@ -311,6 +431,23 @@ onBeforeUnmount(() => {
   try {
     window.removeEventListener('resize', updateHotzoneFromDOM);
   } catch (e) {}
+  try {
+    if (_overflowObserver) {
+      try {
+        _overflowObserver.disconnect();
+      } catch (e) {}
+      _overflowObserver = null;
+    }
+  } catch (e) {}
+  try {
+    window.removeEventListener('resize', computeOverflow);
+  } catch (e) {}
+  try {
+    if (window.__bottomToolbar_onWindowClick) {
+      window.removeEventListener('click', window.__bottomToolbar_onWindowClick);
+      window.__bottomToolbar_onWindowClick = null;
+    }
+  } catch (e) {}
 });
 </script>
 
@@ -326,23 +463,30 @@ onBeforeUnmount(() => {
       @click="toggleHandle"></div>
 
     <div
+      ref="toolbarRef"
       class="bottom-toolbar"
       :class="{ hidden: !props.toolbarVisible, 'icon-mode': props.toolbarIconOnly }">
       <div class="toolbar-left">
         <BaseButton
-          class="icon-btn icon-only"
+          class="icon-btn icon-only overflow-candidate"
+          data-id="back"
+          data-priority="1"
           @click="props.webviewBack"
           title="后退"
           ><el-icon><ArrowLeft /></el-icon
         ></BaseButton>
         <BaseButton
-          class="icon-btn icon-only"
+          class="icon-btn icon-only overflow-candidate"
+          data-id="forward"
+          data-priority="1"
           @click="props.webviewForward"
           title="前进"
           ><el-icon><ArrowRight /></el-icon
         ></BaseButton>
         <BaseButton
-          class="icon-btn icon-only"
+          class="icon-btn icon-only overflow-candidate"
+          data-id="reload"
+          data-priority="1"
           @click="props.webviewReload"
           title="刷新"
           ><el-icon><Refresh /></el-icon
@@ -351,7 +495,9 @@ onBeforeUnmount(() => {
 
       <div class="toolbar-center">
         <div
-          class="toggle-with-pop"
+          class="toggle-with-pop overflow-candidate"
+          data-id="color"
+          data-priority="4"
           @mouseenter="() => showPop('color', props.settings.readerTextColor, 0, 1)"
           @mouseleave="onToggleMouseLeave">
           <BaseButton
@@ -378,7 +524,9 @@ onBeforeUnmount(() => {
 
         <!-- 字号控制 -->
         <div
-          class="toggle-with-pop"
+          class="toggle-with-pop overflow-candidate"
+          data-id="font"
+          data-priority="4"
           @mouseenter="() => showPop('font', props.settings.readerFontScale, 80, 160)"
           @mouseleave="onToggleMouseLeave">
           <BaseButton
@@ -395,50 +543,58 @@ onBeforeUnmount(() => {
             :class="{ visible: popActiveKey === 'font' || draggingKey === 'font' }"
             @mouseenter="onPopMouseEnter"
             @mouseleave="onPopMouseLeave">
-            <div class="range-row">
-              <el-slider
-                ref="fontRangeRef"
-                data-test="font-range"
-                class="mini-range"
-                :model-value="props.settings.readerFontScale"
-                :min="80"
-                :max="160"
-                @input="onFontScaleInput"
-                @change="onFontScaleInput"
-                @update:modelValue="onFontScaleInput"
-                @pointerdown="() => onRangePointerDown('font')" />
-              <div
-                class="range-anchor"
-                title="回到默认"
-                @click="setFontDefault"
-                :style="{ left: computeLeftFromInput('font', 100, 80, 160) }"></div>
-              <BaseButton
-                class="mini-reset-icon"
-                title="重置到默认"
-                @click="setFontDefault"
-                >⟲</BaseButton
-              >
-              <span class="slider-inline-value">默认 100</span>
-              <span class="slider-inline-value">当前 {{ Math.round(props.settings.readerFontScale) }}</span>
-            </div>
-            <div
-              v-if="popActiveKey === 'font' || draggingKey === 'font'"
-              class="pop-value"
-              :style="{ left: popLeft }">
-              {{ popValue }}
+            <div class="panel">
+              <div class="panel-header">
+                <div class="panel-title">字号</div>
+                <div class="panel-actions">
+                  <BaseButton
+                    class="mini-reset-icon"
+                    title="默认"
+                    @click="setFontDefault"
+                    >默认</BaseButton
+                  >
+                </div>
+              </div>
+              <div class="panel-body">
+                <div class="range-row">
+                  <el-slider
+                    ref="fontRangeRef"
+                    data-test="font-range"
+                    class="mini-range"
+                    :model-value="props.settings.readerFontScale"
+                    :min="80"
+                    :max="160"
+                    @input="onFontScaleInput"
+                    @change="onFontScaleInput"
+                    @update:modelValue="onFontScaleInput"
+                    @pointerdown="() => onRangePointerDown('font')" />
+                  <div
+                    class="range-anchor"
+                    title="回到默认"
+                    @click="setFontDefault"
+                    :style="{ left: computeLeftFromInput('font', 100, 80, 160) }"></div>
+                </div>
+                <div class="panel-row">
+                  <span>当前 {{ Math.round(props.settings.readerFontScale) }}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
         <BaseButton
-          class="icon-btn icon-only"
+          class="icon-btn icon-only overflow-candidate"
+          data-id="noImage"
+          data-priority="3"
           :class="{ on: props.settings.noImageMode }"
           @click="() => props.patchSetting('noImageMode', !props.settings.noImageMode)"
           :title="props.settings.noImageMode ? '显示图片' : '隐藏图片'"
           >🖼</BaseButton
         >
         <BaseButton
-          class="icon-btn icon-only"
+          class="icon-btn icon-only overflow-candidate"
+          data-id="showScrollbars"
+          data-priority="3"
           :class="{ on: props.settings.showScrollbars }"
           @click="() => props.patchSetting('showScrollbars', !props.settings.showScrollbars)"
           :title="props.settings.showScrollbars ? '隐藏滚动条' : '显示滚动条'"
@@ -446,7 +602,9 @@ onBeforeUnmount(() => {
         >
 
         <div
-          class="toggle-with-pop"
+          class="toggle-with-pop overflow-candidate"
+          data-id="auto"
+          data-priority="4"
           @mouseenter="() => showPop('auto', props.settings.autoScrollSpeed, 5, 80)"
           @mouseleave="onToggleMouseLeave">
           <BaseButton
@@ -462,37 +620,50 @@ onBeforeUnmount(() => {
             :class="{ visible: popActiveKey === 'auto' || draggingKey === 'auto' }"
             @mouseenter="onPopMouseEnter"
             @mouseleave="onPopMouseLeave">
-            <div class="range-row">
-              <el-slider
-                ref="autoRangeRef"
-                data-test="auto-range"
-                class="mini-range"
-                :model-value="props.settings.autoScrollSpeed"
-                :min="5"
-                :max="80"
-                @input="onAutoScrollSpeedInput"
-                @change="onAutoScrollSpeedInput"
-                @update:modelValue="onAutoScrollSpeedInput"
-                @pointerdown="() => onRangePointerDown('auto')" />
-              <div
-                class="range-anchor"
-                title="回到默认"
-                @click="setAutoDefault"
-                :style="{ left: computeLeftFromInput('auto', 22, 5, 80) }"></div>
-              <BaseButton
-                class="mini-reset-icon"
-                title="重置到默认"
-                @click="setAutoDefault"
-                >⟲</BaseButton
-              >
-              <span class="slider-inline-value">默认 22</span>
-              <span class="slider-inline-value">当前 {{ Math.round(props.settings.autoScrollSpeed) }}</span>
-            </div>
-            <div
-              v-if="popActiveKey === 'auto' || draggingKey === 'auto'"
-              class="pop-value"
-              :style="{ left: popLeft }">
-              {{ popValue }}
+            <div class="panel">
+              <div class="panel-header">
+                <div class="panel-title">自动滚动</div>
+                <div class="panel-actions">
+                  <BaseButton
+                    class="mini-reset-icon"
+                    title="重置"
+                    @click="setAutoDefault"
+                    >重置</BaseButton
+                  >
+                </div>
+              </div>
+              <div class="panel-body">
+                <div class="range-row">
+                  <el-slider
+                    ref="autoRangeRef"
+                    data-test="auto-range"
+                    class="mini-range"
+                    :model-value="props.settings.autoScrollSpeed"
+                    :min="5"
+                    :max="80"
+                    @input="onAutoScrollSpeedInput"
+                    @change="onAutoScrollSpeedInput"
+                    @update:modelValue="onAutoScrollSpeedInput"
+                    @pointerdown="() => onRangePointerDown('auto')" />
+                </div>
+                <div class="panel-row">
+                  <span>速度 {{ Math.round(props.settings.autoScrollSpeed) }}</span>
+                  <BaseButton
+                    class="mini-reset-icon"
+                    :class="{ on: props.settings.autoScrollEnabled }"
+                    title="开启"
+                    @click="() => props.patchSetting('autoScrollEnabled', true)"
+                    >开启</BaseButton
+                  >
+                  <BaseButton
+                    class="mini-reset-icon"
+                    :class="{ on: !props.settings.autoScrollEnabled }"
+                    title="关闭"
+                    @click="() => props.patchSetting('autoScrollEnabled', false)"
+                    >关闭</BaseButton
+                  >
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -501,30 +672,99 @@ onBeforeUnmount(() => {
       <div class="toolbar-right">
         <BaseButton
           data-test="zoom-out"
-          class="icon-btn icon-only"
+          class="icon-btn icon-only overflow-candidate"
+          data-id="zoomOut"
+          data-priority="2"
           @click="props.zoomOut"
           title="缩小"
           >-</BaseButton
         >
-        <span class="zoom-label">{{ Math.round(props.siteZoom * 100) }}%</span>
+        <div class="toggle-with-pop">
+          <BaseButton
+            class="icon-btn"
+            title="缩放百分比"
+            @mouseenter="() => showPop('zoom', Math.round(props.siteZoom * 100))"
+            @mouseleave="hidePopIfNotDragging">
+            <span class="zoom-label">{{ Math.round(props.siteZoom * 100) }}%</span>
+          </BaseButton>
+          <div
+            class="hover-pop"
+            :class="{ visible: popActiveKey === 'zoom' }"
+            @mouseenter="onPopMouseEnter"
+            @mouseleave="onPopMouseLeave">
+            <div class="panel">
+              <div class="panel-header">
+                <div class="panel-title">页面缩放</div>
+                <div class="panel-actions">
+                  <BaseButton
+                    class="mini-reset-icon"
+                    title="重置"
+                    @click="props.resetZoom"
+                    >重置</BaseButton
+                  >
+                </div>
+              </div>
+              <div class="panel-body">
+                <div class="panel-row">
+                  <BaseButton
+                    class="mini-reset-icon"
+                    @click="props.zoomOut"
+                    >-</BaseButton
+                  >
+                  <span style="min-width: 60px; text-align: center; display: inline-block">{{ Math.round(props.siteZoom * 100) }}%</span>
+                  <BaseButton
+                    class="mini-reset-icon"
+                    @click="props.zoomIn"
+                    >+</BaseButton
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         <BaseButton
           data-test="zoom-in"
-          class="icon-btn icon-only"
+          class="icon-btn icon-only overflow-candidate"
+          data-id="zoomIn"
+          data-priority="2"
           @click="props.zoomIn"
           title="放大"
           >+</BaseButton
         >
         <BaseButton
           data-test="reset-zoom"
-          class="icon-btn icon-only"
+          class="icon-btn icon-only overflow-candidate"
+          data-id="resetZoom"
+          data-priority="2"
           @click="props.resetZoom"
           title="重置"
           >1x</BaseButton
         >
 
         <BaseButton
+          v-if="overflowIds.length"
+          class="icon-btn overflow-btn"
+          @click="showOverflowMenu = !showOverflowMenu"
+          title="更多">
+          ...
+        </BaseButton>
+        <div
+          v-if="showOverflowMenu && overflowIds.length"
+          class="overflow-menu">
+          <div
+            v-for="id in overflowIds"
+            :key="id"
+            class="overflow-item"
+            @click="onOverflowClick(id)">
+            {{ overflowLabel(id) }}
+          </div>
+        </div>
+
+        <BaseButton
           data-test="pin-toggle"
-          class="icon-btn hide-toolbar-btn icon-only"
+          class="icon-btn hide-toolbar-btn icon-only overflow-candidate"
+          data-id="pin"
+          data-priority="1"
           @click="props.toggleToolbarPinned"
           :title="props.settings.toolbarPinned ? '切换到移入显示/移出隐藏' : '切换到始终显示'">
           <component
@@ -534,14 +774,16 @@ onBeforeUnmount(() => {
 
         <BaseButton
           data-test="close-toolbar"
-          class="icon-btn close-toolbar-btn icon-only"
+          class="icon-btn close-toolbar-btn icon-only overflow-candidate"
+          data-id="close"
+          data-priority="1"
           @click="
             props.disableToolbar ? props.disableToolbar() : (props.patchSetting('toolbarDisabled', true), props.patchSetting('toolbarVisible', false), props.patchSetting('toolbarPinned', false))
           "
           title="关闭工具栏（不再移入显示）">
           <component
             :is="Close"
-            style="width: 14px; height: 14px; display: block" />
+            style="width: 18px; height: 18px" />
         </BaseButton>
       </div>
     </div>
@@ -552,8 +794,8 @@ onBeforeUnmount(() => {
 /* toolbar container (overlay/docked) */
 .bottom-toolbar-container.overlay {
   position: absolute;
-  left: 8px;
-  right: 8px;
+  left: 0;
+  right: 0;
   bottom: 8px;
   /* 保证容器能接收 hover，并置于 webview 之上 */
   z-index: 10001;
@@ -562,11 +804,9 @@ onBeforeUnmount(() => {
 
 .bottom-toolbar-container.docked {
   position: fixed;
-  left: 8px;
-  right: 8px;
+  left: 0;
+  right: 0;
   bottom: 8px;
-  margin: 0 auto;
-  max-width: calc(100% - 16px);
   z-index: 10001;
   pointer-events: auto;
 }
@@ -576,8 +816,11 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  padding: 4px 6px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 0;
   border-radius: 0;
+  overflow: visible;
   /* 提升到较高层级，避免被 webview 或热区遮挡 */
   position: relative;
   z-index: 10002;
@@ -680,36 +923,38 @@ onBeforeUnmount(() => {
 }
 .hover-pop {
   position: absolute;
-  /* 重叠：让弹层底部下移到超出按钮顶部 8px，实现视觉重合 */
   bottom: calc(100% - 8px);
   left: 50%;
-  /* 隐藏态向下位移 12px，使隐藏位置与之前保持一定距离 */
   transform: translateX(-50%) translateY(12px);
   opacity: 0;
   pointer-events: none;
   transition:
     opacity 0.12s ease,
     transform 0.12s ease;
-  background: var(--surface);
-  padding: 6px;
+  background: transparent;
+  padding: 0;
   border-radius: 0;
   box-shadow: 0 8px 24px rgba(16, 23, 32, 0.12);
   z-index: 10004;
 }
+
 .toggle-with-pop {
   position: relative;
   display: inline-flex;
   align-items: center;
 }
+
 .hover-pop.visible,
 .toggle-with-pop:hover .hover-pop {
   opacity: 1;
   pointer-events: auto;
-  transform: translateX(-26%) translateY(0);
+  transform: translateX(-50%) translateY(0);
 }
+
 .pop-value {
   position: absolute;
   top: -26px;
+  left: 50%;
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.8);
   color: #fff;
@@ -717,6 +962,25 @@ onBeforeUnmount(() => {
   border-radius: 4px;
   font-size: 12px;
   z-index: 10005;
+}
+
+/* 更紧凑的滑块容器：在窄面板下滑块占满可用剩余空间 */
+.panel .range-row {
+  gap: 6px;
+}
+.panel .mini-range[style] {
+  width: 100% !important;
+}
+
+/* 数值标签样式 */
+.panel .panel-row span {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.72);
+}
+
+.panel .mini-range {
+  width: 120px;
+  height: 28px;
 }
 
 /* icon/button visuals */
@@ -797,6 +1061,97 @@ onBeforeUnmount(() => {
   height: 10px;
   background: rgba(64, 158, 255, 0.9);
   border-radius: 2px;
+}
+
+/* overflow handling */
+.overflow-hidden {
+  display: none !important;
+}
+.overflow-btn {
+  padding: 6px 10px;
+  font-weight: 700;
+}
+.overflow-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgba(16, 23, 32, 0.12);
+  border-radius: 4px;
+  padding: 6px 8px;
+  z-index: 10006;
+  min-width: 140px;
+}
+.overflow-item {
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 13px;
+}
+.overflow-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* panel styles matching image */
+.panel {
+  min-width: 180px;
+  max-width: 260px;
+  background: var(--surface);
+  border-radius: 8px;
+  box-shadow: 0 14px 34px rgba(16, 23, 32, 0.16);
+  overflow: visible;
+  position: relative;
+}
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+.panel-title {
+  font-weight: 600;
+}
+.panel-actions {
+  display: flex;
+  gap: 8px;
+}
+.panel-body {
+  padding: 8px 12px;
+}
+.panel-row {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.panel .mini-reset-icon {
+  font-size: 13px;
+  width: 40px;
+}
+.panel .mini-range {
+  width: 140px;
+  height: 28px;
+}
+
+/* 小箭头 */
+.panel::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 8px solid var(--surface);
+}
+
+/* highlight state for panel buttons */
+.panel .mini-reset-icon.on {
+  background: rgba(64, 158, 255, 0.12);
+  color: #409eff;
 }
 .range-anchor:hover::before {
   background: #2b88ff;

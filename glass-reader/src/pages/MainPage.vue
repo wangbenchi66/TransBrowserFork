@@ -297,8 +297,8 @@ function buildAutoScrollScript(enabled, speed) {
   const pxPerSecond = Math.max(12, Math.round((speed || 22) * 3));
   // embed uid to avoid accidental dedupe by runWebviewJS
   const uid = Date.now();
-
   return `(() => {
+    const __glassReaderAutoScrollUID = ${uid};
     try {
       // 清理旧的 interval/RAF/handler
       try { if (window.__glassReaderAutoScrollTimer) { window.clearInterval(window.__glassReaderAutoScrollTimer); window.__glassReaderAutoScrollTimer = null; } } catch(e) {}
@@ -1622,10 +1622,8 @@ onMounted(() => {
   height: 36px;
   padding: 6px;
   border-radius: 2px;
-  border: 1px solid rgba(224, 72, 66, 0.06);
   background: rgba(255, 255, 255, 0.92);
   color: #e04842;
-  box-shadow: 0 2px 6px rgba(16, 23, 32, 0.04);
   transition:
     background 150ms ease,
     transform 120ms ease;
