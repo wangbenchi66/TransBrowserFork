@@ -96,7 +96,6 @@ const rightToggleKeys = [
     { key: 'alwaysOnTop', label: '窗口始终置顶' },
     { key: 'fullWindowTransparent', label: '软件背景透明' },
     { key: 'pageTransparentMode', label: '网页背景透明' },
-    { key: 'forcePageTransparent', label: '强制网页背景透明' },
     // 阅读渲染相关（已从“阅读控制”移入此列）
     { key: 'forceReaderTextColor', label: '强制修改文字颜色' },
     { key: 'forceReaderFont', label: '强制阅读器字号' },
@@ -231,7 +230,6 @@ const immediateSyncKeys = new Set([
     'toolbarPinned',
     'toolbarVisible',
     'toolbarDisabled',
-    'forcePageTransparent',
     'showScrollbars',
     'fullWindowTransparent',
     // 全局快捷键需要立即同步并在主进程重新注册
@@ -370,6 +368,13 @@ function patchSetting(key, value) {
 
     if (key === 'autoScrollEnabled') {
         statusMessage.value = settings[key] ? '自动滚动已开启' : '自动滚动已关闭'
+    }
+
+    // 当用户切换网页背景透明开关时，同时同步“强制网页背景透明”设置以合并为一个按钮行为
+    if (key === 'pageTransparentMode') {
+        try {
+            settings.forcePageTransparent = !!settings.pageTransparentMode
+        } catch (e) { }
     }
 
     if (immediateSyncKeys.has(key)) {

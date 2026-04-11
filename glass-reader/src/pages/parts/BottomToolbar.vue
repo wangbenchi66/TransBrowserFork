@@ -592,7 +592,6 @@ onBeforeUnmount(() => {
   left: auto;
   right: auto;
   bottom: auto;
-  margin: 8px 8px 0 8px;
   z-index: auto;
   pointer-events: auto;
 }

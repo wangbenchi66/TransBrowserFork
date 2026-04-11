@@ -752,8 +752,8 @@ function onWebviewFailLoad(e) {
 }
 
 function syncWebviewTransparency() {
-  const enabled = settings.pageTransparentMode || settings.forcePageTransparent || settings.fullWindowTransparent;
-  const css = settings.forcePageTransparent || settings.fullWindowTransparent ? transparentPageCssAggressive : transparentPageCss;
+  const enabled = settings.pageTransparentMode || settings.fullWindowTransparent;
+  const css = settings.pageTransparentMode || settings.fullWindowTransparent ? transparentPageCssAggressive : transparentPageCss;
   // 若传入 tabId 则会只针对该 webview 注入
   const tabId = arguments.length ? arguments[0] : undefined;
   runWebviewCss('glass-transparent-style', enabled ? css : '', tabId);
@@ -1329,10 +1329,7 @@ watch(
   () => settings.pageTransparentMode,
   () => syncReaderEffects()
 );
-watch(
-  () => settings.forcePageTransparent,
-  () => syncReaderEffects()
-);
+// forcePageTransparent 已与 pageTransparentMode 功能合并，移除单独监听以避免重复触发
 watch(
   () => settings.noImageMode,
   () => syncReaderEffects()
@@ -1484,6 +1481,7 @@ onMounted(() => {
             :class="{ 'is-webview': activeTab?.kind === 'page' }">
             <webview
               v-for="tab in pageTabs"
+              v-show="String(tab.id) === String(activeTabId)"
               :key="tab.id"
               :data-tab-id="tab.id"
               :ref="getWebviewRefSetter(tab.id)"

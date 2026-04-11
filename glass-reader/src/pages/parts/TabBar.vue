@@ -1,7 +1,7 @@
 <script setup>
 import { Close } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
-import { computed, defineProps, ref } from 'vue';
+import { computed, defineProps, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BaseButton from '../../components/BaseButton.vue';
 import ContextMenu from '../../components/ContextMenu.vue';
 
@@ -17,13 +17,12 @@ const props = defineProps({
   closeTabsToRight: Function,
   closeAllTabs: Function
 });
-// updateTabMetadata prop removed since tab-pin feature is removed
 
+// context menu (right-click) for individual tabs
 const menuVisible = ref(false);
 const menuX = ref(0);
 const menuY = ref(0);
 const menuTarget = ref(null);
-
 const menuItems = computed(() => getMenuItems(menuTarget.value));
 
 function getMenuItems(tab) {
@@ -112,19 +111,179 @@ function onMenuSelect(item) {
     } catch (e) {}
   }
 }
+
+// --- Overflow / collapse logic ---
+const tabsWrapRef = ref(null);
+const tabEls = ref({}); // map: tabId -> element
+const addBtnRef = ref(null);
+const moreBtnRef = ref(null);
+const overflowPopRef = ref(null);
+const showOverflowMenu = ref(false);
+const visibleCount = ref(props.tabs ? props.tabs.length : 0);
+let resizeObserver = null;
+
+function setTabRef(el, id) {
+  if (el) {
+    // 如果获取到的是组件实例，使用其 $el（真实 DOM 节点）
+    try {
+      tabEls.value[id] = el.$el && el.$el instanceof HTMLElement ? el.$el : el instanceof HTMLElement ? el : el.$el || el;
+    } catch (e) {
+      tabEls.value[id] = el;
+    }
+  } else delete tabEls.value[id];
+}
+
+function getNodeWidth(node) {
+  if (!node) return undefined;
+  let el = node;
+  try {
+    if (el && el.$el) el = el.$el;
+  } catch (e) {}
+  if (el && el instanceof HTMLElement) return el.offsetWidth;
+  return undefined;
+}
+
+function getDomNode(node) {
+  if (!node) return null;
+  let el = node;
+  try {
+    if (el && el.$el) el = el.$el;
+  } catch (e) {}
+  if (el && el instanceof HTMLElement) return el;
+  return null;
+}
+
+const visibleTabs = computed(() => (props.tabs || []).slice(0, visibleCount.value));
+const overflowTabs = computed(() => (props.tabs || []).slice(visibleCount.value));
+
+function selectOverflowTab(tab) {
+  try {
+    props.selectTab(tab.id);
+  } catch (e) {}
+  showOverflowMenu.value = false;
+}
+
+function closeOverflowTab(tab) {
+  try {
+    props.closeTab(tab.id);
+  } catch (e) {}
+}
+
+function toggleOverflowMenu(e) {
+  if (e && e.stopPropagation) e.stopPropagation();
+  console.debug('[TabBar] toggleOverflowMenu before:', showOverflowMenu.value, 'event:', !!e);
+  showOverflowMenu.value = !showOverflowMenu.value;
+  console.debug('[TabBar] toggleOverflowMenu after:', showOverflowMenu.value);
+}
+
+// document-level click handling removed; rely on Element Plus popover for outside clicks
+
+function onWinResize() {
+  updateTabMinWidth();
+  computeVisibleTabs();
+}
+
+function updateTabMinWidth() {
+  const w = typeof window !== 'undefined' ? window.innerWidth : 1280;
+  let val = 96;
+  if (w < 800) val = 64;
+  else if (w < 1200) val = 88;
+  else if (w < 1600) val = 104;
+  else val = 120;
+  try {
+    document.documentElement.style.setProperty('--tab-chip-min-width', val + 'px');
+  } catch (e) {}
+}
+
+async function computeVisibleTabs() {
+  await nextTick();
+  const wrap = tabsWrapRef.value;
+  const addEl = addBtnRef.value;
+  const moreEl = moreBtnRef.value;
+  const tabs = props.tabs || [];
+  if (!wrap) {
+    visibleCount.value = tabs.length;
+    return;
+  }
+  const gap = Math.max(6, parseFloat(getComputedStyle(wrap).gap) || 6);
+  const containerWidth = wrap.clientWidth;
+  const addWidth = getNodeWidth(addEl) || 36;
+  const minWidth = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tab-chip-min-width')) || 96;
+
+  // gather widths (fallback to minWidth)
+  const widths = tabs.map((t) => {
+    const el = tabEls.value[t.id];
+    return el && el.offsetWidth ? el.offsetWidth : minWidth;
+  });
+
+  const total = widths.reduce((acc, w, i) => acc + w + (i > 0 ? gap : 0), 0);
+  // if all fit without more button
+  if (total + addWidth + gap <= containerWidth) {
+    visibleCount.value = tabs.length;
+    return;
+  }
+
+  const moreWidth = getNodeWidth(moreEl) || 36;
+  const reserved = addWidth + moreWidth + gap * 2;
+  let cap = containerWidth - reserved;
+  let used = 0;
+  let fit = 0;
+  for (let i = 0; i < widths.length; i++) {
+    const w = widths[i];
+    const nextUsed = used + (fit > 0 ? gap : 0) + w;
+    if (nextUsed <= cap) {
+      used = nextUsed;
+      fit++;
+    } else break;
+  }
+  if (fit < 1 && tabs.length > 0) fit = 1;
+  visibleCount.value = fit;
+}
+
+watch(
+  () => props.tabs && props.tabs.length,
+  () => {
+    nextTick().then(() => computeVisibleTabs());
+  },
+  { immediate: true }
+);
+
+onMounted(() => {
+  updateTabMinWidth();
+  computeVisibleTabs();
+  window.addEventListener('resize', onWinResize);
+  try {
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => computeVisibleTabs());
+      if (tabsWrapRef.value) resizeObserver.observe(tabsWrapRef.value);
+    }
+  } catch (e) {}
+});
+onBeforeUnmount(() => {
+  try {
+    window.removeEventListener('resize', onWinResize);
+  } catch (e) {}
+  // document click listener removed; Element Plus popover handles outside clicks
+  try {
+    if (resizeObserver) resizeObserver.disconnect();
+  } catch (e) {}
+});
 </script>
 
 <template>
   <section class="tabbar panel">
-    <div class="tabs">
+    <div
+      class="tabs"
+      ref="tabsWrapRef">
       <BaseButton
-        v-for="tab in props.tabs"
+        v-for="tab in visibleTabs"
         :key="tab.id"
         class="tab-chip"
         :class="{ active: String(tab.id) === String(props.activeTabId) }"
         :title="tab.title || tab.url"
         @click="props.selectTab(tab.id)"
-        @contextmenu.prevent.stop="showMenu($event, tab)">
+        @contextmenu.prevent.stop="showMenu($event, tab)"
+        :ref="(el) => setTabRef(el, tab.id)">
         <span class="tab-title">{{ props.formatTabTitle(tab.title) }}</span>
 
         <span
@@ -134,8 +293,24 @@ function onMenuSelect(item) {
         </span>
       </BaseButton>
 
+      <!-- 更多溢出按钮 -->
+      <div v-if="overflowTabs.length" class="more-wrap">
+        <el-popover v-model:visible="showOverflowMenu" placement="bottom-start" trigger="click" :append-to-body="true">
+          <div class="overflow-pop" ref="overflowPopRef">
+            <div v-for="tab in overflowTabs" :key="tab.id" class="overflow-item" @click="() => selectOverflowTab(tab)">
+              <span class="ov-title">{{ props.formatTabTitle(tab.title) }}</span>
+              <span class="close-mark" @click.stop="() => closeOverflowTab(tab)"><el-icon><Close /></el-icon></span>
+            </div>
+          </div>
+          <template #reference>
+            <BaseButton :use-el="true" class="tab-more" ref="moreBtnRef" title="更多标签">⋯</BaseButton>
+          </template>
+        </el-popover>
+      </div>
+
       <BaseButton
         class="tab-add"
+        ref="addBtnRef"
         @click="props.addNewTab">
         +
       </BaseButton>
@@ -152,5 +327,91 @@ function onMenuSelect(item) {
 
 <style scoped>
 /* 仅用于 tabbar 的局部样式（应用已有样式表为主） */
-/* pin-mark removed (pin tab feature removed) */
+/* 优化：当标签较多时，使用横向滚动并对标题进行省略处理，避免换行或堆叠 */
+.tabbar .tabs {
+  /* 保证在容器内不换行，超出时横向滚动 */
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  /* 允许缩小以适应父容器 */
+  min-width: 0;
+  gap: 6px;
+}
+
+.tabbar .tabs::-webkit-scrollbar {
+  height: 6px;
+}
+.tabbar .tabs::-webkit-scrollbar-thumb {
+  background: rgba(60, 68, 80, 0.12);
+  border-radius: 6px;
+}
+
+.tabbar .tab-chip {
+  /* 不允许 flex 项换行或伸展，统一大小由内容或 max-width 控制 */
+  flex: 0 0 auto;
+  min-width: var(--tab-chip-min-width, 64px);
+  max-width: 220px;
+  box-sizing: border-box;
+}
+
+.more-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tab-more {
+  border: 0;
+  background: transparent;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.overflow-pop {
+  background: var(--surface);
+  padding: 6px;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(16, 23, 32, 0.12);
+  min-width: 160px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.overflow-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.overflow-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+.overflow-item .ov-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  max-width: 200px;
+}
+
+.tabbar .tab-chip .tab-title {
+  display: inline-block;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.tabbar .tab-chip .close-mark {
+  margin-left: 8px;
+  flex: 0 0 auto;
+}
 </style>
