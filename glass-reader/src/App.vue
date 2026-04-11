@@ -326,6 +326,7 @@ onBeforeUnmount(() => {
       :headerHoverActive="headerHoverActive"
       :openSettingsModal="openSettingsModal"
       :togglePin="togglePin"
+      :toggleSetting="toggleSetting"
       :handleMinimize="handleMinimize"
       :handleMaximize="handleMaximize"
       :handleClose="handleClose" />

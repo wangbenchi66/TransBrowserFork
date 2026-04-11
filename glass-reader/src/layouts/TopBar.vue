@@ -1,4 +1,5 @@
 <script setup>
+import { Connection, Lock, Opportunity, Tools, Unlock } from '@element-plus/icons-vue';
 import { defineProps } from 'vue';
 import BaseButton from '../components/BaseButton.vue';
 
@@ -7,6 +8,7 @@ const props = defineProps({
   headerHoverActive: Boolean,
   openSettingsModal: Function,
   togglePin: Function,
+  toggleSetting: Function,
   handleMinimize: Function,
   handleMaximize: Function,
   handleClose: Function
@@ -30,14 +32,29 @@ const props = defineProps({
         class="control-btn settings-gear"
         aria-label="设置"
         @click="props.openSettingsModal">
-        ⚙
+        <el-icon><Tools /></el-icon>
+      </BaseButton>
+      <BaseButton
+        class="control-btn soft-transparent-toggle"
+        :class="{ active: props.settings.fullWindowTransparent }"
+        aria-label="软件背景透明"
+        @click="() => props.toggleSetting && props.toggleSetting('fullWindowTransparent')">
+        <el-icon><Opportunity /></el-icon>
+      </BaseButton>
+      <BaseButton
+        class="control-btn page-transparent-toggle"
+        :class="{ active: props.settings.pageTransparentMode }"
+        aria-label="网站背景透明"
+        @click="() => props.toggleSetting && props.toggleSetting('pageTransparentMode')">
+        <el-icon><Connection /></el-icon>
       </BaseButton>
       <BaseButton
         class="control-btn pin-toggle"
         :class="{ active: props.settings.alwaysOnTop }"
         aria-label="窗口置顶"
         @click="props.togglePin">
-        置
+        <el-icon v-if="props.settings.alwaysOnTop"><Lock /></el-icon>
+        <el-icon v-else><Unlock /></el-icon>
       </BaseButton>
       <BaseButton
         class="control-btn"
