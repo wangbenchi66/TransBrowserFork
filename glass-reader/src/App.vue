@@ -373,18 +373,7 @@ onBeforeUnmount(() => {
       class="settings-modal-layer settings-floating no-drag"
       @click.self="closeSettingsModal">
       <section class="settings-modal panel">
-        <div class="settings-modal-header">
-          <div>
-            <strong>设置中心</strong>
-            <span>当前修改会直接作用于主窗口</span>
-          </div>
-          <BaseButton
-            class="control-btn close"
-            aria-label="关闭设置"
-            @click="closeSettingsModal">
-            x
-          </BaseButton>
-        </div>
+        <!-- modal header removed to simplify layout -->
 
         <section class="settings-page panel no-drag">
           <div class="settings-header">
@@ -392,11 +381,13 @@ onBeforeUnmount(() => {
               <h2>设置中心</h2>
               <p>所有开关都会实时同步到主窗口</p>
             </div>
-            <span>{{ settings.transparency }}% 透明度</span>
           </div>
 
           <section class="settings-block slider-block section-panel">
-            <label class="field-label">透明度</label>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <label class="field-label">透明度</label>
+              <span class="slider-value">{{ settings.transparency }}% 透明度</span>
+            </div>
             <input
               :value="settings.transparency"
               class="slider"
@@ -576,6 +567,11 @@ onBeforeUnmount(() => {
 .shortcut-title {
   margin-bottom: 8px;
   font-weight: 600;
+}
+/* 透明度显示在滑块区域 */
+.slider-value {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
 }
 /* 快捷键编辑区域在窄屏下换行显示，避免按钮挤在一起 */
 @media (max-width: 720px) {
