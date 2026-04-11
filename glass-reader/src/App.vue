@@ -525,6 +525,75 @@ onBeforeUnmount(() => {
                   </el-button>
                 </div>
               </label>
+
+              <label>
+                <span>自动滚动：切换（全局）</span>
+                <div style="display: flex; gap: 8px; align-items: center">
+                  <input
+                    class="text-field"
+                    :value="editingShortcut === 'autoToggleShortcut' ? capturedAccel || '按下组合键...' : settings.autoToggleShortcut"
+                    readonly />
+                  <el-button
+                    round
+                    size="large"
+                    @click="editingShortcut === 'autoToggleShortcut' ? confirmShortcut('autoToggleShortcut') : startEditShortcut('autoToggleShortcut')">
+                    {{ editingShortcut === 'autoToggleShortcut' ? '保存' : '编辑' }}
+                  </el-button>
+                  <el-button
+                    round
+                    size="large"
+                    v-if="editingShortcut === 'autoToggleShortcut'"
+                    @click="cancelShortcut">
+                    取消
+                  </el-button>
+                </div>
+              </label>
+
+              <label>
+                <span>自动滚动：减速（全局）</span>
+                <div style="display: flex; gap: 8px; align-items: center">
+                  <input
+                    class="text-field"
+                    :value="editingShortcut === 'autoSpeedDownShortcut' ? capturedAccel || '按下组合键...' : settings.autoSpeedDownShortcut"
+                    readonly />
+                  <el-button
+                    round
+                    size="large"
+                    @click="editingShortcut === 'autoSpeedDownShortcut' ? confirmShortcut('autoSpeedDownShortcut') : startEditShortcut('autoSpeedDownShortcut')">
+                    {{ editingShortcut === 'autoSpeedDownShortcut' ? '保存' : '编辑' }}
+                  </el-button>
+                  <el-button
+                    round
+                    size="large"
+                    v-if="editingShortcut === 'autoSpeedDownShortcut'"
+                    @click="cancelShortcut">
+                    取消
+                  </el-button>
+                </div>
+              </label>
+
+              <label>
+                <span>自动滚动：加速（全局）</span>
+                <div style="display: flex; gap: 8px; align-items: center">
+                  <input
+                    class="text-field"
+                    :value="editingShortcut === 'autoSpeedUpShortcut' ? capturedAccel || '按下组合键...' : settings.autoSpeedUpShortcut"
+                    readonly />
+                  <el-button
+                    round
+                    size="large"
+                    @click="editingShortcut === 'autoSpeedUpShortcut' ? confirmShortcut('autoSpeedUpShortcut') : startEditShortcut('autoSpeedUpShortcut')">
+                    {{ editingShortcut === 'autoSpeedUpShortcut' ? '保存' : '编辑' }}
+                  </el-button>
+                  <el-button
+                    round
+                    size="large"
+                    v-if="editingShortcut === 'autoSpeedUpShortcut'"
+                    @click="cancelShortcut">
+                    取消
+                  </el-button>
+                </div>
+              </label>
             </div>
           </section>
 

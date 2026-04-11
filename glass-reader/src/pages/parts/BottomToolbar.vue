@@ -363,12 +363,63 @@ function onAutoScrollSpeedInput(e) {
   updatePopPosition(v, 5, 80);
 }
 
+function toggleAutoScroll() {
+  try {
+    props.patchSetting('autoScrollEnabled', !props.settings.autoScrollEnabled);
+  } catch (e) {}
+}
+
+function adjustAutoSpeed(delta) {
+  try {
+    const cur = Number(props.settings.autoScrollSpeed || 22);
+    const min = 5;
+    const max = 80;
+    let next = Math.round(cur + delta);
+    if (next < min) next = min;
+    if (next > max) next = max;
+    props.patchSetting('autoScrollSpeed', next);
+    // 打开自动滚动以立即生效（如果用户只是调整速度）
+    if (!props.settings.autoScrollEnabled) props.patchSetting('autoScrollEnabled', true);
+    updatePopPosition(next, 5, 80);
+  } catch (e) {}
+}
+
+function onGlobalKeydown(e) {
+  try {
+    // 调试输出，确认是否收到事件
+    try {
+      console.log('[bottomToolbar] keydown', e && e.key, 'target=', e && e.target && e.target.tagName);
+    } catch (e) {}
+
+    // 不在输入或可编辑区域时才响应快捷键
+    const active = document && document.activeElement;
+    if (active) {
+      const tag = (active.tagName || '').toLowerCase();
+      const editable = active.isContentEditable;
+      if (tag === 'input' || tag === 'textarea' || editable) return;
+    }
+    // 按键映射："=" 开/关，"[" 慢， "]" 快
+    if (e.key === '=') {
+      e.preventDefault();
+      toggleAutoScroll();
+    } else if (e.key === '[') {
+      e.preventDefault();
+      adjustAutoSpeed(-5);
+    } else if (e.key === ']') {
+      e.preventDefault();
+      adjustAutoSpeed(5);
+    }
+  } catch (e) {}
+}
+
 onMounted(() => {
   window.addEventListener('pointerup', onRangePointerUp);
   _pmHandler = _onPointerMove;
   window.addEventListener('pointermove', _pmHandler);
   // pointerdown 可以更快响应触摸/点击场景
   window.addEventListener('pointerdown', _pmHandler);
+  // 全局快捷键用于自动滚动控制（使用 capture 以提高命中率）
+  window.addEventListener('keydown', onGlobalKeydown, true);
   // 初次测量并监听大小变化以保持热区与工具栏高度一致
   updateHotzoneFromDOM();
   try {
@@ -421,6 +472,9 @@ onBeforeUnmount(() => {
     } catch (e) {}
     _pmHandler = null;
   }
+  try {
+    window.removeEventListener('keydown', onGlobalKeydown, true);
+  } catch (e) {}
   try {
     if (_resizeObserver) {
       try {
@@ -663,6 +717,9 @@ onBeforeUnmount(() => {
                     @click="() => props.patchSetting('autoScrollEnabled', false)"
                     >关闭</BaseButton
                   >
+                </div>
+                <div class="panel-row">
+                  <small style="color: var(--text-muted, #888)">快捷键：<strong>=</strong> 开/关 · <strong>[</strong> 慢 · <strong>]</strong> 快</small>
                 </div>
               </div>
             </div>

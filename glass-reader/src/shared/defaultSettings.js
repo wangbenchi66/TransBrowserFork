@@ -103,6 +103,14 @@ const defaultSettings = {
     // 快捷键：切换鼠标穿透（示例 'Ctrl+Alt+T'）
     clickThroughShortcut: 'Ctrl+Alt+T',
 
+    // 自动滚动相关全局快捷键（默认留空以避免与系统冲突）
+    // autoToggleShortcut: 切换自动滚动（例如 'Ctrl+Alt+='）
+    // autoSpeedDownShortcut: 减慢自动滚动（例如 'Ctrl+Alt+['）
+    // autoSpeedUpShortcut: 加快自动滚动（例如 'Ctrl+Alt+]'）
+    autoToggleShortcut: '=',
+    autoSpeedDownShortcut: '[',
+    autoSpeedUpShortcut: ']',
+
     // 软件背景完全透明（使 shell / surface / page 都为透明）
     fullWindowTransparent: false,
 

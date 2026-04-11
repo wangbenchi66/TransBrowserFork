@@ -253,6 +253,9 @@ const immediateSyncKeys = new Set([
     'decreaseTransparencyShortcut',
     'increaseTransparencyShortcut',
     'clickThroughShortcut',
+    'autoToggleShortcut',
+    'autoSpeedDownShortcut',
+    'autoSpeedUpShortcut',
 ])
 
 /**

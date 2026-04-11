@@ -81,6 +81,9 @@ function normalizeSettings(partial = {}) {
         statusBarColor: normalizeColor(partial.statusBarColor),
         defaultUrl: String(partial.defaultUrl ?? defaultSettings.defaultUrl),
         bossKey: String(partial.bossKey ?? defaultSettings.bossKey),
+        autoToggleShortcut: String(partial.autoToggleShortcut ?? defaultSettings.autoToggleShortcut),
+        autoSpeedDownShortcut: String(partial.autoSpeedDownShortcut ?? defaultSettings.autoSpeedDownShortcut),
+        autoSpeedUpShortcut: String(partial.autoSpeedUpShortcut ?? defaultSettings.autoSpeedUpShortcut),
         decreaseTransparencyShortcut: String(partial.decreaseTransparencyShortcut ?? defaultSettings.decreaseTransparencyShortcut),
         increaseTransparencyShortcut: String(partial.increaseTransparencyShortcut ?? defaultSettings.increaseTransparencyShortcut),
         clickThroughShortcut: String(partial.clickThroughShortcut ?? defaultSettings.clickThroughShortcut),
@@ -99,6 +102,9 @@ function loadSettings() {
             decreaseTransparencyShortcut: parsed.decreaseTransparencyShortcut ?? defaultSettings.decreaseTransparencyShortcut,
             increaseTransparencyShortcut: parsed.increaseTransparencyShortcut ?? defaultSettings.increaseTransparencyShortcut,
             clickThroughShortcut: parsed.clickThroughShortcut ?? defaultSettings.clickThroughShortcut,
+            autoToggleShortcut: parsed.autoToggleShortcut ?? defaultSettings.autoToggleShortcut,
+            autoSpeedDownShortcut: parsed.autoSpeedDownShortcut ?? defaultSettings.autoSpeedDownShortcut,
+            autoSpeedUpShortcut: parsed.autoSpeedUpShortcut ?? defaultSettings.autoSpeedUpShortcut,
         }
 
         currentSettings = normalizeSettings({
@@ -452,6 +458,33 @@ function registerGlobalShortcuts() {
             }
             broadcastSettings()
         }],
+        // 自动滚动控制（通过修改 currentSettings 并广播，使渲染进程同步状态）
+        [currentSettings.autoToggleShortcut, () => {
+            try {
+                currentSettings = normalizeSettings({ ...currentSettings, autoScrollEnabled: !currentSettings.autoScrollEnabled })
+                saveSettings()
+                broadcastSettings()
+            } catch (e) { console.warn('[shortcut] autoToggle handler failed', e) }
+        }],
+        [currentSettings.autoSpeedDownShortcut, () => {
+            try {
+                const next = Math.max(5, Number(currentSettings.autoScrollSpeed || defaultSettings.autoScrollSpeed) - 5)
+                currentSettings = normalizeSettings({ ...currentSettings, autoScrollSpeed: next })
+                // 开启自动滚动以便立即生效
+                currentSettings.autoScrollEnabled = true
+                saveSettings()
+                broadcastSettings()
+            } catch (e) { console.warn('[shortcut] autoSpeedDown handler failed', e) }
+        }],
+        [currentSettings.autoSpeedUpShortcut, () => {
+            try {
+                const next = Math.min(80, Number(currentSettings.autoScrollSpeed || defaultSettings.autoScrollSpeed) + 5)
+                currentSettings = normalizeSettings({ ...currentSettings, autoScrollSpeed: next })
+                currentSettings.autoScrollEnabled = true
+                saveSettings()
+                broadcastSettings()
+            } catch (e) { console.warn('[shortcut] autoSpeedUp handler failed', e) }
+        }],
     ]
 
     registrations.forEach(([accelerator, handler]) => {
@@ -490,7 +523,7 @@ function createWindow() {
     const maxH = primary && primary.workAreaSize ? primary.workAreaSize.height : DEFAULT_HEIGHT * 2
     const initialW = clamp(savedW, MIN_SAFE_WIDTH, maxW)
     const initialH = clamp(savedH, MIN_SAFE_HEIGHT, maxH)
-//创建窗口
+    //创建窗口
     const win = new BrowserWindow({
         // 在 Windows 上，通过 BrowserWindow.icon 可以控制任务栏/窗口图标。
         // 使用共享默认配置中的 trayIconPath（若存在且文件可用）。
