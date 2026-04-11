@@ -1,6 +1,7 @@
 <script setup>
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import ShortcutRow from './components/ShortcutRow.vue';
 import { useDesktopApp } from './composables/useDesktopApp';
 import TopBar from './layouts/TopBar.vue';
 import MainPage from './pages/MainPage.vue';
@@ -156,6 +157,22 @@ function confirmShortcut(key) {
 
 function cancelShortcut() {
   window.removeEventListener('keydown', _onCaptureKeydown);
+  editingShortcut.value = null;
+  capturedAccel.value = '';
+}
+
+function clearCaptured(key) {
+  if (editingShortcut.value !== key) return;
+  // 停止捕获键盘事件并将该快捷键保存为空（清除快捷键）
+  window.removeEventListener('keydown', _onCaptureKeydown);
+  try {
+    patchSetting(key, '');
+    if (desktopApi?.log) {
+      try {
+        desktopApi.log(`[renderer] shortcut cleared ${key}`);
+      } catch (e) {}
+    }
+  } catch (e) {}
   editingShortcut.value = null;
   capturedAccel.value = '';
 }
@@ -434,166 +451,82 @@ onBeforeUnmount(() => {
           <section class="settings-block shortcut-block section-panel">
             <div class="shortcut-title">全局快捷键</div>
             <div class="shortcut-grid">
-              <label>
-                <span>老板键</span>
-                <div style="display: flex; gap: 8px; align-items: center">
-                  <input
-                    class="text-field"
-                    :value="editingShortcut === 'bossKey' ? capturedAccel || '按下组合键...' : settings.bossKey"
-                    readonly />
-                  <el-button
-                    round
-                    size="large"
-                    @click="editingShortcut === 'bossKey' ? confirmShortcut('bossKey') : startEditShortcut('bossKey')">
-                    {{ editingShortcut === 'bossKey' ? '保存' : '编辑' }}
-                  </el-button>
-                  <el-button
-                    round
-                    size="large"
-                    v-if="editingShortcut === 'bossKey'"
-                    @click="cancelShortcut">
-                    取消
-                  </el-button>
-                </div>
-              </label>
+              <ShortcutRow
+                label="老板键"
+                :value="settings.bossKey"
+                keyName="bossKey"
+                :editingKey="editingShortcut"
+                :capturedAccel="capturedAccel"
+                @start="startEditShortcut"
+                @confirm="confirmShortcut"
+                @cancel="cancelShortcut"
+                @clear="clearCaptured" />
 
-              <label>
-                <span>降低透明</span>
-                <div style="display: flex; gap: 8px; align-items: center">
-                  <input
-                    class="text-field"
-                    :value="editingShortcut === 'decreaseTransparencyShortcut' ? capturedAccel || '按下组合键...' : settings.decreaseTransparencyShortcut"
-                    readonly />
-                  <el-button
-                    round
-                    size="large"
-                    @click="editingShortcut === 'decreaseTransparencyShortcut' ? confirmShortcut('decreaseTransparencyShortcut') : startEditShortcut('decreaseTransparencyShortcut')">
-                    {{ editingShortcut === 'decreaseTransparencyShortcut' ? '保存' : '编辑' }}
-                  </el-button>
-                  <el-button
-                    round
-                    size="large"
-                    v-if="editingShortcut === 'decreaseTransparencyShortcut'"
-                    @click="cancelShortcut">
-                    取消
-                  </el-button>
-                </div>
-              </label>
+              <ShortcutRow
+                label="降低透明"
+                :value="settings.decreaseTransparencyShortcut"
+                keyName="decreaseTransparencyShortcut"
+                :editingKey="editingShortcut"
+                :capturedAccel="capturedAccel"
+                @start="startEditShortcut"
+                @confirm="confirmShortcut"
+                @cancel="cancelShortcut"
+                @clear="clearCaptured" />
 
-              <label>
-                <span>提高透明</span>
-                <div style="display: flex; gap: 8px; align-items: center">
-                  <input
-                    class="text-field"
-                    :value="editingShortcut === 'increaseTransparencyShortcut' ? capturedAccel || '按下组合键...' : settings.increaseTransparencyShortcut"
-                    readonly />
-                  <el-button
-                    round
-                    size="large"
-                    @click="editingShortcut === 'increaseTransparencyShortcut' ? confirmShortcut('increaseTransparencyShortcut') : startEditShortcut('increaseTransparencyShortcut')">
-                    {{ editingShortcut === 'increaseTransparencyShortcut' ? '保存' : '编辑' }}
-                  </el-button>
-                  <el-button
-                    round
-                    size="large"
-                    v-if="editingShortcut === 'increaseTransparencyShortcut'"
-                    @click="cancelShortcut">
-                    取消
-                  </el-button>
-                </div>
-              </label>
+              <ShortcutRow
+                label="提高透明"
+                :value="settings.increaseTransparencyShortcut"
+                keyName="increaseTransparencyShortcut"
+                :editingKey="editingShortcut"
+                :capturedAccel="capturedAccel"
+                @start="startEditShortcut"
+                @confirm="confirmShortcut"
+                @cancel="cancelShortcut"
+                @clear="clearCaptured" />
 
-              <label>
-                <span>鼠标穿透</span>
-                <div style="display: flex; gap: 8px; align-items: center">
-                  <input
-                    class="text-field"
-                    :value="editingShortcut === 'clickThroughShortcut' ? capturedAccel || '按下组合键...' : settings.clickThroughShortcut"
-                    readonly />
-                  <el-button
-                    round
-                    size="large"
-                    @click="editingShortcut === 'clickThroughShortcut' ? confirmShortcut('clickThroughShortcut') : startEditShortcut('clickThroughShortcut')">
-                    {{ editingShortcut === 'clickThroughShortcut' ? '保存' : '编辑' }}
-                  </el-button>
-                  <el-button
-                    round
-                    size="large"
-                    v-if="editingShortcut === 'clickThroughShortcut'"
-                    @click="cancelShortcut">
-                    取消
-                  </el-button>
-                </div>
-              </label>
+              <ShortcutRow
+                label="鼠标穿透"
+                :value="settings.clickThroughShortcut"
+                keyName="clickThroughShortcut"
+                :editingKey="editingShortcut"
+                :capturedAccel="capturedAccel"
+                @start="startEditShortcut"
+                @confirm="confirmShortcut"
+                @cancel="cancelShortcut"
+                @clear="clearCaptured" />
 
-              <label>
-                <span>自动滚动：切换（全局）</span>
-                <div style="display: flex; gap: 8px; align-items: center">
-                  <input
-                    class="text-field"
-                    :value="editingShortcut === 'autoToggleShortcut' ? capturedAccel || '按下组合键...' : settings.autoToggleShortcut"
-                    readonly />
-                  <el-button
-                    round
-                    size="large"
-                    @click="editingShortcut === 'autoToggleShortcut' ? confirmShortcut('autoToggleShortcut') : startEditShortcut('autoToggleShortcut')">
-                    {{ editingShortcut === 'autoToggleShortcut' ? '保存' : '编辑' }}
-                  </el-button>
-                  <el-button
-                    round
-                    size="large"
-                    v-if="editingShortcut === 'autoToggleShortcut'"
-                    @click="cancelShortcut">
-                    取消
-                  </el-button>
-                </div>
-              </label>
+              <ShortcutRow
+                label="自动滚动：切换（全局）"
+                :value="settings.autoToggleShortcut"
+                keyName="autoToggleShortcut"
+                :editingKey="editingShortcut"
+                :capturedAccel="capturedAccel"
+                @start="startEditShortcut"
+                @confirm="confirmShortcut"
+                @cancel="cancelShortcut"
+                @clear="clearCaptured" />
 
-              <label>
-                <span>自动滚动：减速（全局）</span>
-                <div style="display: flex; gap: 8px; align-items: center">
-                  <input
-                    class="text-field"
-                    :value="editingShortcut === 'autoSpeedDownShortcut' ? capturedAccel || '按下组合键...' : settings.autoSpeedDownShortcut"
-                    readonly />
-                  <el-button
-                    round
-                    size="large"
-                    @click="editingShortcut === 'autoSpeedDownShortcut' ? confirmShortcut('autoSpeedDownShortcut') : startEditShortcut('autoSpeedDownShortcut')">
-                    {{ editingShortcut === 'autoSpeedDownShortcut' ? '保存' : '编辑' }}
-                  </el-button>
-                  <el-button
-                    round
-                    size="large"
-                    v-if="editingShortcut === 'autoSpeedDownShortcut'"
-                    @click="cancelShortcut">
-                    取消
-                  </el-button>
-                </div>
-              </label>
+              <ShortcutRow
+                label="自动滚动：减速（全局）"
+                :value="settings.autoSpeedDownShortcut"
+                keyName="autoSpeedDownShortcut"
+                :editingKey="editingShortcut"
+                :capturedAccel="capturedAccel"
+                @start="startEditShortcut"
+                @confirm="confirmShortcut"
+                @cancel="cancelShortcut"
+                @clear="clearCaptured" />
 
-              <label>
-                <span>自动滚动：加速（全局）</span>
-                <div style="display: flex; gap: 8px; align-items: center">
-                  <input
-                    class="text-field"
-                    :value="editingShortcut === 'autoSpeedUpShortcut' ? capturedAccel || '按下组合键...' : settings.autoSpeedUpShortcut"
-                    readonly />
-                  <el-button
-                    round
-                    size="large"
-                    @click="editingShortcut === 'autoSpeedUpShortcut' ? confirmShortcut('autoSpeedUpShortcut') : startEditShortcut('autoSpeedUpShortcut')">
-                    {{ editingShortcut === 'autoSpeedUpShortcut' ? '保存' : '编辑' }}
-                  </el-button>
-                  <el-button
-                    round
-                    size="large"
-                    v-if="editingShortcut === 'autoSpeedUpShortcut'"
-                    @click="cancelShortcut">
-                    取消
-                  </el-button>
-                </div>
-              </label>
+              <ShortcutRow
+                label="自动滚动：加速（全局）"
+                :value="settings.autoSpeedUpShortcut"
+                keyName="autoSpeedUpShortcut"
+                :editingKey="editingShortcut"
+                :capturedAccel="capturedAccel"
+                @start="startEditShortcut"
+                @confirm="confirmShortcut"
+                @cancel="cancelShortcut"
+                @clear="clearCaptured" />
             </div>
           </section>
 
@@ -634,18 +567,31 @@ onBeforeUnmount(() => {
   height: 36px;
   padding: 6px 8px;
 }
+/* 新增：快捷键行布局 */
+.shortcut-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.shortcut-title {
+  margin-bottom: 8px;
+  font-weight: 600;
+}
 /* 快捷键编辑区域在窄屏下换行显示，避免按钮挤在一起 */
 @media (max-width: 720px) {
   .settings-modal {
     width: 94%;
     padding: 10px;
   }
-  .shortcut-grid label div {
+  .shortcut-grid {
+    gap: 8px;
+  }
+  .shortcut-row {
     flex-direction: column;
     align-items: stretch;
     gap: 6px;
   }
-  .shortcut-grid label div input.text-field {
+  .shortcut-row .shortcut-input {
     width: 100%;
   }
 }
