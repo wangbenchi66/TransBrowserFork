@@ -177,7 +177,8 @@ const themeVars = computed(() => {
     // 当启用“软件背景完全透明”时，页面与窗口都设为完全透明
     if (settings.fullWindowTransparent) {
         return {
-            '--header-tint': '#f5f5f7',
+            // 当软件背景完全透明时，header tint 也设为透明，避免 color-mix 产生可见色
+            '--header-tint': 'transparent',
             '--shell-alpha': '0',
             '--surface-alpha': '0',
             '--page-alpha': '0',

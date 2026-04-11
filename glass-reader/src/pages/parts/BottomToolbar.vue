@@ -798,7 +798,8 @@ onBeforeUnmount(() => {
   /* 提升到较高层级，避免被 webview 或热区遮挡 */
   position: relative;
   z-index: 10002;
-  background: var(--surface);
+  /* 使用 shell alpha 与标题栏一致，便于 fullWindowTransparent 生效 */
+  background: rgba(255, 255, 255, var(--shell-alpha, 1));
   backdrop-filter: blur(8px);
   box-shadow: 0 6px 18px rgba(16, 23, 32, 0.08);
 }
@@ -816,7 +817,7 @@ onBeforeUnmount(() => {
 .bottom-toolbar-container.external .bottom-toolbar {
   position: relative;
   z-index: 1;
-  background: var(--surface);
+  background: rgba(255, 255, 255, var(--shell-alpha, 1));
   box-shadow: 0 6px 18px rgba(16, 23, 32, 0.04);
 }
 
@@ -981,14 +982,11 @@ onBeforeUnmount(() => {
   height: 36px;
   padding: 6px;
   border-radius: 2px;
-  background: var(--surface);
-  color: #e04842;
   transition:
     background 150ms ease,
     transform 120ms ease;
 }
 .close-toolbar-btn:hover {
-  background: rgba(224, 72, 66, 0.06);
   transform: translateY(-2px);
 }
 

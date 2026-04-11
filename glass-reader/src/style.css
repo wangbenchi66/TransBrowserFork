@@ -4,8 +4,13 @@
   --muted: #8a93a5;
   --line: rgba(172, 181, 201, 0.26);
   --line-soft: rgba(172, 181, 201, 0.18);
-  --surface: rgba(255, 255, 255, var(--surface-alpha, 0.74));
-  --page-surface: rgba(255, 255, 255, var(--page-alpha, 0.56));
+  /* 默认将 surface/shell/page alpha 设为 1，使标题栏和工具栏默认为不透明白色
+     当设置 `fullWindowTransparent` 时，渲染逻辑会把这些变量覆盖为 0，从而变为透明 */
+  --surface-alpha: 1;
+  --shell-alpha: 1;
+  --page-alpha: 1;
+  --surface: rgba(255, 255, 255, var(--surface-alpha, 1));
+  --page-surface: rgba(255, 255, 255, var(--page-alpha, 1));
   --primary: #2f78ff;
   --primary-soft: rgba(47, 120, 255, 0.14);
   --danger: #eb5454;
@@ -178,7 +183,8 @@ iframe {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: linear-gradient(180deg, rgba(255, 255, 255, var(--shell-alpha, 0.9)), rgba(255, 255, 255, calc(var(--shell-alpha, 0.9) - 0.18)));
+  /* 使用 shell alpha 变量渲染标题栏背景（单色），便于通过设置切换透明度 */
+  background: rgba(255, 255, 255, var(--shell-alpha, 1));
   border-radius: 0;
 }
 
@@ -235,6 +241,7 @@ iframe {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  margin-left: 10px;
 }
 
 .brand-block strong {
