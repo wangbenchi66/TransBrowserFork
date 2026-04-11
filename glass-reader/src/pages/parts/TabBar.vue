@@ -294,16 +294,38 @@ onBeforeUnmount(() => {
       </BaseButton>
 
       <!-- 更多溢出按钮 -->
-      <div v-if="overflowTabs.length" class="more-wrap">
-        <el-popover v-model:visible="showOverflowMenu" placement="bottom-start" trigger="click" :append-to-body="true">
-          <div class="overflow-pop" ref="overflowPopRef">
-            <div v-for="tab in overflowTabs" :key="tab.id" class="overflow-item" @click="() => selectOverflowTab(tab)">
+      <div
+        v-if="overflowTabs.length"
+        class="more-wrap">
+        <el-popover
+          v-model:visible="showOverflowMenu"
+          placement="bottom-start"
+          trigger="click"
+          :append-to-body="true">
+          <div
+            class="overflow-pop"
+            ref="overflowPopRef">
+            <div
+              v-for="tab in overflowTabs"
+              :key="tab.id"
+              class="overflow-item"
+              @click="() => selectOverflowTab(tab)">
               <span class="ov-title">{{ props.formatTabTitle(tab.title) }}</span>
-              <span class="close-mark" @click.stop="() => closeOverflowTab(tab)"><el-icon><Close /></el-icon></span>
+              <span
+                class="close-mark"
+                @click.stop="() => closeOverflowTab(tab)"
+                ><el-icon><Close /></el-icon
+              ></span>
             </div>
           </div>
           <template #reference>
-            <BaseButton :use-el="true" class="tab-more" ref="moreBtnRef" title="更多标签">⋯</BaseButton>
+            <BaseButton
+              :use-el="true"
+              class="tab-more"
+              ref="moreBtnRef"
+              title="更多标签"
+              >⋯</BaseButton
+            >
           </template>
         </el-popover>
       </div>
