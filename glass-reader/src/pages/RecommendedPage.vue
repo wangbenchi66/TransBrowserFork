@@ -21,6 +21,9 @@ const {
   hasMoreRecentVisits
 } = useDesktopApp();
 
+// 直接获得 settings 以便根据 pageTransparentMode 切换样式
+const { settings } = useDesktopApp();
+
 // 添加弹出表单状态
 const addPopoverVisible = ref(false);
 const addForm = reactive({ name: '', url: '' });
@@ -221,7 +224,7 @@ function onMenuSelect(item) {
 </script>
 
 <template>
-  <div class="recommended-page">
+  <div class="recommended-page" :class="{ 'transparent-page': settings.pageTransparentMode }">
     <div class="nav-row panel no-drag">
       <input
         v-model="urlInput"
@@ -436,6 +439,22 @@ function onMenuSelect(item) {
   gap: 8px;
   background: var(--page-surface);
   padding: 6px;
+}
+
+.recommended-page.transparent-page {
+  background: transparent !important;
+}
+
+.recommended-page.transparent-page .metrics,
+.recommended-page.transparent-page .spotlight,
+.recommended-page.transparent-page .history,
+.recommended-page.transparent-page .metric-card,
+.recommended-page.transparent-page .pill,
+.recommended-page.transparent-page .history-item,
+.recommended-page.transparent-page .card {
+  background: transparent !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
 }
 .metrics .metric-grid {
   display: flex;

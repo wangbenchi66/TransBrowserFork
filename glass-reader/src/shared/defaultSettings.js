@@ -10,7 +10,7 @@ const defaultSettings = {
     transparency: 0,
 
     // 是否在系统任务栏显示图标（true 显示，false 隐藏）
-    showInTaskbar: false,
+    showInTaskbar: true,
 
     // 鼠标移出窗口时自动隐藏（用于浮动/侧边窗口体验）
     autoHide: false,

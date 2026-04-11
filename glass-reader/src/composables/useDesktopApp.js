@@ -172,8 +172,7 @@ const themeVars = computed(() => {
         ? Math.max(0.08, 0.92 - settings.transparency / 95)
         : Math.max(0.75, 0.97 - settings.transparency / 140)
 
-    // 计算页面透明度：当启用“软件背景透明”时，页面背景（page）设为完全透明，
-    // 透明度滑块仍然控制窗口整体不透明度（主进程通过 setOpacity 应用）。
+    // 当启用“软件背景完全透明”时，页面与窗口都设为完全透明
     if (settings.fullWindowTransparent) {
         return {
             '--header-tint': '#f5f5f7',
@@ -182,6 +181,20 @@ const themeVars = computed(() => {
             '--page-alpha': '0',
             '--reader-text-color': settings.readerTextColor,
             '--reader-font-scale': `${settings.readerFontScale}%`,
+        }
+    }
+
+    // 如果“软件背景透明”（fullWindowTransparent）和“网页背景透明”（pageTransparentMode）
+    // 都未开启，则默认使用不透明颜色（alpha = 1），避免半透明效果
+    if (!settings.fullWindowTransparent && !settings.pageTransparentMode) {
+        return {
+            '--header-tint': '#f5f5f7',
+            '--shell-alpha': '1',
+            '--surface-alpha': '1',
+            '--page-alpha': '1',
+            '--reader-text-color': settings.readerTextColor,
+            '--reader-font-scale': `${settings.readerFontScale}%`,
+            'bagerground': '#fff',
         }
     }
 
