@@ -224,7 +224,9 @@ function onMenuSelect(item) {
 </script>
 
 <template>
-  <div class="recommended-page" :class="{ 'transparent-page': settings.pageTransparentMode }">
+  <div
+    class="recommended-page"
+    :class="{ 'transparent-page': settings.pageTransparentMode }">
     <div class="nav-row panel no-drag">
       <input
         v-model="urlInput"
