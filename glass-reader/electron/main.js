@@ -354,9 +354,9 @@ function createTray() {
         return
     }
 
-    const resolvedPath = path.isAbsolute(configured) ? configured : path.join(__dirname, '..', configured)
-    if (!fs.existsSync(resolvedPath)) {
-        console.warn('[tray] specified trayIconPath does not exist:', resolvedPath)
+    const resolvedPath = resolveResourcePath(configured)
+    if (!resolvedPath || !fs.existsSync(resolvedPath)) {
+        console.warn('[tray] specified trayIconPath does not exist (checked multiple locations):', resolvedPath)
         return
     }
 
@@ -372,7 +372,9 @@ function createTray() {
         console.warn('[tray] nativeImage is empty for', resolvedPath)
         return
     }
-    tray = new Tray(getIconPath(defaultSettings.trayIconPath))
+
+    // 使用 nativeImage 实例创建托盘，避免路径解析差异
+    tray = new Tray(trayImage)
     tray.setToolTip('MoYu')
 
     const buildMenu = () => Menu.buildFromTemplate([
@@ -510,21 +512,52 @@ function applyWindowsAcrylic(win, enabled) {
         console.warn('[blur] setBackgroundMaterial failed:', error)
     }
 }
-const getIconPath = (relativePath) => {
-    //return 'E:\\Code\\个人项目\\TransBrowserFork\\glass-reader\\public\\icon11.ico';
-    if (!app.isPackaged) {
-        // 开发环境：直接指向项目源码目录下的文件
-        return path.join(__dirname, '..', relativePath);
-    } else {
-        // 生产环境：资源文件会被解压到 process.resourcesPath 目录下
-        // 路径结构通常是：<app根目录>/resources/assets/tray-icon.png
-        //控制台输出资源路径，帮助确认资源是否正确加载
-        const resolvedPath = path.join(process.resourcesPath, relativePath);
-        console.log('[getIconPath] resolvedPath=', resolvedPath, 'exists=', fs.existsSync(resolvedPath))
-        return path.join(process.resourcesPath, relativePath);
-        //return path.join(path.dirname(app.getPath('exe')), 'resources', relativePath);
+// 更鲁棒的资源路径解析：在多个可能位置查找资源，优先返回存在的文件路径
+const resolveResourcePath = (relativePath) => {
+    if (!relativePath) return ''
+
+    // 1) 绝对路径直接返回
+    if (path.isAbsolute(relativePath) && fs.existsSync(relativePath)) {
+        return relativePath
     }
-};
+
+    // 2) 开发环境：__dirname 指向源码目录下的 electron 文件夹
+    const devCandidate = path.join(__dirname, '..', relativePath)
+    if (fs.existsSync(devCandidate)) {
+        return devCandidate
+    }
+
+    // 3) 打包环境：resources 下的普通位置（例如 release/.../resources/public/...）
+    try {
+        const resourcesCandidate = path.join(process.resourcesPath, relativePath)
+        if (fs.existsSync(resourcesCandidate)) {
+            return resourcesCandidate
+        }
+
+        // 4) 打包时资源可能在 app.asar 内，通过 app.asar 路径尝试
+        const appAsarCandidate = path.join(process.resourcesPath, 'app.asar', relativePath)
+        if (fs.existsSync(appAsarCandidate)) {
+            return appAsarCandidate
+        }
+
+        // 5) 可尝试 exe 所在目录的 resources 子目录（兼容部分打包结构）
+        const exeResourcesCandidate = path.join(path.dirname(app.getPath('exe')), 'resources', relativePath)
+        if (fs.existsSync(exeResourcesCandidate)) {
+            return exeResourcesCandidate
+        }
+    } catch (e) {
+        console.warn('[resolveResourcePath] check paths failed:', e)
+    }
+
+    // 兜底返回开发路径（可能在 asar 内，但 nativeImage 可能能读取）
+    return devCandidate
+}
+
+const getIconPath = (relativePath) => {
+    const resolved = resolveResourcePath(relativePath)
+    console.log('[getIconPath] relative=', relativePath, 'resolved=', resolved, 'exists=', resolved ? fs.existsSync(resolved) : false)
+    return resolved
+}
 
 function createWindow() {
     const preloadPath = path.join(__dirname, 'preload.cjs')
