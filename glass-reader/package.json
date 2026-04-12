@@ -52,6 +52,7 @@
       "package.json"
     ],
     "win": {
+      "icon": "public/icon11.ico",
       "signAndEditExecutable": true,
       "target": [
         {

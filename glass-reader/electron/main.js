@@ -512,7 +512,7 @@ function applyWindowsAcrylic(win, enabled) {
         console.warn('[blur] setBackgroundMaterial failed:', error)
     }
 }
-// 更鲁棒的资源路径解析：在多个可能位置查找资源，优先返回存在的文件路径
+// 资源解析：开发时从源码目录（__dirname/..）获取；打包时优先尝试从 app.asar 获取
 const resolveResourcePath = (relativePath) => {
     if (!relativePath) return ''
 
@@ -521,35 +521,36 @@ const resolveResourcePath = (relativePath) => {
         return relativePath
     }
 
-    // 2) 开发环境：__dirname 指向源码目录下的 electron 文件夹
     const devCandidate = path.join(__dirname, '..', relativePath)
-    if (fs.existsSync(devCandidate)) {
+
+    // 开发模式：直接使用源码目录下的文件（便于热重载与调试）
+    if (!app.isPackaged) {
         return devCandidate
     }
 
-    // 3) 打包环境：resources 下的普通位置（例如 release/.../resources/public/...）
+    // 打包模式：优先从 app.asar 中读取资源（如果资源被打包进 asar）
     try {
-        const resourcesCandidate = path.join(process.resourcesPath, relativePath)
-        if (fs.existsSync(resourcesCandidate)) {
-            return resourcesCandidate
-        }
-
-        // 4) 打包时资源可能在 app.asar 内，通过 app.asar 路径尝试
         const appAsarCandidate = path.join(process.resourcesPath, 'app.asar', relativePath)
         if (fs.existsSync(appAsarCandidate)) {
             return appAsarCandidate
         }
 
-        // 5) 可尝试 exe 所在目录的 resources 子目录（兼容部分打包结构）
+        // 若未打包进 asar，则检查 resourcesPath 下的 extraResources（例如 resources/public/...）
+        const resourcesCandidate = path.join(process.resourcesPath, relativePath)
+        if (fs.existsSync(resourcesCandidate)) {
+            return resourcesCandidate
+        }
+
+        // 最后尝试 exe 所在目录的 resources 子目录（兼容不同打包结构）
         const exeResourcesCandidate = path.join(path.dirname(app.getPath('exe')), 'resources', relativePath)
         if (fs.existsSync(exeResourcesCandidate)) {
             return exeResourcesCandidate
         }
     } catch (e) {
-        console.warn('[resolveResourcePath] check paths failed:', e)
+        console.warn('[resolveResourcePath] packaged check failed:', e)
     }
 
-    // 兜底返回开发路径（可能在 asar 内，但 nativeImage 可能能读取）
+    // 若以上都未命中，回退到开发候选（某些 asar/asar.unpacked 场景下仍可用）
     return devCandidate
 }
 
