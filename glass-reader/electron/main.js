@@ -372,9 +372,8 @@ function createTray() {
         console.warn('[tray] nativeImage is empty for', resolvedPath)
         return
     }
-
-    tray = new Tray(trayImage)
-    tray.setToolTip('Trans Glass')
+    tray = new Tray(getIconPath(defaultSettings.trayIconPath))
+    tray.setToolTip('MoYu')
 
     const buildMenu = () => Menu.buildFromTemplate([
         {
@@ -511,6 +510,21 @@ function applyWindowsAcrylic(win, enabled) {
         console.warn('[blur] setBackgroundMaterial failed:', error)
     }
 }
+const getIconPath = (relativePath) => {
+    //return 'E:\\Code\\个人项目\\TransBrowserFork\\glass-reader\\public\\icon11.ico';
+    if (!app.isPackaged) {
+        // 开发环境：直接指向项目源码目录下的文件
+        return path.join(__dirname, '..', relativePath);
+    } else {
+        // 生产环境：资源文件会被解压到 process.resourcesPath 目录下
+        // 路径结构通常是：<app根目录>/resources/assets/tray-icon.png
+        //控制台输出资源路径，帮助确认资源是否正确加载
+        const resolvedPath = path.join(process.resourcesPath, relativePath);
+        console.log('[getIconPath] resolvedPath=', resolvedPath, 'exists=', fs.existsSync(resolvedPath))
+        return path.join(process.resourcesPath, relativePath);
+        //return path.join(path.dirname(app.getPath('exe')), 'resources', relativePath);
+    }
+};
 
 function createWindow() {
     const preloadPath = path.join(__dirname, 'preload.cjs')
@@ -528,15 +542,9 @@ function createWindow() {
         // 在 Windows 上，通过 BrowserWindow.icon 可以控制任务栏/窗口图标。
         // 使用共享默认配置中的 trayIconPath（若存在且文件可用）。
         icon: (() => {
-            try {
-                const cfg = defaultSettings.trayIconPath || ''
-                if (!cfg) return undefined
-                const p = path.isAbsolute(cfg) ? cfg : path.join(__dirname, '..', cfg)
-                return fs.existsSync(p) ? p : undefined
-            } catch (e) {
-                return undefined
-            }
+            return getIconPath('public/icon11.ico')
         })(),
+        //icon: './public/icon.png',
         width: initialW,
         height: initialH,
         minWidth: 280,

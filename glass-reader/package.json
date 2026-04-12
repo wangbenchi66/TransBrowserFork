@@ -1,6 +1,6 @@
 {
   "name": "moyu",
-  "description": "透明模糊阅读与浏览工作台",
+  "description": "摸鱼工作台",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -31,19 +31,28 @@
     "wait-on": "^7.2.0"
   },
   "build": {
-    "appId": "com.moyu.app",
-    "productName": "Moyu",
+    "copyright": "Copyright © 2026 wangbenchi66",
+    "appId": "com.moyu_wangbenchi66.app",
+    "productName": "MoYu",
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "asar": true,
     "directories": {
       "output": "release"
     },
+    "extraResources": [
+      {
+        "from": "./public/",
+        "to": "./public/"
+      }
+    ],
     "files": [
       "dist/**/*",
+      "src/**/*",
       "electron/**/*",
       "package.json"
     ],
     "win": {
+      "signAndEditExecutable": true,
       "target": [
         {
           "target": "nsis",
@@ -51,8 +60,7 @@
             "x64"
           ]
         }
-      ],
-      "sign": false
+      ]
     },
     "mac": {
       "target": [

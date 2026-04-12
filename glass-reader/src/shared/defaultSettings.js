@@ -89,7 +89,7 @@ const defaultSettings = {
 
     // 托盘图标路径：请把你要显示的图片放在此路径（相对于项目根或者绝对路径）
     // 例如：'public/tray.png' 或 'C:\\icons\\my-tray.ico'
-    trayIconPath: 'public/tray.png',
+    trayIconPath: 'public/icon11.ico',
 
     // 全局快捷键：老板键（示例 'Alt+Q'）用于快速隐藏/恢复窗口
     bossKey: 'Alt+Q',
