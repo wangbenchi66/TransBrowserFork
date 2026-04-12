@@ -39,20 +39,15 @@
     "directories": {
       "output": "release"
     },
-    "extraResources": [
-      {
-        "from": "./public/icon11.ico",
-        "to": "./public/icon11.ico"
-      }
-    ],
     "files": [
       "dist/**/*",
       "src/**/*",
       "electron/**/*",
+      "public/**/*",
       "package.json"
     ],
     "win": {
-      "icon": "public/icon11.ico",
+      "icon": "public/icon.png",
       "signAndEditExecutable": true,
       "target": [
         {
