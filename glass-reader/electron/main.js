@@ -574,9 +574,9 @@ function createWindow() {
     //创建窗口
     const win = new BrowserWindow({
         // 在 Windows 上，通过 BrowserWindow.icon 可以控制任务栏/窗口图标。
-        // 使用共享默认配置中的 trayIconPath（若存在且文件可用）。
+        // 使用共享默认配置中的 appIconPath（若存在且文件可用）。
         icon: (() => {
-            return getIconPath('public/icon11.ico')
+            return getIconPath(defaultSettings.appIconPath)
         })(),
         //icon: './public/icon.png',
         width: initialW,

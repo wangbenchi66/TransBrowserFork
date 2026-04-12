@@ -41,8 +41,8 @@
     },
     "extraResources": [
       {
-        "from": "./public/",
-        "to": "./public/"
+        "from": "./public/icon11.ico",
+        "to": "./public/icon11.ico"
       }
     ],
     "files": [
